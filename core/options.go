@@ -29,6 +29,9 @@ func (po ProviderOptions) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-func (po ProviderOptions) UnmarshalJSON(data []byte) error {
+func (po *ProviderOptions) UnmarshalJSON(data []byte) error {
+	// ProviderOptions deserialization requires provider-specific knowledge.
+	// Individual providers handle their own deserialization from raw JSON.
+	// This stub ensures the type implements json.Unmarshaler.
 	return nil
 }

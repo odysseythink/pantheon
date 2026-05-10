@@ -103,6 +103,70 @@ func (p ToolResultPart) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{"type": "tool_result", "tool_call_id": p.ToolCallID, "content": p.Content, "is_error": p.IsError})
 }
 
+func (p *ToolResultPart) UnmarshalJSON(data []byte) error {
+	aux := struct {
+		ToolCallID string            `json:"tool_call_id"`
+		Content    []json.RawMessage `json:"content"`
+		IsError    bool              `json:"is_error"`
+	}{}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	p.ToolCallID = aux.ToolCallID
+	p.IsError = aux.IsError
+	for _, raw := range aux.Content {
+		var typ struct{ Type string `json:"type"` }
+		if err := json.Unmarshal(raw, &typ); err != nil {
+			return err
+		}
+		switch typ.Type {
+		case "text":
+			var tp TextPart
+			if err := json.Unmarshal(raw, &tp); err != nil {
+				return err
+			}
+			p.Content = append(p.Content, tp)
+		case "reasoning":
+			var rp ReasoningPart
+			if err := json.Unmarshal(raw, &rp); err != nil {
+				return err
+			}
+			p.Content = append(p.Content, rp)
+		case "image":
+			var ip ImagePart
+			if err := json.Unmarshal(raw, &ip); err != nil {
+				return err
+			}
+			p.Content = append(p.Content, ip)
+		case "audio":
+			var ap AudioPart
+			if err := json.Unmarshal(raw, &ap); err != nil {
+				return err
+			}
+			p.Content = append(p.Content, ap)
+		case "document":
+			var dp DocumentPart
+			if err := json.Unmarshal(raw, &dp); err != nil {
+				return err
+			}
+			p.Content = append(p.Content, dp)
+		case "tool_call":
+			var tcp ToolCallPart
+			if err := json.Unmarshal(raw, &tcp); err != nil {
+				return err
+			}
+			p.Content = append(p.Content, tcp)
+		case "tool_result":
+			var trp ToolResultPart
+			if err := json.Unmarshal(raw, &trp); err != nil {
+				return err
+			}
+			p.Content = append(p.Content, trp)
+		}
+	}
+	return nil
+}
+
 func (m Message) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
 		"role":    m.Role,

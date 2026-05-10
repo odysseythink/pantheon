@@ -43,3 +43,49 @@ func TestTextPartMarshal(t *testing.T) {
 		t.Errorf("got %s", data)
 	}
 }
+
+func TestToolResultPartRoundTrip(t *testing.T) {
+	msg := Message{
+		Role: RoleTool,
+		Content: []ContentPart{
+			ToolResultPart{
+				ToolCallID: "call_1",
+				Content: []ContentPart{
+					TextPart{Text: "result text"},
+					ImagePart{URL: "http://example.com/img.png"},
+				},
+				IsError: false,
+			},
+		},
+	}
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var back Message
+	if err := json.Unmarshal(data, &back); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if len(back.Content) != 1 {
+		t.Fatalf("content len: got %d, want 1", len(back.Content))
+	}
+	trp, ok := back.Content[0].(ToolResultPart)
+	if !ok {
+		t.Fatalf("expected ToolResultPart, got %T", back.Content[0])
+	}
+	if trp.ToolCallID != "call_1" {
+		t.Errorf("tool_call_id: got %q, want %q", trp.ToolCallID, "call_1")
+	}
+	if len(trp.Content) != 2 {
+		t.Fatalf("nested content len: got %d, want 2", len(trp.Content))
+	}
+	if tp, ok := trp.Content[0].(TextPart); !ok || tp.Text != "result text" {
+		t.Errorf("nested text part: got %+v", trp.Content[0])
+	}
+	if ip, ok := trp.Content[1].(ImagePart); !ok || ip.URL != "http://example.com/img.png" {
+		t.Errorf("nested image part: got %+v", trp.Content[1])
+	}
+}

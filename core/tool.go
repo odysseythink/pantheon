@@ -1,6 +1,9 @@
 package core
 
-import "reflect"
+import (
+	"reflect"
+	"strings"
+)
 
 type ToolDefinition struct {
 	Name        string
@@ -59,7 +62,11 @@ func generateSchemaFromType(t reflect.Type) *Schema {
 			}
 			name := field.Name
 			if tag := field.Tag.Get("json"); tag != "" {
-				name = tag
+				parts := strings.Split(tag, ",")
+				if parts[0] == "-" {
+					continue
+				}
+				name = parts[0]
 			}
 			s.Properties[name] = generateSchemaFromType(field.Type)
 		}
