@@ -91,9 +91,11 @@ type ObjectResponse struct {
 type ObjectStreamResponse = iter.Seq2[*ObjectStreamPart, error]
 
 type ObjectStreamPart struct {
-	Type      ObjectStreamPartType
-	TextDelta string
-	Usage     *Usage
+	Type         ObjectStreamPartType
+	TextDelta    string
+	Object       map[string]any
+	FinishReason string
+	Usage        *Usage
 }
 
 type ObjectStreamPartType string

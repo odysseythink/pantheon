@@ -1,6 +1,9 @@
 package core
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+)
 
 type ProviderOptionsDataer interface {
 	ProviderName() string
@@ -30,8 +33,5 @@ func (po ProviderOptions) MarshalJSON() ([]byte, error) {
 }
 
 func (po *ProviderOptions) UnmarshalJSON(data []byte) error {
-	// ProviderOptions deserialization requires provider-specific knowledge.
-	// Individual providers handle their own deserialization from raw JSON.
-	// This stub ensures the type implements json.Unmarshaler.
-	return nil
+	return errors.New("ProviderOptions deserialization requires provider-specific knowledge")
 }

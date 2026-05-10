@@ -1,6 +1,9 @@
 package core
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type Role string
 
@@ -103,6 +106,59 @@ func (p ToolResultPart) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{"type": "tool_result", "tool_call_id": p.ToolCallID, "content": p.Content, "is_error": p.IsError})
 }
 
+func unmarshalContentPart(raw []byte) (ContentPart, error) {
+	var typ struct{ Type string `json:"type"` }
+	if err := json.Unmarshal(raw, &typ); err != nil {
+		return nil, err
+	}
+	switch typ.Type {
+	case "text":
+		var p TextPart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case "reasoning":
+		var p ReasoningPart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case "image":
+		var p ImagePart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case "audio":
+		var p AudioPart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case "document":
+		var p DocumentPart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case "tool_call":
+		var p ToolCallPart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case "tool_result":
+		var p ToolResultPart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	default:
+		return nil, fmt.Errorf("unknown content part type: %q", typ.Type)
+	}
+}
+
 func (p *ToolResultPart) UnmarshalJSON(data []byte) error {
 	aux := struct {
 		ToolCallID string            `json:"tool_call_id"`
@@ -115,54 +171,11 @@ func (p *ToolResultPart) UnmarshalJSON(data []byte) error {
 	p.ToolCallID = aux.ToolCallID
 	p.IsError = aux.IsError
 	for _, raw := range aux.Content {
-		var typ struct{ Type string `json:"type"` }
-		if err := json.Unmarshal(raw, &typ); err != nil {
+		part, err := unmarshalContentPart(raw)
+		if err != nil {
 			return err
 		}
-		switch typ.Type {
-		case "text":
-			var tp TextPart
-			if err := json.Unmarshal(raw, &tp); err != nil {
-				return err
-			}
-			p.Content = append(p.Content, tp)
-		case "reasoning":
-			var rp ReasoningPart
-			if err := json.Unmarshal(raw, &rp); err != nil {
-				return err
-			}
-			p.Content = append(p.Content, rp)
-		case "image":
-			var ip ImagePart
-			if err := json.Unmarshal(raw, &ip); err != nil {
-				return err
-			}
-			p.Content = append(p.Content, ip)
-		case "audio":
-			var ap AudioPart
-			if err := json.Unmarshal(raw, &ap); err != nil {
-				return err
-			}
-			p.Content = append(p.Content, ap)
-		case "document":
-			var dp DocumentPart
-			if err := json.Unmarshal(raw, &dp); err != nil {
-				return err
-			}
-			p.Content = append(p.Content, dp)
-		case "tool_call":
-			var tcp ToolCallPart
-			if err := json.Unmarshal(raw, &tcp); err != nil {
-				return err
-			}
-			p.Content = append(p.Content, tcp)
-		case "tool_result":
-			var trp ToolResultPart
-			if err := json.Unmarshal(raw, &trp); err != nil {
-				return err
-			}
-			p.Content = append(p.Content, trp)
-		}
+		p.Content = append(p.Content, part)
 	}
 	return nil
 }
@@ -184,54 +197,11 @@ func (m *Message) UnmarshalJSON(data []byte) error {
 	}
 	m.Role = aux.Role
 	for _, raw := range aux.Content {
-		var typ struct{ Type string `json:"type"` }
-		if err := json.Unmarshal(raw, &typ); err != nil {
+		part, err := unmarshalContentPart(raw)
+		if err != nil {
 			return err
 		}
-		switch typ.Type {
-		case "text":
-			var p TextPart
-			if err := json.Unmarshal(raw, &p); err != nil {
-				return err
-			}
-			m.Content = append(m.Content, p)
-		case "reasoning":
-			var p ReasoningPart
-			if err := json.Unmarshal(raw, &p); err != nil {
-				return err
-			}
-			m.Content = append(m.Content, p)
-		case "image":
-			var p ImagePart
-			if err := json.Unmarshal(raw, &p); err != nil {
-				return err
-			}
-			m.Content = append(m.Content, p)
-		case "audio":
-			var p AudioPart
-			if err := json.Unmarshal(raw, &p); err != nil {
-				return err
-			}
-			m.Content = append(m.Content, p)
-		case "document":
-			var p DocumentPart
-			if err := json.Unmarshal(raw, &p); err != nil {
-				return err
-			}
-			m.Content = append(m.Content, p)
-		case "tool_call":
-			var p ToolCallPart
-			if err := json.Unmarshal(raw, &p); err != nil {
-				return err
-			}
-			m.Content = append(m.Content, p)
-		case "tool_result":
-			var p ToolResultPart
-			if err := json.Unmarshal(raw, &p); err != nil {
-				return err
-			}
-			m.Content = append(m.Content, p)
-		}
+		m.Content = append(m.Content, part)
 	}
 	return nil
 }
