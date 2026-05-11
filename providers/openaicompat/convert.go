@@ -74,8 +74,13 @@ func toOpenAIMessage(m core.Message) (Message, error) {
 func contentToString(parts []core.ContentPart) string {
 	var texts []string
 	for _, part := range parts {
-		if p, ok := part.(core.TextPart); ok {
+		switch p := part.(type) {
+		case core.TextPart:
 			texts = append(texts, p.Text)
+		case core.ToolResultPart:
+			if s := contentToString(p.Content); s != "" {
+				texts = append(texts, s)
+			}
 		}
 	}
 	return joinTexts(texts)

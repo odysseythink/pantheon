@@ -34,6 +34,7 @@ func (m *mockModel) Stream(ctx context.Context, req *core.Request) (core.StreamR
 }
 
 func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	m.calls++
 	return nil, errors.New("not implemented")
 }
 
@@ -127,5 +128,49 @@ func TestStreamFallback(t *testing.T) {
 	}
 	if m1.calls != 1 || m2.calls != 1 {
 		t.Errorf("calls: m1=%d m2=%d, want 1 each", m1.calls, m2.calls)
+	}
+}
+
+func TestGenerateObjectFallback(t *testing.T) {
+	m1 := &mockModel{name: "primary", fail: true}
+	m2 := &mockModel{name: "backup"}
+	fb := &Model{Candidates: []core.LanguageModel{m1, m2}}
+
+	_, err := fb.GenerateObject(context.Background(), &core.ObjectRequest{})
+	if err == nil {
+		t.Fatal("expected error since mock returns not implemented")
+	}
+	if m1.calls != 1 || m2.calls != 1 {
+		t.Errorf("calls: m1=%d m2=%d, want 1 each", m1.calls, m2.calls)
+	}
+}
+
+func TestProviderAndModel(t *testing.T) {
+	m1 := &mockModel{name: "primary"}
+	fb := &Model{Candidates: []core.LanguageModel{m1}}
+	if fb.Provider() != "primary" {
+		t.Errorf("unexpected provider: %s", fb.Provider())
+	}
+	if fb.Model() != "primary" {
+		t.Errorf("unexpected model: %s", fb.Model())
+	}
+
+	empty := &Model{Candidates: []core.LanguageModel{}}
+	if empty.Provider() != "fallback" {
+		t.Errorf("unexpected provider for empty: %s", empty.Provider())
+	}
+	if empty.Model() != "" {
+		t.Errorf("unexpected model for empty: %s", empty.Model())
+	}
+}
+
+func TestStreamAllFail(t *testing.T) {
+	m1 := &mockModel{name: "primary", failStream: true}
+	m2 := &mockModel{name: "backup", failStream: true}
+	fb := &Model{Candidates: []core.LanguageModel{m1, m2}}
+
+	_, err := fb.Stream(context.Background(), &core.Request{})
+	if err == nil {
+		t.Fatal("expected error when all stream candidates fail")
 	}
 }

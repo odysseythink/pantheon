@@ -191,4 +191,136 @@ func TestStream(t *testing.T) {
 	}
 }
 
+func TestGenerate_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("bad request"))
+	}))
+	defer server.Close()
+
+	p, _ := New("test-key", "res", "dep", WithBaseURL(server.URL))
+	model, _ := p.LanguageModel(context.Background(), "gpt-4")
+	_, err := model.Generate(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestGenerateObject_ToolMode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req openaicompat.ChatCompletionRequest
+		json.NewDecoder(r.Body).Decode(&req)
+		if len(req.Tools) != 1 {
+			t.Errorf("expected 1 tool, got %d", len(req.Tools))
+		}
+		resp := openaicompat.ChatCompletionResponse{
+			Model: "gpt-4",
+			Choices: []openaicompat.Choice{{
+				Message: openaicompat.Message{
+					Role: "assistant",
+					ToolCalls: []openaicompat.ToolCall{{
+						ID:   "call_1",
+						Type: "function",
+						Function: struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						}{Name: "generate_object", Arguments: `{"name":"test","value":42}`},
+					}},
+				},
+				FinishReason: ptr("stop"),
+			}},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p, _ := New("test-key", "res", "dep", WithBaseURL(server.URL))
+	model, _ := p.LanguageModel(context.Background(), "gpt-4")
+	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate"}}}},
+		Schema:   &core.Schema{Type: "object"},
+		Mode:     core.ObjectModeTool,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Object == nil {
+		t.Fatal("expected object")
+	}
+}
+
+func TestGenerateObject_TextMode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := openaicompat.ChatCompletionResponse{
+			Model: "gpt-4",
+			Choices: []openaicompat.Choice{{
+				Message:      openaicompat.Message{Role: "assistant", Content: `{"name":"test"}`},
+				FinishReason: ptr("stop"),
+			}},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p, _ := New("test-key", "res", "dep", WithBaseURL(server.URL))
+	model, _ := p.LanguageModel(context.Background(), "gpt-4")
+	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate"}}}},
+		Schema:   &core.Schema{Type: "object"},
+		Mode:     core.ObjectModeText,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Object == nil {
+		t.Fatal("expected object")
+	}
+}
+
+func TestGenerateObject_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("bad request"))
+	}))
+	defer server.Close()
+
+	p, _ := New("test-key", "res", "dep", WithBaseURL(server.URL))
+	model, _ := p.LanguageModel(context.Background(), "gpt-4")
+	_, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate"}}}},
+		Schema:   &core.Schema{Type: "object"},
+		Mode:     core.ObjectModeJSON,
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestStream_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("unauthorized"))
+	}))
+	defer server.Close()
+
+	p, _ := New("test-key", "res", "dep", WithBaseURL(server.URL))
+	model, _ := p.LanguageModel(context.Background(), "gpt-4")
+	stream, err := model.Stream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected stream init error: %v", err)
+	}
+	for part, err := range stream {
+		if err == nil {
+			t.Fatal("expected error during stream")
+		}
+		_ = part
+		return
+	}
+	t.Fatal("expected error during stream iteration")
+}
+
 func ptr(s string) *string { return &s }

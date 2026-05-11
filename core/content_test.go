@@ -44,6 +44,89 @@ func TestTextPartMarshal(t *testing.T) {
 	}
 }
 
+func TestReasoningPartMarshal(t *testing.T) {
+	p := ReasoningPart{Text: "thinking", Signature: "sig123"}
+	data, _ := json.Marshal(p)
+	if string(data) != `{"signature":"sig123","text":"thinking","type":"reasoning"}` {
+		t.Errorf("got %s", data)
+	}
+}
+
+func TestImagePartMarshal(t *testing.T) {
+	p := ImagePart{URL: "http://example.com/img.png", Detail: "high"}
+	data, _ := json.Marshal(p)
+	if string(data) != `{"data":null,"detail":"high","mime_type":"","type":"image","url":"http://example.com/img.png"}` {
+		t.Errorf("got %s", data)
+	}
+}
+
+func TestAudioPartMarshal(t *testing.T) {
+	p := AudioPart{URL: "http://example.com/audio.mp3", MIMEType: "audio/mpeg"}
+	data, _ := json.Marshal(p)
+	if string(data) != `{"data":null,"mime_type":"audio/mpeg","type":"audio","url":"http://example.com/audio.mp3"}` {
+		t.Errorf("got %s", data)
+	}
+}
+
+func TestDocumentPartMarshal(t *testing.T) {
+	p := DocumentPart{Data: []byte("hello"), MIMEType: "text/plain", Name: "doc.txt"}
+	data, _ := json.Marshal(p)
+	if string(data) != `{"data":"aGVsbG8=","mime_type":"text/plain","name":"doc.txt","type":"document"}` {
+		t.Errorf("got %s", data)
+	}
+}
+
+func TestMessageUnmarshal_AllPartTypes(t *testing.T) {
+	data := []byte(`{
+		"role": "assistant",
+		"content": [
+			{"type": "text", "text": "hello"},
+			{"type": "reasoning", "text": "thinking", "signature": "sig"},
+			{"type": "image", "url": "http://example.com/img.png"},
+			{"type": "audio", "url": "http://example.com/audio.mp3"},
+			{"type": "document", "data": "aGVsbG8=", "mime_type": "text/plain"},
+			{"type": "tool_call", "id": "call_1", "name": "search", "arguments": "{}"},
+			{"type": "tool_result", "tool_call_id": "call_1", "name": "search", "content": [{"type": "text", "text": "result"}], "is_error": false}
+		]
+	}`)
+	var msg Message
+	if err := json.Unmarshal(data, &msg); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(msg.Content) != 7 {
+		t.Fatalf("expected 7 parts, got %d", len(msg.Content))
+	}
+	if _, ok := msg.Content[0].(TextPart); !ok {
+		t.Errorf("expected TextPart, got %T", msg.Content[0])
+	}
+	if _, ok := msg.Content[1].(ReasoningPart); !ok {
+		t.Errorf("expected ReasoningPart, got %T", msg.Content[1])
+	}
+	if _, ok := msg.Content[2].(ImagePart); !ok {
+		t.Errorf("expected ImagePart, got %T", msg.Content[2])
+	}
+	if _, ok := msg.Content[3].(AudioPart); !ok {
+		t.Errorf("expected AudioPart, got %T", msg.Content[3])
+	}
+	if _, ok := msg.Content[4].(DocumentPart); !ok {
+		t.Errorf("expected DocumentPart, got %T", msg.Content[4])
+	}
+	if _, ok := msg.Content[5].(ToolCallPart); !ok {
+		t.Errorf("expected ToolCallPart, got %T", msg.Content[5])
+	}
+	if _, ok := msg.Content[6].(ToolResultPart); !ok {
+		t.Errorf("expected ToolResultPart, got %T", msg.Content[6])
+	}
+}
+
+func TestMessageUnmarshal_UnknownPartType(t *testing.T) {
+	data := []byte(`{"role": "user", "content": [{"type": "unknown"}]}`)
+	var msg Message
+	if err := json.Unmarshal(data, &msg); err == nil {
+		t.Fatal("expected error for unknown content part type")
+	}
+}
+
 func TestToolResultPartRoundTrip(t *testing.T) {
 	msg := Message{
 		Role: RoleTool,
