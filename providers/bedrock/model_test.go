@@ -1,12 +1,14 @@
 package bedrock
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream"
 	"github.com/odysseythink/ai/core"
 	"github.com/odysseythink/ai/providers/anthropic"
 )
@@ -187,6 +189,107 @@ func TestGenerateObject(t *testing.T) {
 	}
 	if resp.Model != "anthropic.claude-3-haiku" {
 		t.Errorf("unexpected model: %s", resp.Model)
+	}
+}
+
+func encodeEventStreamMessage(payload []byte) []byte {
+	var buf bytes.Buffer
+	encoder := eventstream.NewEncoder()
+	msg := eventstream.Message{Payload: payload}
+	if err := encoder.Encode(&buf, msg); err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
+}
+
+func TestStream(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Errorf("unexpected method: %s", r.Method)
+		}
+		if r.URL.Path != "/model/anthropic.claude-3-opus/invoke-with-response-stream" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+
+		var req anthropic.MessagesRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if req.Model != "anthropic.claude-3-opus" {
+			t.Errorf("unexpected model: %s", req.Model)
+		}
+
+		chunks := []anthropic.MessagesResponse{
+			{
+				Type:    "message",
+				Role:    "assistant",
+				Content: []anthropic.Content{{Type: "text", Text: "Hello"}},
+				Model:   "anthropic.claude-3-opus",
+			},
+			{
+				Type:    "message",
+				Role:    "assistant",
+				Content: []anthropic.Content{{Type: "text", Text: " Bedrock"}},
+				Model:   "anthropic.claude-3-opus",
+			},
+			{
+				Type:       "message",
+				Role:       "assistant",
+				Content:    []anthropic.Content{},
+				Model:      "anthropic.claude-3-opus",
+				StopReason: ptr("end_turn"),
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/vnd.amazon.eventstream")
+		w.WriteHeader(http.StatusOK)
+		for _, chunk := range chunks {
+			data, _ := json.Marshal(chunk)
+			w.Write(encodeEventStreamMessage(data))
+		}
+	}))
+	defer server.Close()
+
+	p, err := New("test-ak", "test-sk", "us-east-1")
+	if err != nil {
+		t.Fatalf("new provider: %v", err)
+	}
+	lm, err := p.LanguageModel(context.Background(), "anthropic.claude-3-opus")
+	if err != nil {
+		t.Fatalf("language model: %v", err)
+	}
+	lm.(*LanguageModel).client.endpoint = server.URL
+
+	stream, err := lm.Stream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	})
+	if err != nil {
+		t.Fatalf("stream init: %v", err)
+	}
+
+	var textDeltas []string
+	var finishReason string
+	for part, err := range stream {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		switch part.Type {
+		case core.StreamPartTypeTextDelta:
+			textDeltas = append(textDeltas, part.TextDelta)
+		case core.StreamPartTypeFinish:
+			finishReason = part.FinishReason
+		}
+	}
+
+	got := ""
+	for _, d := range textDeltas {
+		got += d
+	}
+	if got != "Hello Bedrock" {
+		t.Errorf("text deltas: got %q, want %q", got, "Hello Bedrock")
+	}
+	if finishReason != "end_turn" {
+		t.Errorf("finish reason: got %q, want end_turn", finishReason)
 	}
 }
 

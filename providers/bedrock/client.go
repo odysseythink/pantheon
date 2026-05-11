@@ -22,6 +22,7 @@ type bedrockClient struct {
 	sessionToken string
 	httpClient   *http.Client
 	signer       *v4.Signer
+	creds        credentials.StaticCredentialsProvider
 	endpoint     string // override for testing
 }
 
@@ -33,6 +34,7 @@ func newBedrockClient(region, accessKeyID, secretKey, sessionToken string) *bedr
 		sessionToken: sessionToken,
 		httpClient:   http.DefaultClient,
 		signer:       v4.NewSigner(),
+		creds:        credentials.NewStaticCredentialsProvider(accessKeyID, secretKey, sessionToken),
 	}
 }
 
@@ -51,8 +53,7 @@ func (c *bedrockClient) invoke(ctx context.Context, modelID string, body any, ds
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	creds := credentials.NewStaticCredentialsProvider(c.accessKeyID, c.secretKey, c.sessionToken)
-	credValues, err := creds.Retrieve(ctx)
+	credValues, err := c.creds.Retrieve(ctx)
 	if err != nil {
 		return err
 	}
@@ -78,4 +79,44 @@ func (c *bedrockClient) invoke(ctx context.Context, modelID string, body any, ds
 		return json.NewDecoder(resp.Body).Decode(dst)
 	}
 	return nil
+}
+
+func (c *bedrockClient) invokeStream(ctx context.Context, modelID string, body any) (io.ReadCloser, error) {
+	url := fmt.Sprintf("https://bedrock-runtime.%s.amazonaws.com/model/%s/invoke-with-response-stream", c.region, modelID)
+	if c.endpoint != "" {
+		url = fmt.Sprintf("%s/model/%s/invoke-with-response-stream", c.endpoint, modelID)
+	}
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	credValues, err := c.creds.Retrieve(ctx)
+	if err != nil {
+		return nil, err
+	}
+	payloadHash := fmt.Sprintf("%x", sha256.Sum256(data))
+	if err := c.signer.SignHTTP(ctx, credValues, req, payloadHash, "bedrock", c.region, time.Now()); err != nil {
+		return nil, err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode >= 400 {
+		bodyData, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return nil, &core.ProviderError{
+			Message: string(bodyData),
+			Status:  resp.StatusCode,
+		}
+	}
+	return resp.Body, nil
 }
