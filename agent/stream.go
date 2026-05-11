@@ -24,13 +24,13 @@ const (
 
 // StreamEvent represents a single event in the agent stream.
 type StreamEvent struct {
-	Type          StreamEventType
-	TextDelta     string
+	Type           StreamEventType
+	TextDelta      string
 	ReasoningDelta string
-	ToolCall      *core.ToolCallPart
-	ToolResult    *core.ToolResultPart
-	Step          int
-	Usage         *core.Usage
+	ToolCall       *core.ToolCallPart
+	ToolResult     *core.ToolResultPart
+	Step           int
+	Usage          *core.Usage
 }
 
 // StreamResponse is the agent's streaming output.
@@ -107,7 +107,7 @@ func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 				result, isError := a.executeTool(ctx, tc)
 				toolResult := core.ToolResultPart{
 					ToolCallID: tc.ID,
-				Name:       tc.Name,
+					Name:       tc.Name,
 					Content:    []core.ContentPart{core.TextPart{Text: result}},
 					IsError:    isError,
 				}

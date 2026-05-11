@@ -125,11 +125,13 @@ func (ToolResultPart) contentPart() {}
 
 // MarshalJSON serializes ToolResultPart to JSON.
 func (p ToolResultPart) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{"type": "tool_result", "tool_call_id": p.ToolCallID, "content": p.Content, "is_error": p.IsError})
+	return json.Marshal(map[string]any{"type": "tool_result", "tool_call_id": p.ToolCallID, "name": p.Name, "content": p.Content, "is_error": p.IsError})
 }
 
 func unmarshalContentPart(raw []byte) (ContentPart, error) {
-	var typ struct{ Type string `json:"type"` }
+	var typ struct {
+		Type string `json:"type"`
+	}
 	if err := json.Unmarshal(raw, &typ); err != nil {
 		return nil, err
 	}
@@ -185,6 +187,7 @@ func unmarshalContentPart(raw []byte) (ContentPart, error) {
 func (p *ToolResultPart) UnmarshalJSON(data []byte) error {
 	aux := struct {
 		ToolCallID string            `json:"tool_call_id"`
+		Name       string            `json:"name"`
 		Content    []json.RawMessage `json:"content"`
 		IsError    bool              `json:"is_error"`
 	}{}
@@ -192,6 +195,7 @@ func (p *ToolResultPart) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	p.ToolCallID = aux.ToolCallID
+	p.Name = aux.Name
 	p.IsError = aux.IsError
 	for _, raw := range aux.Content {
 		part, err := unmarshalContentPart(raw)

@@ -50,6 +50,7 @@ func TestToolResultPartRoundTrip(t *testing.T) {
 		Content: []ContentPart{
 			ToolResultPart{
 				ToolCallID: "call_1",
+				Name:       "search",
 				Content: []ContentPart{
 					TextPart{Text: "result text"},
 					ImagePart{URL: "http://example.com/img.png"},
@@ -78,6 +79,9 @@ func TestToolResultPartRoundTrip(t *testing.T) {
 	}
 	if trp.ToolCallID != "call_1" {
 		t.Errorf("tool_call_id: got %q, want %q", trp.ToolCallID, "call_1")
+	}
+	if trp.Name != "search" {
+		t.Errorf("name: got %q, want %q", trp.Name, "search")
 	}
 	if len(trp.Content) != 2 {
 		t.Fatalf("nested content len: got %d, want 2", len(trp.Content))
