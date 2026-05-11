@@ -74,6 +74,7 @@ func contentToString(parts []core.ContentPart) string {
 	return result
 }
 
+// ToAnthropicTools converts core tool definitions to Anthropic format.
 func ToAnthropicTools(tools []core.ToolDefinition) []Tool {
 	var out []Tool
 	for _, t := range tools {

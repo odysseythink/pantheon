@@ -12,12 +12,14 @@ import (
 
 const defaultBaseURL = "https://api.anthropic.com"
 
+// Client is the Anthropic API HTTP client.
 type Client struct {
 	BaseURL    string
 	APIKey     string
 	HTTPClient *http.Client
 }
 
+// NewClient creates a new Anthropic API client.
 func NewClient(apiKey string) *Client {
 	return &Client{
 		BaseURL:    defaultBaseURL,

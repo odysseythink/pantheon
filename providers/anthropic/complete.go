@@ -6,6 +6,7 @@ import (
 	"github.com/odysseythink/ai/core"
 )
 
+// Messages sends a non-streaming messages request to the Anthropic API.
 func (c *Client) Messages(ctx context.Context, model string, req *core.Request) (*core.Response, error) {
 	messages, err := ToAnthropicMessages(req.Messages)
 	if err != nil {
@@ -49,6 +50,7 @@ func (c *Client) Messages(ctx context.Context, model string, req *core.Request) 
 	return ToCoreResponse(&resp, model)
 }
 
+// ToAnthropicToolChoice converts a core.ToolChoice to Anthropic format.
 func ToAnthropicToolChoice(tc core.ToolChoice) *ToolChoice {
 	switch tc.Mode {
 	case core.ToolChoiceModeAuto:

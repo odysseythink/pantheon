@@ -6,6 +6,7 @@ import (
 	"github.com/odysseythink/ai/core"
 )
 
+// ChatCompletion sends a non-streaming chat completion request.
 func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Request) (*core.Response, error) {
 	messages, err := ToOpenAIMessages(req.Messages, req.SystemPrompt)
 	if err != nil {

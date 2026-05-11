@@ -1,5 +1,6 @@
 package openaicompat
 
+// ChatCompletionRequest is the request body for OpenAI-compatible chat completions.
 type ChatCompletionRequest struct {
 	Model          string         `json:"model"`
 	Messages       []Message      `json:"messages"`
@@ -14,6 +15,7 @@ type ChatCompletionRequest struct {
 	StreamOptions  *StreamOptions `json:"stream_options,omitempty"`
 }
 
+// Message is a single message in the OpenAI chat format.
 type Message struct {
 	Role       string     `json:"role"`
 	Content    any        `json:"content"`
@@ -22,6 +24,7 @@ type Message struct {
 	Name       string     `json:"name,omitempty"`
 }
 
+// ContentPart is a content part in a multimodal user message.
 type ContentPart struct {
 	Type     string `json:"type"`
 	Text     string `json:"text,omitempty"`
@@ -31,17 +34,20 @@ type ContentPart struct {
 	} `json:"image_url,omitempty"`
 }
 
+// Tool is an OpenAI-compatible tool definition.
 type Tool struct {
 	Type     string   `json:"type"`
 	Function Function `json:"function"`
 }
 
+// Function describes a callable function for OpenAI tools.
 type Function struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Parameters  any    `json:"parameters"`
 }
 
+// ToolCall is a tool call emitted by the model.
 type ToolCall struct {
 	Index    int    `json:"index"`
 	ID       string `json:"id"`
@@ -52,10 +58,12 @@ type ToolCall struct {
 	} `json:"function"`
 }
 
+// StreamOptions configures streaming behavior.
 type StreamOptions struct {
 	IncludeUsage bool `json:"include_usage,omitempty"`
 }
 
+// ChatCompletionResponse is the response body for OpenAI-compatible chat completions.
 type ChatCompletionResponse struct {
 	ID      string   `json:"id"`
 	Object  string   `json:"object"`
@@ -64,6 +72,7 @@ type ChatCompletionResponse struct {
 	Usage   *Usage   `json:"usage,omitempty"`
 }
 
+// Choice is a single completion choice in the response.
 type Choice struct {
 	Index        int     `json:"index"`
 	Message      Message `json:"message"`
@@ -71,6 +80,7 @@ type Choice struct {
 	Delta        Message `json:"delta,omitempty"`
 }
 
+// Usage reports token consumption for a completion.
 type Usage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`

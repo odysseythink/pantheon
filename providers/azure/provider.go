@@ -13,6 +13,9 @@ type Provider struct {
 	client *openaicompat.Client
 }
 
+// New creates a new Azure OpenAI provider.
+// The apiKey, resourceName, and deployment are required.
+// Options can be used to customize the API version or HTTP client.
 func New(apiKey, resourceName, deployment string, opts ...Option) (core.Provider, error) {
 	if resourceName == "" {
 		return nil, fmt.Errorf("resourceName is required")
@@ -34,30 +37,36 @@ func New(apiKey, resourceName, deployment string, opts ...Option) (core.Provider
 	return p, nil
 }
 
+// Option configures the Azure provider.
 type Option func(*Provider)
 
+// WithBaseURL sets a custom API base URL.
 func WithBaseURL(url string) Option {
 	return func(p *Provider) {
 		p.client.BaseURL = url
 	}
 }
 
+// WithAPIVersion sets a custom API version for the chat completion path.
 func WithAPIVersion(version string) Option {
 	return func(p *Provider) {
 		p.client.ChatCompletionPath = fmt.Sprintf("/chat/completions?api-version=%s", version)
 	}
 }
 
+// WithHTTPClient sets a custom HTTP client.
 func WithHTTPClient(client *http.Client) Option {
 	return func(p *Provider) {
 		p.client.HTTPClient = client
 	}
 }
 
+// Name returns the provider name.
 func (p *Provider) Name() string {
 	return "azure"
 }
 
+// LanguageModel creates a new Azure language model for the given model ID.
 func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.LanguageModel, error) {
 	return &LanguageModel{
 		provider: p,
@@ -66,6 +75,8 @@ func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.Lang
 	}, nil
 }
 
+// ProviderOptions holds Azure-specific request options.
 type ProviderOptions struct{}
 
+// ProviderName returns the provider name for these options.
 func (ProviderOptions) ProviderName() string { return "azure" }

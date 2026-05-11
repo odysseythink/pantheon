@@ -11,6 +11,8 @@ type Provider struct {
 	client *Client
 }
 
+// New creates a new Anthropic provider with the given API key.
+// Options can be used to customize the base URL or HTTP client.
 func New(apiKey string, opts ...Option) (core.Provider, error) {
 	p := &Provider{client: NewClient(apiKey)}
 	for _, o := range opts {
@@ -19,24 +21,29 @@ func New(apiKey string, opts ...Option) (core.Provider, error) {
 	return p, nil
 }
 
+// Option configures the Anthropic provider.
 type Option func(*Provider)
 
+// WithBaseURL sets a custom API base URL.
 func WithBaseURL(url string) Option {
 	return func(p *Provider) {
 		p.client.BaseURL = url
 	}
 }
 
+// WithHTTPClient sets a custom HTTP client.
 func WithHTTPClient(client *http.Client) Option {
 	return func(p *Provider) {
 		p.client.HTTPClient = client
 	}
 }
 
+// Name returns the provider name.
 func (p *Provider) Name() string {
 	return "anthropic"
 }
 
+// LanguageModel creates a new Anthropic language model for the given model ID.
 func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.LanguageModel, error) {
 	return &LanguageModel{
 		provider: p,
@@ -45,8 +52,10 @@ func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.Lang
 	}, nil
 }
 
+// ProviderOptions holds Anthropic-specific request options.
 type ProviderOptions struct {
 	Thinking *ThinkingConfig `json:"thinking,omitempty"`
 }
 
+// ProviderName returns the provider name for these options.
 func (ProviderOptions) ProviderName() string { return "anthropic" }

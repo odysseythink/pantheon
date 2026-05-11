@@ -12,6 +12,7 @@ import (
 	"github.com/odysseythink/ai/core"
 )
 
+// MessagesStream sends a streaming messages request to the Anthropic API.
 func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Request) core.StreamResponse {
 	return func(yield func(*core.StreamPart, error) bool) {
 		messages, err := ToAnthropicMessages(req.Messages)

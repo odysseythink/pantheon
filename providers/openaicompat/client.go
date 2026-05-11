@@ -10,6 +10,7 @@ import (
 	"github.com/odysseythink/ai/core"
 )
 
+// Client is a generic OpenAI-compatible HTTP client.
 type Client struct {
 	BaseURL            string
 	APIKey             string
@@ -18,6 +19,7 @@ type Client struct {
 	ChatCompletionPath string // default empty means "/v1/chat/completions"
 }
 
+// NewClient creates a new OpenAI-compatible client for the given base URL and API key.
 func NewClient(baseURL, apiKey string) *Client {
 	return &Client{
 		BaseURL:    baseURL,

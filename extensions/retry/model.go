@@ -22,9 +22,13 @@ type Model struct {
 	Multiplier float64
 }
 
+// Provider returns the provider name of the inner model.
 func (m *Model) Provider() string { return m.Inner.Provider() }
-func (m *Model) Model() string    { return m.Inner.Model() }
 
+// Model returns the model ID of the inner model.
+func (m *Model) Model() string { return m.Inner.Model() }
+
+// Generate retries the inner model on retryable errors.
 func (m *Model) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
 	return retry(m, ctx, func() (*core.Response, error) {
 		return m.Inner.Generate(ctx, req)
@@ -38,6 +42,7 @@ func (m *Model) Stream(ctx context.Context, req *core.Request) (core.StreamRespo
 	})
 }
 
+// GenerateObject retries the inner model on retryable errors.
 func (m *Model) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return retry(m, ctx, func() (*core.ObjectResponse, error) {
 		return m.Inner.GenerateObject(ctx, req)

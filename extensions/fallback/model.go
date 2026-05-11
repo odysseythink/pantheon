@@ -13,6 +13,7 @@ type Model struct {
 	Candidates []core.LanguageModel
 }
 
+// Provider returns the provider name of the first candidate.
 func (m *Model) Provider() string {
 	if len(m.Candidates) > 0 {
 		return m.Candidates[0].Provider()
@@ -20,6 +21,7 @@ func (m *Model) Provider() string {
 	return "fallback"
 }
 
+// Model returns the model ID of the first candidate.
 func (m *Model) Model() string {
 	if len(m.Candidates) > 0 {
 		return m.Candidates[0].Model()
@@ -27,18 +29,21 @@ func (m *Model) Model() string {
 	return ""
 }
 
+// Generate tries candidates in order until one succeeds.
 func (m *Model) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
 	return tryCandidates(m.Candidates, func(c core.LanguageModel) (*core.Response, error) {
 		return c.Generate(ctx, req)
 	})
 }
 
+// Stream tries candidates in order until one succeeds.
 func (m *Model) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
 	return tryCandidates(m.Candidates, func(c core.LanguageModel) (core.StreamResponse, error) {
 		return c.Stream(ctx, req)
 	})
 }
 
+// GenerateObject tries candidates in order until one succeeds.
 func (m *Model) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return tryCandidates(m.Candidates, func(c core.LanguageModel) (*core.ObjectResponse, error) {
 		return c.GenerateObject(ctx, req)

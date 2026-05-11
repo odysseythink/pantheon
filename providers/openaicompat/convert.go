@@ -130,6 +130,7 @@ func joinTexts(texts []string) string {
 	return result
 }
 
+// ToOpenAITools converts core tool definitions to OpenAI format.
 func ToOpenAITools(tools []core.ToolDefinition) []Tool {
 	var out []Tool
 	for _, t := range tools {

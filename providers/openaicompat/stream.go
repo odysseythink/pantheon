@@ -12,6 +12,7 @@ import (
 	"github.com/odysseythink/ai/core"
 )
 
+// ChatCompletionStream sends a streaming chat completion request.
 func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *core.Request) core.StreamResponse {
 	return func(yield func(*core.StreamPart, error) bool) {
 		messages, err := ToOpenAIMessages(req.Messages, req.SystemPrompt)
