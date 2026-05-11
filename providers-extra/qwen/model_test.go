@@ -97,6 +97,47 @@ func TestGenerateWithTool(t *testing.T) {
 	}
 }
 
+func TestGenerateObject(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := openaicompat.ChatCompletionResponse{
+			Model: "qwen-plus",
+			Choices: []openaicompat.Choice{{
+				Message: openaicompat.Message{
+					Role:    "assistant",
+					Content: `{"name":"test","value":42}`,
+				},
+				FinishReason: ptr("stop"),
+			}},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p, _ := New("test-key", WithBaseURL(server.URL))
+	model, _ := p.LanguageModel(context.Background(), "qwen-plus")
+
+	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate an object"}}}},
+		Schema: &core.Schema{Type: "object", Properties: map[string]*core.Schema{
+			"name":  {Type: "string"},
+			"value": {Type: "integer"},
+		}},
+		Mode: core.ObjectModeJSON,
+	})
+	if err != nil {
+		t.Fatalf("generate object: %v", err)
+	}
+	if resp.Object == nil {
+		t.Fatal("expected object")
+	}
+	if resp.Object["name"] != "test" {
+		t.Errorf("unexpected name: %+v", resp.Object)
+	}
+	if resp.Object["value"] != float64(42) {
+		t.Errorf("unexpected value: %+v", resp.Object)
+	}
+}
+
 func TestStream(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/chat/completions" {
