@@ -24,7 +24,9 @@ func New(apiKey, resourceName, deployment string, opts ...Option) (core.Provider
 	p := &Provider{
 		client: openaicompat.NewClient(baseURL, ""),
 	}
-	p.client.Headers["api-key"] = apiKey
+	if apiKey != "" {
+		p.client.Headers["api-key"] = apiKey
+	}
 	p.client.ChatCompletionPath = "/chat/completions?api-version=2024-06-01"
 	for _, o := range opts {
 		o(p)

@@ -60,7 +60,9 @@ func toGeminiParts(parts []core.ContentPart) ([]Part, error) {
 		case core.ToolCallPart:
 			var args map[string]interface{}
 			if p.Arguments != "" {
-				_ = json.Unmarshal([]byte(p.Arguments), &args)
+				if err := json.Unmarshal([]byte(p.Arguments), &args); err != nil {
+					return nil, fmt.Errorf("google: invalid tool call arguments: %w", err)
+				}
 			}
 			out = append(out, Part{FunctionCall: &FunctionCall{Name: p.Name, Args: args}})
 		case core.ToolResultPart:

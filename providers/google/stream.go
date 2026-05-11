@@ -104,6 +104,7 @@ func (c *client) chatCompletionStream(ctx context.Context, model string, req *co
 		scanner.Buffer(make([]byte, 4096), 1024*1024)
 
 		var currentToolCall *core.ToolCallPart
+		var toolCallIndex int
 		var seenUsage bool
 
 		for scanner.Scan() {
@@ -158,10 +159,11 @@ func (c *client) chatCompletionStream(ctx context.Context, model string, req *co
 				if part.FunctionCall != nil {
 					args, _ := json.Marshal(part.FunctionCall.Args)
 					currentToolCall = &core.ToolCallPart{
-						ID:        part.FunctionCall.Name,
+						ID:        fmt.Sprintf("%s_%d", part.FunctionCall.Name, toolCallIndex),
 						Name:      part.FunctionCall.Name,
 						Arguments: string(args),
 					}
+					toolCallIndex++
 					sp := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: currentToolCall}
 					if !yield(sp, nil) {
 						return
