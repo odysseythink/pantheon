@@ -8,18 +8,27 @@ import (
 	"github.com/odysseythink/ai/core"
 )
 
+// Kind categorizes the nature of an error.
 type Kind string
 
 const (
-	KindRateLimit      Kind = "rate_limit"
-	KindAuth           Kind = "auth"
-	KindTimeout        Kind = "timeout"
-	KindServerError    Kind = "server_error"
+	// KindRateLimit indicates the provider rejected the request due to rate limiting.
+	KindRateLimit Kind = "rate_limit"
+	// KindAuth indicates an authentication or authorization failure.
+	KindAuth Kind = "auth"
+	// KindTimeout indicates a timeout or cancellation.
+	KindTimeout Kind = "timeout"
+	// KindServerError indicates an internal server error from the provider.
+	KindServerError Kind = "server_error"
+	// KindContextTooLong indicates the prompt exceeded the model's context window.
 	KindContextTooLong Kind = "context_too_long"
+	// KindInvalidRequest indicates a malformed or invalid request.
 	KindInvalidRequest Kind = "invalid_request"
-	KindUnknown        Kind = "unknown"
+	// KindUnknown indicates an unrecognized error type.
+	KindUnknown Kind = "unknown"
 )
 
+// Classification describes an error's kind and whether retrying might succeed.
 type Classification struct {
 	Kind      Kind
 	Retryable bool

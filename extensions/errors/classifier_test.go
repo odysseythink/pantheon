@@ -3,6 +3,7 @@ package errors
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 
@@ -28,6 +29,9 @@ func TestClassifyProviderError(t *testing.T) {
 		{"deadline exceeded", context.DeadlineExceeded, KindTimeout, false},
 		{"unexpected EOF", io.ErrUnexpectedEOF, KindServerError, true},
 		{"unknown error", errors.New("something else"), KindUnknown, false},
+		{"nil error", nil, KindUnknown, false},
+		{"conflict 409", &core.ProviderError{Status: 409}, KindServerError, true},
+		{"wrapped rate limit", fmt.Errorf("upstream: %w", &core.ProviderError{Status: 429}), KindRateLimit, true},
 	}
 
 	for _, tt := range tests {
