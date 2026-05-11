@@ -28,8 +28,12 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Req
 		openaiReq.ResponseFormat = toOpenAIResponseFormat(req.ResponseFormat)
 	}
 
+	path := "/v1/chat/completions"
+	if c.ChatCompletionPath != "" {
+		path = c.ChatCompletionPath
+	}
 	var resp ChatCompletionResponse
-	if err := c.doJSON(ctx, "POST", "/v1/chat/completions", openaiReq, &resp); err != nil {
+	if err := c.doJSON(ctx, "POST", path, openaiReq, &resp); err != nil {
 		return nil, err
 	}
 	return ToCoreResponse(&resp, model)

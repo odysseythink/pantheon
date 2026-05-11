@@ -34,7 +34,11 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 			openaiReq.ToolChoice = toOpenAIToolChoice(req.ToolChoice)
 		}
 
-		url := c.BaseURL + "/v1/chat/completions"
+		path := "/v1/chat/completions"
+		if c.ChatCompletionPath != "" {
+			path = c.ChatCompletionPath
+		}
+		url := c.BaseURL + path
 		data, err := json.Marshal(openaiReq)
 		if err != nil {
 			yield(nil, err)

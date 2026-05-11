@@ -11,10 +11,11 @@ import (
 )
 
 type Client struct {
-	BaseURL    string
-	APIKey     string
-	HTTPClient *http.Client
-	Headers    map[string]string
+	BaseURL            string
+	APIKey             string
+	HTTPClient         *http.Client
+	Headers            map[string]string
+	ChatCompletionPath string // default empty means "/v1/chat/completions"
 }
 
 func NewClient(baseURL, apiKey string) *Client {
