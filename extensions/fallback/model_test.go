@@ -37,9 +37,6 @@ func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest)
 	return nil, errors.New("not implemented")
 }
 
-func (m *mockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
-	return nil, errors.New("not implemented")
-}
 
 func (m *mockModel) Provider() string { return m.name }
 func (m *mockModel) Model() string    { return m.name }

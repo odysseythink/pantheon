@@ -49,16 +49,6 @@ func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest)
 	return &core.ObjectResponse{Object: map[string]any{"result": "ok"}}, nil
 }
 
-func (m *mockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
-	m.calls++
-	if m.failNextN > 0 {
-		m.failNextN--
-		return nil, &core.ProviderError{Status: 500, Message: "server error"}
-	}
-	return func(yield func(*core.ObjectStreamPart, error) bool) {
-		yield(&core.ObjectStreamPart{Type: core.ObjectStreamPartTypeTextDelta, TextDelta: "ok"}, nil)
-	}, nil
-}
 
 func (m *mockModel) Provider() string { return "mock" }
 func (m *mockModel) Model() string    { return "mock-model" }
@@ -74,10 +64,6 @@ func (a *authModel) Stream(ctx context.Context, req *core.Request) (core.StreamR
 	return nil, &core.ProviderError{Status: 401, Message: "unauthorized"}
 }
 func (a *authModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
-	a.calls++
-	return nil, &core.ProviderError{Status: 401, Message: "unauthorized"}
-}
-func (a *authModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
 	a.calls++
 	return nil, &core.ProviderError{Status: 401, Message: "unauthorized"}
 }
@@ -190,35 +176,6 @@ func TestGenerateObjectRetriesOnFailure(t *testing.T) {
 	}
 }
 
-func TestStreamObjectRetriesOnFailure(t *testing.T) {
-	inner := &mockModel{failNextN: 1}
-	m := &Model{
-		Inner:      inner,
-		MaxRetries: 3,
-		BaseDelay:  1 * time.Millisecond,
-	}
-
-	stream, err := m.StreamObject(context.Background(), &core.ObjectRequest{})
-	if err != nil {
-		t.Fatalf("unexpected init error: %v", err)
-	}
-	if inner.calls != 2 {
-		t.Errorf("calls: got %d, want 2", inner.calls)
-	}
-
-	var got string
-	for part, err := range stream {
-		if err != nil {
-			t.Fatalf("stream error: %v", err)
-		}
-		if part.Type == core.ObjectStreamPartTypeTextDelta {
-			got += part.TextDelta
-		}
-	}
-	if got != "ok" {
-		t.Errorf("got %q, want ok", got)
-	}
-}
 
 func TestRetryNegativeMaxRetries(t *testing.T) {
 	inner := &mockModel{}

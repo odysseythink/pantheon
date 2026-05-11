@@ -45,11 +45,6 @@ func (m *Model) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*c
 	})
 }
 
-func (m *Model) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
-	return tryCandidates(m.Candidates, func(c core.LanguageModel) (core.ObjectStreamResponse, error) {
-		return c.StreamObject(ctx, req)
-	})
-}
 
 // tryCandidates iterates over candidates and returns the first successful result.
 func tryCandidates[T any](candidates []core.LanguageModel, fn func(core.LanguageModel) (T, error)) (T, error) {

@@ -40,9 +40,6 @@ func (m *mockStreamModel) GenerateObject(ctx context.Context, req *core.ObjectRe
 	return nil, nil
 }
 
-func (m *mockStreamModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
-	return nil, nil
-}
 
 func (m *mockStreamModel) Provider() string { return "mock" }
 func (m *mockStreamModel) Model() string    { return "mock" }

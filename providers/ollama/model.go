@@ -2,7 +2,6 @@ package ollama
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/odysseythink/ai/core"
 	"github.com/odysseythink/ai/providers/openaicompat"
@@ -55,8 +54,3 @@ func (m *LanguageModel) GenerateObject(ctx context.Context, req *core.ObjectRequ
 	}
 	return openaicompat.ExtractObjectResponse(resp, m.model)
 }
-
-func (m *LanguageModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
-	return nil, fmt.Errorf("StreamObject not yet implemented")
-}
-

@@ -45,11 +45,6 @@ func (m *LanguageModel) GenerateObject(ctx context.Context, req *core.ObjectRequ
 	}
 	return extractObjectResponse(resp, m.model)
 }
-
-func (m *LanguageModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
-	return nil, fmt.Errorf("StreamObject not yet implemented")
-}
-
 func extractObjectResponse(resp *core.Response, model string) (*core.ObjectResponse, error) {
 	var obj map[string]any
 	for _, part := range resp.Message.Content {
