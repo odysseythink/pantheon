@@ -42,7 +42,11 @@ func toAnthropicContent(parts []core.ContentPart) ([]Content, error) {
 			}
 			out = append(out, Content{Type: "image", Source: source})
 		case core.ToolCallPart:
-			out = append(out, Content{Type: "tool_use", ID: p.ID, Name: p.Name})
+			var input map[string]any
+			if p.Arguments != "" {
+				_ = json.Unmarshal([]byte(p.Arguments), &input)
+			}
+			out = append(out, Content{Type: "tool_use", ID: p.ID, Name: p.Name, Input: input})
 		case core.ToolResultPart:
 			resultContent := []Content{{Type: "text", Text: contentToString(p.Content)}}
 			out = append(out, Content{Type: "tool_result", ToolUseID: p.ToolCallID, Content: resultContent, IsError: p.IsError})

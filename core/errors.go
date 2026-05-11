@@ -1,6 +1,9 @@
 package core
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 type ProviderError struct {
 	Message string
@@ -23,7 +26,17 @@ func (e *ProviderError) IsRetryable() bool {
 }
 
 func (e *ProviderError) IsContextTooLong() bool {
-	return e.Status == 413 || (e.Status == 400 && len(e.Message) > 100)
+	if e.Status == 413 {
+		return true
+	}
+	if e.Status == 400 {
+		msg := strings.ToLower(e.Message)
+		return strings.Contains(msg, "context") ||
+			strings.Contains(msg, "token") ||
+			strings.Contains(msg, "length") ||
+			strings.Contains(msg, "too long")
+	}
+	return false
 }
 
 var ErrNoObjectGenerated = errors.New("no object generated")

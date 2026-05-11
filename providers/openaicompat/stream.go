@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -15,9 +14,14 @@ import (
 
 func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *core.Request) core.StreamResponse {
 	return func(yield func(*core.StreamPart, error) bool) {
+		messages, err := ToOpenAIMessages(req.Messages, req.SystemPrompt)
+		if err != nil {
+			yield(nil, err)
+			return
+		}
 		openaiReq := ChatCompletionRequest{
 			Model:         model,
-			Messages:      ToOpenAIMessages(req.Messages, req.SystemPrompt),
+			Messages:      messages,
 			Stream:        true,
 			MaxTokens:     req.MaxTokens,
 			Temperature:   req.Temperature,
@@ -53,11 +57,15 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 
 		if resp.StatusCode >= 400 {
 			body, _ := io.ReadAll(resp.Body)
-			yield(nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body)))
+			yield(nil, &core.ProviderError{
+				Message: string(body),
+				Status:  resp.StatusCode,
+			})
 			return
 		}
 
 		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 4096), 1024*1024)
 		var toolCalls map[int]*core.ToolCallPart
 
 		for scanner.Scan() {

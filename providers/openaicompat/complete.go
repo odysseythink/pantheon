@@ -7,9 +7,13 @@ import (
 )
 
 func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Request) (*core.Response, error) {
+	messages, err := ToOpenAIMessages(req.Messages, req.SystemPrompt)
+	if err != nil {
+		return nil, err
+	}
 	openaiReq := ChatCompletionRequest{
 		Model:       model,
-		Messages:    ToOpenAIMessages(req.Messages, req.SystemPrompt),
+		Messages:    messages,
 		Stream:      false,
 		MaxTokens:   req.MaxTokens,
 		Temperature: req.Temperature,

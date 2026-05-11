@@ -69,6 +69,7 @@ func generateSchemaFromType(t reflect.Type) *Schema {
 				name = parts[0]
 			}
 			s.Properties[name] = generateSchemaFromType(field.Type)
+			s.Required = append(s.Required, name)
 		}
 		return s
 	default:

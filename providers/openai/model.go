@@ -46,6 +46,8 @@ func (m *LanguageModel) GenerateObject(ctx context.Context, req *core.ObjectRequ
 			Parameters:  req.Schema,
 		}}
 		coreReq.ToolChoice = core.ToolChoice{Mode: core.ToolChoiceModeRequired, Name: "generate_object"}
+	} else if req.Mode == core.ObjectModeText {
+		coreReq.ResponseFormat = &core.ResponseFormat{Type: core.ResponseFormatTypeText}
 	}
 
 	resp, err := m.Generate(ctx, coreReq)

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -62,11 +61,15 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 
 		if resp.StatusCode >= 400 {
 			body, _ := io.ReadAll(resp.Body)
-			yield(nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body)))
+			yield(nil, &core.ProviderError{
+				Message: string(body),
+				Status:  resp.StatusCode,
+			})
 			return
 		}
 
 		scanner := bufio.NewScanner(resp.Body)
+		scanner.Buffer(make([]byte, 4096), 1024*1024)
 		var currentToolCall *core.ToolCallPart
 
 		for scanner.Scan() {

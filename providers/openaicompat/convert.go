@@ -6,23 +6,32 @@ import (
 	"github.com/odysseythink/ai/core"
 )
 
-func ToOpenAIMessages(msgs []core.Message, systemPrompt string) []Message {
+// ToOpenAIMessages converts core.Message slice to OpenAI wire format.
+func ToOpenAIMessages(msgs []core.Message, systemPrompt string) ([]Message, error) {
 	var out []Message
 	if systemPrompt != "" {
 		out = append(out, Message{Role: "system", Content: systemPrompt})
 	}
 	for _, m := range msgs {
-		out = append(out, toOpenAIMessage(m))
+		om, err := toOpenAIMessage(m)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, om)
 	}
-	return out
+	return out, nil
 }
 
-func toOpenAIMessage(m core.Message) Message {
+func toOpenAIMessage(m core.Message) (Message, error) {
 	switch m.Role {
 	case core.RoleSystem:
-		return Message{Role: "system", Content: contentToString(m.Content)}
+		return Message{Role: "system", Content: contentToString(m.Content)}, nil
 	case core.RoleUser:
-		return Message{Role: "user", Content: contentToOpenAI(m.Content)}
+		content, err := contentToOpenAI(m.Content)
+		if err != nil {
+			return Message{}, err
+		}
+		return Message{Role: "user", Content: content}, nil
 	case core.RoleAssistant:
 		msg := Message{Role: "assistant"}
 		var textParts []string
@@ -42,24 +51,24 @@ func toOpenAIMessage(m core.Message) Message {
 						Arguments: p.Arguments,
 					},
 				})
+			default:
+				return Message{}, fmt.Errorf("openai: unsupported content part in assistant message: %T", part)
 			}
 		}
-		if len(textParts) > 0 && len(msg.ToolCalls) == 0 {
-			msg.Content = joinTexts(textParts)
-		} else if len(textParts) > 0 {
+		if len(textParts) > 0 {
 			msg.Content = joinTexts(textParts)
 		}
-		return msg
+		return msg, nil
 	case core.RoleTool:
 		if len(m.Content) > 0 {
 			return Message{
 				Role:       "tool",
 				ToolCallID: toolResultCallID(m.Content),
 				Content:    contentToString(m.Content),
-			}
+			}, nil
 		}
 	}
-	return Message{Role: string(m.Role), Content: contentToString(m.Content)}
+	return Message{Role: string(m.Role), Content: contentToString(m.Content)}, nil
 }
 
 func contentToString(parts []core.ContentPart) string {
@@ -72,10 +81,10 @@ func contentToString(parts []core.ContentPart) string {
 	return joinTexts(texts)
 }
 
-func contentToOpenAI(parts []core.ContentPart) any {
+func contentToOpenAI(parts []core.ContentPart) (any, error) {
 	if len(parts) == 1 {
 		if p, ok := parts[0].(core.TextPart); ok {
-			return p.Text
+			return p.Text, nil
 		}
 	}
 	var out []ContentPart
@@ -94,9 +103,11 @@ func contentToOpenAI(parts []core.ContentPart) any {
 					Detail: p.Detail,
 				},
 			})
+		default:
+			return nil, fmt.Errorf("openai: unsupported content part in user message: %T", part)
 		}
 	}
-	return out
+	return out, nil
 }
 
 func toolResultCallID(parts []core.ContentPart) string {
@@ -134,6 +145,7 @@ func ToOpenAITools(tools []core.ToolDefinition) []Tool {
 	return out
 }
 
+// ToCoreResponse converts OpenAI ChatCompletionResponse to core.Response.
 func ToCoreResponse(resp *ChatCompletionResponse, model string) (*core.Response, error) {
 	if len(resp.Choices) == 0 {
 		return nil, fmt.Errorf("no choices in response")

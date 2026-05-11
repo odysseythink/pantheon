@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/odysseythink/ai/core"
 )
 
 type Client struct {
@@ -58,7 +59,10 @@ func (c *Client) doJSON(ctx context.Context, method, path string, body, dst any)
 
 	if resp.StatusCode >= 400 {
 		bodyData, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(bodyData))
+		return &core.ProviderError{
+			Message: string(bodyData),
+			Status:  resp.StatusCode,
+		}
 	}
 	if dst != nil {
 		return json.NewDecoder(resp.Body).Decode(dst)

@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/json"
-	"errors"
 )
 
 type ProviderOptionsDataer interface {
@@ -33,5 +32,7 @@ func (po ProviderOptions) MarshalJSON() ([]byte, error) {
 }
 
 func (po *ProviderOptions) UnmarshalJSON(data []byte) error {
-	return errors.New("ProviderOptions deserialization requires provider-specific knowledge")
+	// Provider-specific deserialization is handled by each provider individually.
+	// This no-op allows Request/ObjectRequest JSON round-trips without breaking.
+	return nil
 }
