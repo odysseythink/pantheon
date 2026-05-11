@@ -3,7 +3,7 @@ package openaicompat
 import (
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // ToOpenAIMessages converts core.Message slice to OpenAI wire format.

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Kind categorizes the nature of an error.

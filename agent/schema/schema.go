@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Generate creates a JSON Schema from a Go type.

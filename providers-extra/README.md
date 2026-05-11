@@ -5,7 +5,7 @@ Long-tail AI providers for the `ai` SDK.
 ## Installation
 
 ```bash
-go get github.com/odysseythink/ai/providers-extra
+go get github.com/odysseythink/pantheon/providers-extra
 ```
 
 ## Providers
@@ -16,7 +16,7 @@ go get github.com/odysseythink/ai/providers-extra
 ## Usage
 
 ```go
-import "github.com/odysseythink/ai/providers-extra/deepseek"
+import "github.com/odysseythink/pantheon/providers-extra/deepseek"
 
 p, _ := deepseek.New("api-key")
 model, _ := p.LanguageModel(ctx, "deepseek-chat")

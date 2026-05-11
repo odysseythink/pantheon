@@ -52,7 +52,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 func TestClassifyProviderError(t *testing.T) {
@@ -121,7 +121,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 type Kind string
@@ -229,7 +229,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 type mockModel struct {
@@ -394,8 +394,8 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/odysseythink/ai/core"
-	extErrors "github.com/odysseythink/ai/extensions/errors"
+	"github.com/odysseythink/pantheon/core"
+	extErrors "github.com/odysseythink/pantheon/extensions/errors"
 )
 
 // Model wraps a core.LanguageModel with exponential backoff retry.
@@ -564,7 +564,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 type mockModel struct {
@@ -703,7 +703,7 @@ package fallback
 import (
 	"context"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Model tries multiple LanguageModel candidates in order until one succeeds.
@@ -810,7 +810,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 type mockEmbedProvider struct{}
@@ -883,7 +883,7 @@ package embed
 import (
 	"context"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Provider extends core.Provider with embedding capabilities.

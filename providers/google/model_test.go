@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 func TestGenerate(t *testing.T) {

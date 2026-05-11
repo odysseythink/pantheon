@@ -6,8 +6,8 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/odysseythink/ai/core"
-	extErrors "github.com/odysseythink/ai/extensions/errors"
+	"github.com/odysseythink/pantheon/core"
+	extErrors "github.com/odysseythink/pantheon/extensions/errors"
 )
 
 // Model wraps a core.LanguageModel with exponential backoff retry.

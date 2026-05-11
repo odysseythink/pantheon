@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream"
-	"github.com/odysseythink/ai/core"
-	"github.com/odysseythink/ai/providers/anthropic"
+	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/anthropic"
 )
 
 func TestGenerate(t *testing.T) {

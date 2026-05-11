@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 type mockModel struct {

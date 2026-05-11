@@ -3,7 +3,7 @@ package anthropic
 import (
 	"context"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Messages sends a non-streaming messages request to the Anthropic API.

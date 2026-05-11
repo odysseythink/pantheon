@@ -51,7 +51,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 type mockModel struct {
@@ -183,7 +183,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // ToolFunc is the signature for executable tools.
@@ -233,7 +233,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Agent orchestrates a LanguageModel with tool execution.
@@ -365,7 +365,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 type mockStreamModel struct {
@@ -464,7 +464,7 @@ import (
 	"fmt"
 	"iter"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // StreamEventType marks the kind of event emitted during streaming.
@@ -618,7 +618,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 type mockModel struct{}
@@ -693,7 +693,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Compressor summarizes older messages to keep context within bounds.
@@ -813,7 +813,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 func TestGenerate(t *testing.T) {
@@ -897,7 +897,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Generate creates a JSON Schema from a Go type.

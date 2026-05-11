@@ -1,6 +1,6 @@
 package google
 
-import "github.com/odysseythink/ai/core"
+import "github.com/odysseythink/pantheon/core"
 
 type GenerateContentRequest struct {
 	Contents          []Content         `json:"contents"`

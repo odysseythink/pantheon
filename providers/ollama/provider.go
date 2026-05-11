@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/odysseythink/ai/core"
-	"github.com/odysseythink/ai/providers/openaicompat"
+	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
 const defaultBaseURL = "http://localhost:11434/v1"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Compressor summarizes older messages to keep context within bounds.

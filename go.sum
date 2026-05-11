@@ -4,11 +4,5 @@ github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.1 h1:i8p8P4diljCr60Pp
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.1/go.mod h1:ddqbooRZYNoJ2dsTwOty16rM+/Aqmk/GOXrK8cg7V00=
 github.com/aws/aws-sdk-go-v2/credentials v1.19.0 h1:7zm+ez+qEqLaNsCSRaistkvJRJv8sByDOVuCnyHbP7M=
 github.com/aws/aws-sdk-go-v2/credentials v1.19.0/go.mod h1:pHKPblrT7hqFGkNLxqoS3FlGoPrQg4hMIa+4asZzBfs=
-github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.14 h1:PZHqQACxYb8mYgms4RZbhZG0a7dPW06xOjmaH0EJC/I=
-github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.14/go.mod h1:VymhrMJUWs69D8u0/lZ7jSB6WgaG/NqHi3gX0aYf6U0=
-github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.14 h1:bOS19y6zlJwagBfHxs0ESzr1XCOU2KXJCWcq3E2vfjY=
-github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.14/go.mod h1:1ipeGBMAxZ0xcTm6y6paC2C/J6f6OO7LBODV9afuAyM=
-github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.40.0 h1:t1OCherpYlZqtG0UQXIyZ3SGzhwMq/P4pdFgQanBLsw=
-github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.40.0/go.mod h1:TM6uf2HPJT5w1RSPGHwtHDo8XDHUSHoBrGVKqA12cAU=
 github.com/aws/smithy-go v1.24.0 h1:LpilSUItNPFr1eY85RYgTIg5eIEPtvFbskaFcmmIUnk=
 github.com/aws/smithy-go v1.24.0/go.mod h1:LEj2LM3rBRQJxPZTB4KuzZkaZYnZPnvgIhb4pu07mx0=

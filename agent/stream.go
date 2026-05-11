@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"iter"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // StreamEventType marks the kind of event emitted during streaming.

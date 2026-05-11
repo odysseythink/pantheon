@@ -3,7 +3,7 @@ package google
 import (
 	"context"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 func (c *client) chatCompletion(ctx context.Context, model string, req *core.Request) (*core.Response, error) {

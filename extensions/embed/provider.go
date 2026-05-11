@@ -3,7 +3,7 @@ package embed
 import (
 	"context"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Provider extends core.Provider with embedding capabilities.

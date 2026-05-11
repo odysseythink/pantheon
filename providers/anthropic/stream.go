@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // MessagesStream sends a streaming messages request to the Anthropic API.

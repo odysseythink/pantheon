@@ -16,7 +16,7 @@
 ### 仓库结构
 
 ```
-ai/                                    # github.com/odysseythink/ai
+ai/                                    # github.com/odysseythink/pantheon
 ├── go.mod
 ├── core/                              # 核心抽象，零外部AI SDK依赖
 │   ├── provider.go                    # Provider, LanguageModel 接口
@@ -49,7 +49,7 @@ ai/                                    # github.com/odysseythink/ai
 │   └── schema.go                      # 工具Schema生成与修复
 │
 └── providers-extra/                   # 长尾提供商（独立module）
-    └── go.mod                         # github.com/odysseythink/ai/providers-extra
+    └── go.mod                         # github.com/odysseythink/pantheon/providers-extra
         ├── deepseek/
         ├── qwen/
         ├── zhipu/
@@ -240,7 +240,7 @@ type ToolChoice struct {
 ```go
 package openai
 
-import "github.com/odysseythink/ai/core"
+import "github.com/odysseythink/pantheon/core"
 
 type Provider struct { /* ... */ }
 
@@ -514,8 +514,8 @@ agent := agent.New(model,
 
 ### 6.4 Go Module 路径
 
-- 主库：`github.com/odysseythink/ai`
-- 长尾库：`github.com/odysseythink/ai/providers-extra`
+- 主库：`github.com/odysseythink/pantheon`
+- 长尾库：`github.com/odysseythink/pantheon/providers-extra`
 
 ## 设计检查清单
 

@@ -3,7 +3,7 @@ package openaicompat
 import (
 	"context"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // ChatCompletion sends a non-streaming chat completion request.

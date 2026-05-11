@@ -7,7 +7,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Client is a generic OpenAI-compatible HTTP client.

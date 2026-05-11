@@ -54,8 +54,8 @@ ai/
 - [ ] **Step 1: Initialize Go module**
 
 ```bash
-cd /Users/ranwei/workspace/go_work/ai-infra
-go mod init github.com/odysseythink/ai
+cd /Users/ranwei/workspace/go_work/pantheon
+go mod init github.com/odysseythink/pantheon
 cat > README.md << 'EOF'
 # ai
 
@@ -904,7 +904,7 @@ package openaicompat
 import (
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // ToOpenAIMessages converts core.Message slice to OpenAI wire format.
@@ -1184,7 +1184,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // ChatCompletion performs a non-streaming chat completion.
@@ -1284,7 +1284,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // ChatCompletionStream performs a streaming chat completion.
@@ -1446,8 +1446,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
-	"github.com/odysseythink/ai/providers/openaicompat"
+	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
 const defaultBaseURL = "https://api.openai.com"
@@ -1518,8 +1518,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/odysseythink/ai/core"
-	"github.com/odysseythink/ai/providers/openaicompat"
+	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
 // LanguageModel implements core.LanguageModel for OpenAI.
@@ -1608,8 +1608,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
-	"github.com/odysseythink/ai/providers/openaicompat"
+	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 ```
 
@@ -1772,7 +1772,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // ToAnthropicMessages converts core.Message slice to Anthropic wire format.
@@ -2001,7 +2001,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 func (c *Client) Messages(ctx context.Context, model string, req *core.Request) (*core.Response, error) {
@@ -2078,7 +2078,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Request) core.StreamResponse {
@@ -2258,7 +2258,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Provider implements core.Provider for Anthropic.
@@ -2321,7 +2321,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // LanguageModel implements core.LanguageModel for Anthropic.
@@ -2427,8 +2427,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
-	"github.com/odysseythink/ai/providers/openaicompat"
+	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
 func TestGenerate(t *testing.T) {
@@ -2531,7 +2531,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 func TestAnthropicGenerate(t *testing.T) {

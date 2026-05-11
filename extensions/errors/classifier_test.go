@@ -7,7 +7,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 func TestClassifyProviderError(t *testing.T) {

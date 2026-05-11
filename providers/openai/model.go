@@ -3,8 +3,8 @@ package openai
 import (
 	"context"
 
-	"github.com/odysseythink/ai/core"
-	"github.com/odysseythink/ai/providers/openaicompat"
+	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
 // LanguageModel implements core.LanguageModel for the OpenAI provider.

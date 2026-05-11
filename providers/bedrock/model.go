@@ -7,8 +7,8 @@ import (
 	"io"
 
 	"github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream"
-	"github.com/odysseythink/ai/core"
-	"github.com/odysseythink/ai/providers/anthropic"
+	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/anthropic"
 )
 
 // LanguageModel implements core.LanguageModel for the Bedrock provider.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Model tries multiple LanguageModel candidates in order until one succeeds.

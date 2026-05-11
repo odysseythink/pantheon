@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 // Agent orchestrates a LanguageModel with tool execution.

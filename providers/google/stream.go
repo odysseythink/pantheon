@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 func (c *client) chatCompletionStream(ctx context.Context, model string, req *core.Request) core.StreamResponse {

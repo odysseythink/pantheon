@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 type Provider struct {

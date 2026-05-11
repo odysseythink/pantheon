@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/odysseythink/ai/core"
+	"github.com/odysseythink/pantheon/core"
 )
 
 type mockEmbedProvider struct{}
