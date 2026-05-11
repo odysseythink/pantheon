@@ -41,15 +41,48 @@ func (m *mockModel) Stream(ctx context.Context, req *core.Request) (core.StreamR
 }
 
 func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
-	return nil, errors.New("not implemented")
+	m.calls++
+	if m.failNextN > 0 {
+		m.failNextN--
+		return nil, &core.ProviderError{Status: 500, Message: "server error"}
+	}
+	return &core.ObjectResponse{Object: map[string]any{"result": "ok"}}, nil
 }
 
 func (m *mockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
-	return nil, errors.New("not implemented")
+	m.calls++
+	if m.failNextN > 0 {
+		m.failNextN--
+		return nil, &core.ProviderError{Status: 500, Message: "server error"}
+	}
+	return func(yield func(*core.ObjectStreamPart, error) bool) {
+		yield(&core.ObjectStreamPart{Type: core.ObjectStreamPartTypeTextDelta, TextDelta: "ok"}, nil)
+	}, nil
 }
 
 func (m *mockModel) Provider() string { return "mock" }
 func (m *mockModel) Model() string    { return "mock-model" }
+
+type authModel struct{ calls int }
+
+func (a *authModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	a.calls++
+	return nil, &core.ProviderError{Status: 401, Message: "unauthorized"}
+}
+func (a *authModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	a.calls++
+	return nil, &core.ProviderError{Status: 401, Message: "unauthorized"}
+}
+func (a *authModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	a.calls++
+	return nil, &core.ProviderError{Status: 401, Message: "unauthorized"}
+}
+func (a *authModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	a.calls++
+	return nil, &core.ProviderError{Status: 401, Message: "unauthorized"}
+}
+func (a *authModel) Provider() string { return "auth-mock" }
+func (a *authModel) Model() string    { return "auth-mock" }
 
 func TestGenerateRetriesOnFailure(t *testing.T) {
 	inner := &mockModel{failNextN: 2}
@@ -91,11 +124,9 @@ func TestGenerateExhaustsRetries(t *testing.T) {
 }
 
 func TestGenerateNoRetryOnAuthError(t *testing.T) {
-	inner := &mockModel{}
-	inner.failNextN = 1
-	authModel := &mockModel{}
+	inner := &authModel{}
 	m := &Model{
-		Inner:      &alwaysAuth{authModel},
+		Inner:      inner,
 		MaxRetries: 3,
 		BaseDelay:  1 * time.Millisecond,
 	}
@@ -104,18 +135,9 @@ func TestGenerateNoRetryOnAuthError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if authModel.calls != 1 {
-		t.Errorf("calls: got %d, want 1 (no retry on auth)", authModel.calls)
+	if inner.calls != 1 {
+		t.Errorf("calls: got %d, want 1 (no retry on auth)", inner.calls)
 	}
-}
-
-type alwaysAuth struct {
-	*mockModel
-}
-
-func (a *alwaysAuth) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
-	a.mockModel.calls++
-	return nil, &core.ProviderError{Status: 401, Message: "unauthorized"}
 }
 
 func TestStreamRetriesOnInitFailure(t *testing.T) {
@@ -145,5 +167,78 @@ func TestStreamRetriesOnInitFailure(t *testing.T) {
 	}
 	if got != "ok" {
 		t.Errorf("got %q, want ok", got)
+	}
+}
+
+func TestGenerateObjectRetriesOnFailure(t *testing.T) {
+	inner := &mockModel{failNextN: 1}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 3,
+		BaseDelay:  1 * time.Millisecond,
+	}
+
+	resp, err := m.GenerateObject(context.Background(), &core.ObjectRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if inner.calls != 2 {
+		t.Errorf("calls: got %d, want 2", inner.calls)
+	}
+	if resp.Object["result"] != "ok" {
+		t.Errorf("unexpected object: %+v", resp.Object)
+	}
+}
+
+func TestStreamObjectRetriesOnFailure(t *testing.T) {
+	inner := &mockModel{failNextN: 1}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 3,
+		BaseDelay:  1 * time.Millisecond,
+	}
+
+	stream, err := m.StreamObject(context.Background(), &core.ObjectRequest{})
+	if err != nil {
+		t.Fatalf("unexpected init error: %v", err)
+	}
+	if inner.calls != 2 {
+		t.Errorf("calls: got %d, want 2", inner.calls)
+	}
+
+	var got string
+	for part, err := range stream {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if part.Type == core.ObjectStreamPartTypeTextDelta {
+			got += part.TextDelta
+		}
+	}
+	if got != "ok" {
+		t.Errorf("got %q, want ok", got)
+	}
+}
+
+func TestRetryRespectsContextCancellation(t *testing.T) {
+	inner := &mockModel{failNextN: 10}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 10,
+		BaseDelay:  100 * time.Millisecond,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+	defer cancel()
+
+	_, err := m.Generate(ctx, &core.Request{})
+	if err == nil {
+		t.Fatal("expected error from context cancellation")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected context deadline exceeded, got: %v", err)
+	}
+	if inner.calls < 1 {
+		t.Errorf("expected at least 1 call, got %d", inner.calls)
 	}
 }

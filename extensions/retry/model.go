@@ -21,74 +21,37 @@ func (m *Model) Provider() string { return m.Inner.Provider() }
 func (m *Model) Model() string    { return m.Inner.Model() }
 
 func (m *Model) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
-	var lastErr error
-	for attempt := 0; attempt <= m.MaxRetries; attempt++ {
-		resp, err := m.Inner.Generate(ctx, req)
-		if err == nil {
-			return resp, nil
-		}
-		lastErr = err
-		if attempt == m.MaxRetries {
-			break
-		}
-		if !m.shouldRetry(err) {
-			break
-		}
-		if err := m.sleep(ctx, attempt); err != nil {
-			return nil, err
-		}
-	}
-	return nil, lastErr
+	return retry(m, ctx, func() (*core.Response, error) {
+		return m.Inner.Generate(ctx, req)
+	})
 }
 
 func (m *Model) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
-	var lastErr error
-	for attempt := 0; attempt <= m.MaxRetries; attempt++ {
-		stream, err := m.Inner.Stream(ctx, req)
-		if err == nil {
-			return stream, nil
-		}
-		lastErr = err
-		if attempt == m.MaxRetries {
-			break
-		}
-		if !m.shouldRetry(err) {
-			break
-		}
-		if err := m.sleep(ctx, attempt); err != nil {
-			return nil, err
-		}
-	}
-	return nil, lastErr
+	return retry(m, ctx, func() (core.StreamResponse, error) {
+		return m.Inner.Stream(ctx, req)
+	})
 }
 
 func (m *Model) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
-	var lastErr error
-	for attempt := 0; attempt <= m.MaxRetries; attempt++ {
-		resp, err := m.Inner.GenerateObject(ctx, req)
-		if err == nil {
-			return resp, nil
-		}
-		lastErr = err
-		if attempt == m.MaxRetries {
-			break
-		}
-		if !m.shouldRetry(err) {
-			break
-		}
-		if err := m.sleep(ctx, attempt); err != nil {
-			return nil, err
-		}
-	}
-	return nil, lastErr
+	return retry(m, ctx, func() (*core.ObjectResponse, error) {
+		return m.Inner.GenerateObject(ctx, req)
+	})
 }
 
 func (m *Model) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return retry(m, ctx, func() (core.ObjectStreamResponse, error) {
+		return m.Inner.StreamObject(ctx, req)
+	})
+}
+
+// retry executes fn with exponential backoff retry on retryable errors.
+func retry[T any](m *Model, ctx context.Context, fn func() (T, error)) (T, error) {
+	var zero T
 	var lastErr error
 	for attempt := 0; attempt <= m.MaxRetries; attempt++ {
-		stream, err := m.Inner.StreamObject(ctx, req)
+		result, err := fn()
 		if err == nil {
-			return stream, nil
+			return result, nil
 		}
 		lastErr = err
 		if attempt == m.MaxRetries {
@@ -98,10 +61,10 @@ func (m *Model) StreamObject(ctx context.Context, req *core.ObjectRequest) (core
 			break
 		}
 		if err := m.sleep(ctx, attempt); err != nil {
-			return nil, err
+			return zero, err
 		}
 	}
-	return nil, lastErr
+	return zero, lastErr
 }
 
 func (m *Model) shouldRetry(err error) bool {
@@ -115,7 +78,7 @@ func (m *Model) sleep(ctx context.Context, attempt int) error {
 		base = 1 * time.Second
 	}
 	mult := m.Multiplier
-	if mult <= 1 {
+	if mult <= 0 {
 		mult = 2.0
 	}
 
@@ -123,9 +86,8 @@ func (m *Model) sleep(ctx context.Context, attempt int) error {
 	for i := 0; i < attempt; i++ {
 		delay = time.Duration(float64(delay) * mult)
 	}
-	// Add jitter: ±25%
-	jitter := time.Duration(rand.Float64()*0.5*float64(delay)) - time.Duration(0.25*float64(delay))
-	delay += jitter
+	// Add jitter: delay * [0.75, 1.25]
+	delay = time.Duration(float64(delay) * (0.75 + rand.Float64()*0.5))
 
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
