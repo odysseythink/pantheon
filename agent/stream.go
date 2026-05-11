@@ -12,34 +12,39 @@ import (
 type StreamEventType string
 
 const (
-	StreamEventTypeTextDelta  StreamEventType = "text_delta"
-	StreamEventTypeToolCall   StreamEventType = "tool_call"
-	StreamEventTypeToolResult StreamEventType = "tool_result"
-	StreamEventTypeStepStart  StreamEventType = "step_start"
-	StreamEventTypeStepFinish StreamEventType = "step_finish"
-	StreamEventTypeUsage      StreamEventType = "usage"
-	StreamEventTypeError      StreamEventType = "error"
+	StreamEventTypeTextDelta      StreamEventType = "text_delta"
+	StreamEventTypeReasoningDelta StreamEventType = "reasoning_delta"
+	StreamEventTypeToolCall       StreamEventType = "tool_call"
+	StreamEventTypeToolResult     StreamEventType = "tool_result"
+	StreamEventTypeStepStart      StreamEventType = "step_start"
+	StreamEventTypeStepFinish     StreamEventType = "step_finish"
+	StreamEventTypeUsage          StreamEventType = "usage"
+	StreamEventTypeError          StreamEventType = "error"
 )
 
 // StreamEvent represents a single event in the agent stream.
 type StreamEvent struct {
-	Type       StreamEventType
-	TextDelta  string
-	ToolCall   *core.ToolCallPart
-	ToolResult *core.ToolResultPart
-	Step       int
-	Usage      *core.Usage
+	Type          StreamEventType
+	TextDelta     string
+	ReasoningDelta string
+	ToolCall      *core.ToolCallPart
+	ToolResult    *core.ToolResultPart
+	Step          int
+	Usage         *core.Usage
 }
 
 // StreamResponse is the agent's streaming output.
 type StreamResponse = iter.Seq2[*StreamEvent, error]
 
 // RunStream executes the agent with streaming output.
+// It retries only if the initial Stream call fails; mid-stream errors are not retried.
 func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 	return func(yield func(*StreamEvent, error) bool) {
 		messages := append([]core.Message(nil), req.Messages...)
+		var lastHadToolCalls bool
 
 		for step := 0; step < a.maxSteps; step++ {
+			lastHadToolCalls = false
 			if !yield(&StreamEvent{Type: StreamEventTypeStepStart, Step: step + 1}, nil) {
 				return
 			}
@@ -68,6 +73,11 @@ func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 					if !yield(&StreamEvent{Type: StreamEventTypeTextDelta, TextDelta: part.TextDelta, Step: step + 1}, nil) {
 						return
 					}
+				case core.StreamPartTypeReasoningDelta:
+					assistantMsg.Content = append(assistantMsg.Content, core.ReasoningPart{Text: part.ReasoningDelta})
+					if !yield(&StreamEvent{Type: StreamEventTypeReasoningDelta, ReasoningDelta: part.ReasoningDelta, Step: step + 1}, nil) {
+						return
+					}
 				case core.StreamPartTypeToolCall:
 					assistantMsg.Content = append(assistantMsg.Content, *part.ToolCall)
 					if !yield(&StreamEvent{Type: StreamEventTypeToolCall, ToolCall: part.ToolCall, Step: step + 1}, nil) {
@@ -92,12 +102,13 @@ func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 				break
 			}
 
+			lastHadToolCalls = true
 			for _, tc := range toolCalls {
-				result := fmt.Sprintf("Tool %q executed with args: %s", tc.Name, tc.Arguments)
+				result, isError := a.executeTool(ctx, tc)
 				toolResult := core.ToolResultPart{
 					ToolCallID: tc.ID,
 					Content:    []core.ContentPart{core.TextPart{Text: result}},
-					IsError:    false,
+					IsError:    isError,
 				}
 				messages = append(messages, core.Message{
 					Role:    core.RoleTool,
@@ -111,6 +122,10 @@ func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 			if !yield(&StreamEvent{Type: StreamEventTypeStepFinish, Step: step + 1}, nil) {
 				return
 			}
+		}
+
+		if lastHadToolCalls {
+			yield(&StreamEvent{Type: StreamEventTypeError}, fmt.Errorf("agent reached max steps (%d) without completion", a.maxSteps))
 		}
 	}
 }

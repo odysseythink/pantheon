@@ -9,20 +9,27 @@ import (
 
 // Agent orchestrates a LanguageModel with tool execution.
 type Agent struct {
-	model    core.LanguageModel
-	maxSteps int
+	model        core.LanguageModel
+	maxSteps     int
+	toolRegistry map[string]ToolFunc
 }
 
 // New creates a new Agent.
 func New(model core.LanguageModel, opts ...Option) *Agent {
 	a := &Agent{
-		model:    model,
-		maxSteps: 10,
+		model:        model,
+		maxSteps:     10,
+		toolRegistry: make(map[string]ToolFunc),
 	}
 	for _, o := range opts {
 		o(a)
 	}
 	return a
+}
+
+// RegisterTool registers an executable tool by name.
+func (a *Agent) RegisterTool(name string, fn ToolFunc) {
+	a.toolRegistry[name] = fn
 }
 
 // Request is a single agent execution request.
@@ -68,13 +75,13 @@ func (a *Agent) Run(ctx context.Context, req *Request) (*Result, error) {
 
 		lastHadToolCalls = true
 		for _, tc := range toolCalls {
-			result := fmt.Sprintf("Tool %q executed with args: %s", tc.Name, tc.Arguments)
+			result, isError := a.executeTool(ctx, tc)
 			messages = append(messages, core.Message{
 				Role: core.RoleTool,
 				Content: []core.ContentPart{core.ToolResultPart{
 					ToolCallID: tc.ID,
 					Content:    []core.ContentPart{core.TextPart{Text: result}},
-					IsError:    false,
+					IsError:    isError,
 				}},
 			})
 		}
@@ -88,6 +95,18 @@ func (a *Agent) Run(ctx context.Context, req *Request) (*Result, error) {
 		Messages: messages,
 		Usage:    totalUsage,
 	}, nil
+}
+
+func (a *Agent) executeTool(ctx context.Context, tc core.ToolCallPart) (string, bool) {
+	fn, ok := a.toolRegistry[tc.Name]
+	if !ok {
+		return fmt.Sprintf("tool %q not found", tc.Name), true
+	}
+	result, err := executeTool(ctx, tc.Name, tc.Arguments, fn)
+	if err != nil {
+		return err.Error(), true
+	}
+	return result, false
 }
 
 func extractToolCalls(parts []core.ContentPart) []core.ToolCallPart {

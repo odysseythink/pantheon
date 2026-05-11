@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/odysseythink/ai/core"
@@ -66,6 +67,10 @@ func TestRunWithToolCall(t *testing.T) {
 	}
 
 	a := New(m, WithMaxSteps(5))
+	a.RegisterTool("get_weather", func(ctx context.Context, args string) (string, error) {
+		return `{"temp":72}`, nil
+	})
+
 	res, err := a.Run(context.Background(), &Request{
 		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather in NYC?"}}}},
 		Tools:    []core.ToolDefinition{weatherTool},
@@ -78,6 +83,53 @@ func TestRunWithToolCall(t *testing.T) {
 	}
 	if m.callIdx != 2 {
 		t.Errorf("model calls: got %d, want 2", m.callIdx)
+	}
+
+	// Verify tool result message content
+	toolMsg := res.Messages[2]
+	if toolMsg.Role != core.RoleTool {
+		t.Errorf("tool message role: got %q, want tool", toolMsg.Role)
+	}
+	tr, ok := toolMsg.Content[0].(core.ToolResultPart)
+	if !ok {
+		t.Fatalf("expected ToolResultPart, got %T", toolMsg.Content[0])
+	}
+	if tr.IsError {
+		t.Error("tool result should not be an error")
+	}
+}
+
+func TestRunToolNotFound(t *testing.T) {
+	m := &mockModel{responses: []core.Message{
+		{Role: core.RoleAssistant, Content: []core.ContentPart{
+			core.ToolCallPart{ID: "call_1", Name: "missing", Arguments: `{}`},
+		}},
+		{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "done"}}},
+	}}
+
+	a := New(m, WithMaxSteps(5))
+	// intentionally not registering "missing"
+
+	res, err := a.Run(context.Background(), &Request{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "missing", Parameters: &core.Schema{Type: "object"}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Tool result should contain error message
+	toolMsg := res.Messages[2]
+	tr, ok := toolMsg.Content[0].(core.ToolResultPart)
+	if !ok {
+		t.Fatalf("expected ToolResultPart, got %T", toolMsg.Content[0])
+	}
+	if !tr.IsError {
+		t.Error("expected tool result to be an error when tool not found")
+	}
+	text, _ := tr.Content[0].(core.TextPart)
+	if !strings.Contains(text.Text, "not found") {
+		t.Errorf("error text: got %q, want to contain 'not found'", text.Text)
 	}
 }
 
@@ -98,5 +150,21 @@ func TestRunMaxSteps(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error when max steps reached")
+	}
+	if !strings.Contains(err.Error(), "max steps") {
+		t.Errorf("error message: got %q, want to contain 'max steps'", err.Error())
+	}
+}
+
+func TestWithMaxStepsInvalid(t *testing.T) {
+	m := &mockModel{}
+	a := New(m, WithMaxSteps(0))
+	if a.maxSteps != 10 {
+		t.Errorf("maxSteps: got %d, want 10 (default)", a.maxSteps)
+	}
+
+	a = New(m, WithMaxSteps(-1))
+	if a.maxSteps != 10 {
+		t.Errorf("maxSteps: got %d, want 10 (default)", a.maxSteps)
 	}
 }

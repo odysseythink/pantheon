@@ -3,6 +3,7 @@ package compression
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/odysseythink/ai/core"
 )
@@ -68,26 +69,30 @@ func estimateTokens(msgs []core.Message) int {
 }
 
 func messagesToString(msgs []core.Message) string {
-	var out string
+	var b strings.Builder
 	for _, m := range msgs {
-		out += fmt.Sprintf("%s: %s\n", m.Role, contentToString(m.Content))
+		b.WriteString(fmt.Sprintf("%s: %s\n", m.Role, contentToString(m.Content)))
 	}
-	return out
+	return b.String()
 }
 
 func contentToString(parts []core.ContentPart) string {
 	var texts []string
 	for _, part := range parts {
-		if p, ok := part.(core.TextPart); ok {
+		switch p := part.(type) {
+		case core.TextPart:
 			texts = append(texts, p.Text)
+		case core.ToolCallPart:
+			texts = append(texts, fmt.Sprintf("[tool_call %s: %s]", p.Name, p.Arguments))
+		case core.ToolResultPart:
+			texts = append(texts, fmt.Sprintf("[tool_result %s]", p.ToolCallID))
+		case core.ImagePart:
+			texts = append(texts, "[image]")
+		case core.ReasoningPart:
+			texts = append(texts, fmt.Sprintf("[reasoning: %s]", p.Text))
+		default:
+			texts = append(texts, fmt.Sprintf("[%T]", part))
 		}
 	}
-	result := ""
-	for i, t := range texts {
-		if i > 0 {
-			result += " "
-		}
-		result += t
-	}
-	return result
+	return strings.Join(texts, " ")
 }

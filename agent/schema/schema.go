@@ -16,6 +16,7 @@ func Generate(t reflect.Type) *core.Schema {
 }
 
 // ParsePartialJSON attempts to parse JSON, tolerating common LLM truncation issues.
+// The schema parameter is reserved for future schema-aware validation.
 func ParsePartialJSON(text string, schema *core.Schema) (map[string]any, error) {
 	var obj map[string]any
 	if err := json.Unmarshal([]byte(text), &obj); err == nil {
@@ -23,6 +24,7 @@ func ParsePartialJSON(text string, schema *core.Schema) (map[string]any, error) 
 	}
 
 	fixed := text
+	// Close unclosed braces/brackets
 	openBraces := strings.Count(fixed, "{") - strings.Count(fixed, "}")
 	openBrackets := strings.Count(fixed, "[") - strings.Count(fixed, "]")
 	for i := 0; i < openBraces; i++ {
@@ -32,7 +34,8 @@ func ParsePartialJSON(text string, schema *core.Schema) (map[string]any, error) 
 		fixed += "]"
 	}
 	fixed = strings.TrimSpace(fixed)
-	fixed = strings.TrimSuffix(fixed, ",")
+	// Remove trailing comma before closing brace/bracket
+	fixed = removeTrailingComma(fixed)
 	if !strings.HasSuffix(fixed, "}") && !strings.HasSuffix(fixed, "]") {
 		fixed += "}"
 	}
@@ -43,17 +46,62 @@ func ParsePartialJSON(text string, schema *core.Schema) (map[string]any, error) 
 	return obj, nil
 }
 
+// removeTrailingComma removes a comma that appears immediately before the final } or ].
+func removeTrailingComma(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) < 2 {
+		return s
+	}
+	last := s[len(s)-1]
+	if last != '}' && last != ']' {
+		return s
+	}
+	// Walk backwards to find the matching opening brace/bracket
+	depth := 1
+	for i := len(s) - 2; i >= 0 && depth > 0; i-- {
+		switch s[i] {
+		case '}', ']':
+			depth++
+		case '{', '[':
+			depth--
+			if depth == 0 && i > 0 && s[i-1] == ',' {
+				// Remove comma before opening brace/bracket
+				return s[:i-1] + s[i:]
+			}
+		}
+	}
+	return s
+}
+
 // RepairToolCall attempts to fix malformed tool call arguments.
-// For now, it validates the JSON and returns it unchanged if valid.
-// More sophisticated repair can be added later.
+// It tries ParsePartialJSON heuristics and validates the result.
 func RepairToolCall(toolCall *core.ToolCallPart, schema *core.Schema) (*core.ToolCallPart, error) {
+	args := toolCall.Arguments
+
+	// Try parsing to see if it's already valid
 	var obj map[string]any
-	if err := json.Unmarshal([]byte(toolCall.Arguments), &obj); err != nil {
+	if err := json.Unmarshal([]byte(args), &obj); err == nil {
+		return &core.ToolCallPart{
+			ID:        toolCall.ID,
+			Name:      toolCall.Name,
+			Arguments: args,
+		}, nil
+	}
+
+	// Try partial JSON repair
+	repaired, err := ParsePartialJSON(args, schema)
+	if err != nil {
 		return nil, fmt.Errorf("unable to repair tool call arguments: %w", err)
 	}
+
+	repairedJSON, err := json.Marshal(repaired)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal repaired arguments: %w", err)
+	}
+
 	return &core.ToolCallPart{
 		ID:        toolCall.ID,
 		Name:      toolCall.Name,
-		Arguments: toolCall.Arguments,
+		Arguments: string(repairedJSON),
 	}, nil
 }
