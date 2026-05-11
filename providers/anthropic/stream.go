@@ -32,7 +32,7 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 		anthropicReq.TopP = req.TopP
 		if len(req.Tools) > 0 {
 			anthropicReq.Tools = ToAnthropicTools(req.Tools)
-			anthropicReq.ToolChoice = toAnthropicToolChoice(req.ToolChoice)
+			anthropicReq.ToolChoice = ToAnthropicToolChoice(req.ToolChoice)
 		}
 		if req.SystemPrompt != "" {
 			anthropicReq.System = req.SystemPrompt

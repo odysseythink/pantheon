@@ -25,7 +25,7 @@ func (c *Client) Messages(ctx context.Context, model string, req *core.Request) 
 	anthropicReq.StopSequences = req.StopSequences
 	if len(req.Tools) > 0 {
 		anthropicReq.Tools = ToAnthropicTools(req.Tools)
-		anthropicReq.ToolChoice = toAnthropicToolChoice(req.ToolChoice)
+		anthropicReq.ToolChoice = ToAnthropicToolChoice(req.ToolChoice)
 	}
 	if req.SystemPrompt != "" {
 		anthropicReq.System = req.SystemPrompt
@@ -49,7 +49,7 @@ func (c *Client) Messages(ctx context.Context, model string, req *core.Request) 
 	return ToCoreResponse(&resp, model)
 }
 
-func toAnthropicToolChoice(tc core.ToolChoice) *ToolChoice {
+func ToAnthropicToolChoice(tc core.ToolChoice) *ToolChoice {
 	switch tc.Mode {
 	case core.ToolChoiceModeAuto:
 		return &ToolChoice{Type: "auto"}
