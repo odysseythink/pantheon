@@ -5,25 +5,32 @@ import (
 	"strings"
 )
 
+// ToolDefinition describes a tool available to the model.
 type ToolDefinition struct {
 	Name        string
 	Description string
 	Parameters  *Schema
 }
 
+// ToolChoice controls whether and how the model may invoke tools.
 type ToolChoice struct {
 	Mode ToolChoiceMode
 	Name string
 }
 
+// ToolChoiceMode selects the tool invocation policy.
 type ToolChoiceMode string
 
 const (
-	ToolChoiceModeAuto     ToolChoiceMode = "auto"
+	// ToolChoiceModeAuto lets the model decide whether to call a tool.
+	ToolChoiceModeAuto ToolChoiceMode = "auto"
+	// ToolChoiceModeRequired forces the model to call at least one tool.
 	ToolChoiceModeRequired ToolChoiceMode = "required"
-	ToolChoiceModeNone     ToolChoiceMode = "none"
+	// ToolChoiceModeNone prevents the model from calling any tools.
+	ToolChoiceModeNone ToolChoiceMode = "none"
 )
 
+// Schema describes the shape of a JSON value.
 type Schema struct {
 	Type        string            `json:"type,omitempty"`
 	Description string            `json:"description,omitempty"`
@@ -33,6 +40,7 @@ type Schema struct {
 	Enum        []string          `json:"enum,omitempty"`
 }
 
+// GenerateSchema builds a JSON Schema from a Go reflect.Type.
 func GenerateSchema(t reflect.Type) *Schema {
 	if t.Kind() == reflect.Ptr {
 		t = t.Elem()
