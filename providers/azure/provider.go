@@ -18,10 +18,10 @@ type Provider struct {
 // Options can be used to customize the API version or HTTP client.
 func New(apiKey, resourceName, deployment string, opts ...Option) (core.Provider, error) {
 	if resourceName == "" {
-		return nil, fmt.Errorf("resourceName is required")
+		return nil, fmt.Errorf("azure: resourceName is required")
 	}
 	if deployment == "" {
-		return nil, fmt.Errorf("deployment is required")
+		return nil, fmt.Errorf("azure: deployment is required")
 	}
 	baseURL := fmt.Sprintf("https://%s.openai.azure.com/openai/deployments/%s", resourceName, deployment)
 	p := &Provider{

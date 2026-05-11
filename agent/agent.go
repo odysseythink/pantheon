@@ -80,6 +80,7 @@ func (a *Agent) Run(ctx context.Context, req *Request) (*Result, error) {
 				Role: core.RoleTool,
 				Content: []core.ContentPart{core.ToolResultPart{
 					ToolCallID: tc.ID,
+					Name:       tc.Name,
 					Content:    []core.ContentPart{core.TextPart{Text: result}},
 					IsError:    isError,
 				}},

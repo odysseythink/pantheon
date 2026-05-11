@@ -136,7 +136,12 @@ func (m *LanguageModel) Stream(ctx context.Context, req *core.Request) (core.Str
 }
 
 // GenerateObject generates a structured object from the model.
+// Bedrock Claude models do not support native JSON schema response formats;
+// this implementation always uses a forced tool call for object generation.
 func (m *LanguageModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	if req.Mode == core.ObjectModeText {
+		return nil, core.ErrUnsupportedFeature
+	}
 	coreReq := &core.Request{
 		Messages:        req.Messages,
 		SystemPrompt:    req.SystemPrompt,

@@ -67,7 +67,7 @@ func toGeminiParts(parts []core.ContentPart) ([]Part, error) {
 			out = append(out, Part{FunctionCall: &FunctionCall{Name: p.Name, Args: args}})
 		case core.ToolResultPart:
 			out = append(out, Part{FunctionResponse: &FunctionResponse{
-				Name:     p.ToolCallID,
+				Name:     p.Name,
 				Response: map[string]interface{}{"result": contentToString(p.Content)},
 			}})
 		default:

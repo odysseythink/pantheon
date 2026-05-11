@@ -116,6 +116,7 @@ func (p ToolCallPart) MarshalJSON() ([]byte, error) {
 // ToolResultPart carries the result of a tool invocation back to the model.
 type ToolResultPart struct {
 	ToolCallID string        `json:"tool_call_id"`
+	Name       string        `json:"name"`
 	Content    []ContentPart `json:"content"`
 	IsError    bool          `json:"is_error"`
 }

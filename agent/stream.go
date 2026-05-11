@@ -107,6 +107,7 @@ func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 				result, isError := a.executeTool(ctx, tc)
 				toolResult := core.ToolResultPart{
 					ToolCallID: tc.ID,
+				Name:       tc.Name,
 					Content:    []core.ContentPart{core.TextPart{Text: result}},
 					IsError:    isError,
 				}
