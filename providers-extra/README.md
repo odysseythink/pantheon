@@ -12,6 +12,10 @@ go get github.com/odysseythink/pantheon/providers-extra
 
 - `deepseek` — DeepSeek API (OpenAI-compatible)
 - `qwen` — Alibaba Qwen API (OpenAI-compatible)
+- `kimi` — Moonshot (Kimi) API (OpenAI-compatible)
+- `minimax` — Minimax API (OpenAI-compatible)
+- `wenxin` — Baidu Qianfan (Wenxin/Ernie) API (OpenAI-compatible)
+- `zhipu` — Zhipu AI (GLM) API (OpenAI-compatible)
 
 ## Usage
 
