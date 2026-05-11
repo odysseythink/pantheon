@@ -2,6 +2,7 @@ package retry
 
 import (
 	"context"
+	"errors"
 	"math/rand/v2"
 	"time"
 
@@ -11,9 +12,13 @@ import (
 
 // Model wraps a core.LanguageModel with exponential backoff retry.
 type Model struct {
-	Inner      core.LanguageModel
+	// Inner is the LanguageModel to wrap.
+	Inner core.LanguageModel
+	// MaxRetries is the maximum number of retry attempts. Must be >= 0.
 	MaxRetries int
-	BaseDelay  time.Duration
+	// BaseDelay is the initial delay between retries. Defaults to 1s.
+	BaseDelay time.Duration
+	// Multiplier is the exponential backoff multiplier. Defaults to 2.0.
 	Multiplier float64
 }
 
@@ -26,6 +31,7 @@ func (m *Model) Generate(ctx context.Context, req *core.Request) (*core.Response
 	})
 }
 
+// Stream retries only if the initial Stream call fails. Mid-stream errors are not retried.
 func (m *Model) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
 	return retry(m, ctx, func() (core.StreamResponse, error) {
 		return m.Inner.Stream(ctx, req)
@@ -38,15 +44,21 @@ func (m *Model) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*c
 	})
 }
 
+// StreamObject retries only if the initial StreamObject call fails. Mid-stream errors are not retried.
 func (m *Model) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
 	return retry(m, ctx, func() (core.ObjectStreamResponse, error) {
 		return m.Inner.StreamObject(ctx, req)
 	})
 }
 
+const maxDelay = 5 * time.Minute
+
 // retry executes fn with exponential backoff retry on retryable errors.
 func retry[T any](m *Model, ctx context.Context, fn func() (T, error)) (T, error) {
 	var zero T
+	if m.MaxRetries < 0 {
+		return zero, errors.New("retry: MaxRetries cannot be negative")
+	}
 	var lastErr error
 	for attempt := 0; attempt <= m.MaxRetries; attempt++ {
 		result, err := fn()
@@ -84,7 +96,11 @@ func (m *Model) sleep(ctx context.Context, attempt int) error {
 
 	delay := base
 	for i := 0; i < attempt; i++ {
-		delay = time.Duration(float64(delay) * mult)
+		next := time.Duration(float64(delay) * mult)
+		if next < 0 || next > maxDelay {
+			next = maxDelay
+		}
+		delay = next
 	}
 	// Add jitter: delay * [0.75, 1.25]
 	delay = time.Duration(float64(delay) * (0.75 + rand.Float64()*0.5))

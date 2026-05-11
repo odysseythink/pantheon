@@ -79,6 +79,9 @@ func classifyProviderError(pe *core.ProviderError) Classification {
 	case 409:
 		return Classification{Kind: KindServerError, Retryable: true}
 	default:
+		if pe.Status >= 500 {
+			return Classification{Kind: KindServerError, Retryable: true}
+		}
 		return Classification{Kind: KindUnknown, Retryable: false}
 	}
 }

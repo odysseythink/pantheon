@@ -220,6 +220,51 @@ func TestStreamObjectRetriesOnFailure(t *testing.T) {
 	}
 }
 
+func TestRetryNegativeMaxRetries(t *testing.T) {
+	inner := &mockModel{}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: -1,
+		BaseDelay:  1 * time.Millisecond,
+	}
+
+	_, err := m.Generate(context.Background(), &core.Request{})
+	if err == nil {
+		t.Fatal("expected error for negative MaxRetries")
+	}
+	if inner.calls != 0 {
+		t.Errorf("calls: got %d, want 0", inner.calls)
+	}
+}
+
+func TestRetryDelayCap(t *testing.T) {
+	inner := &mockModel{failNextN: 100}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 100,
+		BaseDelay:  1 * time.Second,
+		Multiplier: 2.0,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err := m.Generate(ctx, &core.Request{})
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	// With capped delay of 5 minutes and 100 retries, if uncapped it would take eons.
+	// With the cap, each retry delay is at most 5min * 1.25 = 6.25min, but context
+	// cancels after 200ms. The key check: elapsed should be well under 1 second,
+	// proving delays are capped (otherwise 2^100 nanoseconds would overflow instantly).
+	if elapsed > 1*time.Second {
+		t.Errorf("elapsed %v too long; delay cap not working", elapsed)
+	}
+}
+
 func TestRetryRespectsContextCancellation(t *testing.T) {
 	inner := &mockModel{failNextN: 10}
 	m := &Model{

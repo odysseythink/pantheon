@@ -98,6 +98,14 @@ func TestGenerateAllFail(t *testing.T) {
 	}
 }
 
+func TestFallbackNoCandidates(t *testing.T) {
+	fb := &Model{Candidates: []core.LanguageModel{}}
+	_, err := fb.Generate(context.Background(), &core.Request{})
+	if err == nil {
+		t.Fatal("expected error when no candidates")
+	}
+}
+
 func TestStreamFallback(t *testing.T) {
 	m1 := &mockModel{name: "primary", failStream: true}
 	m2 := &mockModel{name: "backup"}

@@ -32,6 +32,8 @@ func TestClassifyProviderError(t *testing.T) {
 		{"nil error", nil, KindUnknown, false},
 		{"conflict 409", &core.ProviderError{Status: 409}, KindServerError, true},
 		{"wrapped rate limit", fmt.Errorf("upstream: %w", &core.ProviderError{Status: 429}), KindRateLimit, true},
+		{"other 5xx 501", &core.ProviderError{Status: 501}, KindServerError, true},
+		{"other 5xx 505", &core.ProviderError{Status: 505}, KindServerError, true},
 	}
 
 	for _, tt := range tests {

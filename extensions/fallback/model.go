@@ -2,12 +2,14 @@ package fallback
 
 import (
 	"context"
+	"errors"
 
 	"github.com/odysseythink/ai/core"
 )
 
 // Model tries multiple LanguageModel candidates in order until one succeeds.
 type Model struct {
+	// Candidates is the ordered list of LanguageModels to try.
 	Candidates []core.LanguageModel
 }
 
@@ -52,6 +54,9 @@ func (m *Model) StreamObject(ctx context.Context, req *core.ObjectRequest) (core
 // tryCandidates iterates over candidates and returns the first successful result.
 func tryCandidates[T any](candidates []core.LanguageModel, fn func(core.LanguageModel) (T, error)) (T, error) {
 	var zero T
+	if len(candidates) == 0 {
+		return zero, errors.New("fallback: no candidates available")
+	}
 	var lastErr error
 	for _, candidate := range candidates {
 		result, err := fn(candidate)
