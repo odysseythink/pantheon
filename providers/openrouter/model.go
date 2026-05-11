@@ -2,7 +2,6 @@ package openrouter
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/odysseythink/ai/core"
@@ -54,36 +53,10 @@ func (m *LanguageModel) GenerateObject(ctx context.Context, req *core.ObjectRequ
 	if err != nil {
 		return nil, err
 	}
-	return extractObjectResponse(resp, m.model)
+	return openaicompat.ExtractObjectResponse(resp, m.model)
 }
 
 func (m *LanguageModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
 	return nil, fmt.Errorf("StreamObject not yet implemented")
 }
 
-func extractObjectResponse(resp *core.Response, model string) (*core.ObjectResponse, error) {
-	var obj map[string]any
-	for _, part := range resp.Message.Content {
-		if p, ok := part.(core.TextPart); ok {
-			if err := json.Unmarshal([]byte(p.Text), &obj); err != nil {
-				return nil, fmt.Errorf("parse object: %w", err)
-			}
-			break
-		}
-		if p, ok := part.(core.ToolCallPart); ok {
-			if err := json.Unmarshal([]byte(p.Arguments), &obj); err != nil {
-				return nil, fmt.Errorf("parse tool arguments: %w", err)
-			}
-			break
-		}
-	}
-	if obj == nil {
-		return nil, core.ErrNoObjectGenerated
-	}
-	return &core.ObjectResponse{
-		Object:       obj,
-		FinishReason: resp.FinishReason,
-		Usage:        resp.Usage,
-		Model:        model,
-	}, nil
-}
