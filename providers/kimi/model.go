@@ -21,12 +21,21 @@ func (m *LanguageModel) Model() string { return m.model }
 
 // Generate sends a chat completion request and returns the response.
 func (m *LanguageModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
-	return nil, nil
+	opts := extractProviderOptions(req.ProviderOptions)
+	body, err := buildRequestBody(m.model, req, opts)
+	if err != nil {
+		return nil, err
+	}
+	var resp ChatCompletionResponse
+	if err := m.client.doJSON(ctx, "POST", "/chat/completions", body, &resp); err != nil {
+		return nil, err
+	}
+	return parseCompletionResponse(&resp, m.model)
 }
 
 // Stream sends a streaming chat completion request.
 func (m *LanguageModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
-	return nil, nil
+	return chatCompletionStream(ctx, m.client, m.model, req), nil
 }
 
 // GenerateObject generates a structured object from the model.
