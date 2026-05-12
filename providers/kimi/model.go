@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
 // LanguageModel implements core.LanguageModel for the Kimi provider.
@@ -40,5 +41,40 @@ func (m *LanguageModel) Stream(ctx context.Context, req *core.Request) (core.Str
 
 // GenerateObject generates a structured object from the model.
 func (m *LanguageModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
-	return nil, nil
+	coreReq := &core.Request{
+		Messages:        req.Messages,
+		SystemPrompt:    req.SystemPrompt,
+		MaxTokens:       req.MaxTokens,
+		Temperature:     req.Temperature,
+		ProviderOptions: req.ProviderOptions,
+	}
+
+	switch req.Mode {
+	case core.ObjectModeAuto, core.ObjectModeJSON:
+		coreReq.ResponseFormat = &core.ResponseFormat{
+			Type:       core.ResponseFormatTypeJSONSchema,
+			JSONSchema: req.Schema,
+		}
+	case core.ObjectModeTool:
+		coreReq.Tools = []core.ToolDefinition{{
+			Name:        "generate_object",
+			Description: "Generate the requested object",
+			Parameters:  req.Schema,
+		}}
+		coreReq.ToolChoice = core.ToolChoice{
+			Mode: core.ToolChoiceModeRequired,
+			Name: "generate_object",
+		}
+	case core.ObjectModeText:
+		coreReq.ResponseFormat = &core.ResponseFormat{
+			Type: core.ResponseFormatTypeText,
+		}
+	}
+
+	resp, err := m.Generate(ctx, coreReq)
+	if err != nil {
+		return nil, err
+	}
+
+	return openaicompat.ExtractObjectResponse(resp, m.model)
 }
