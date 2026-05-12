@@ -149,13 +149,18 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 	}
 }
 
-func extractProviderOptions(po core.ProviderOptions) ProviderOptions {
+func extractProviderOptions(po any) ProviderOptions {
 	if po == nil {
 		return ProviderOptions{}
 	}
-	if opts, ok := po.Get("kimi"); ok {
-		if cast, ok := opts.(ProviderOptions); ok {
-			return cast
+	if opts, ok := po.(ProviderOptions); ok {
+		return opts
+	}
+	if m, ok := po.(core.ProviderOptions); ok {
+		if opts, ok := m.Get("kimi"); ok {
+			if cast, ok := opts.(ProviderOptions); ok {
+				return cast
+			}
 		}
 	}
 	return ProviderOptions{}

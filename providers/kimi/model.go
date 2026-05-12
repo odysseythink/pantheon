@@ -78,3 +78,7 @@ func (m *LanguageModel) GenerateObject(ctx context.Context, req *core.ObjectRequ
 
 	return openaicompat.ExtractObjectResponse(resp, m.model)
 }
+
+func extractObjectResponse(resp *core.Response, model string) (*core.ObjectResponse, error) {
+	return openaicompat.ExtractObjectResponse(resp, model)
+}
