@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 )
 
@@ -63,5 +64,21 @@ func TestProviderOptions_UnmarshalJSON(t *testing.T) {
 	_, ok := po.Get("test")
 	if ok {
 		t.Error("expected UnmarshalJSON to be no-op")
+	}
+}
+
+type badMarshalOpts struct{}
+
+func (badMarshalOpts) ProviderName() string { return "bad" }
+func (badMarshalOpts) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("marshal error")
+}
+
+func TestProviderOptions_MarshalJSON_Error(t *testing.T) {
+	po := make(ProviderOptions)
+	po.Set("bad", badMarshalOpts{})
+	_, err := json.Marshal(po)
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }

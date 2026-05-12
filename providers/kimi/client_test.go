@@ -82,8 +82,15 @@ func TestDoJSON_Success(t *testing.T) {
 	c.BaseURL = server.URL
 
 	body := map[string]any{"model": "kimi-k2", "messages": []Message{{Role: "user", Content: "Hi"}}}
-	var result ChatCompletionResponse
-	if err := c.doJSON(context.Background(), "POST", "/chat/completions", body, &result); err != nil {
+	result, err := core.HttpClientCall[ChatCompletionResponse](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/chat/completions",
+		nil,
+		body,
+		c.getHeaders(),
+	)
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Model != "kimi-k2" {
@@ -101,8 +108,15 @@ func TestDoJSON_ErrorStatus(t *testing.T) {
 	c := newClient("sk-test")
 	c.BaseURL = server.URL
 
-	var result ChatCompletionResponse
-	err := c.doJSON(context.Background(), "POST", "/chat/completions", map[string]any{}, &result)
+	_, err := core.HttpClientCall[ChatCompletionResponse](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/chat/completions",
+		nil,
+		map[string]any{},
+		c.getHeaders(),
+	)
+
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -126,8 +140,15 @@ func TestDoJSON_NoDestination(t *testing.T) {
 
 	c := newClient("sk-test")
 	c.BaseURL = server.URL
-
-	if err := c.doJSON(context.Background(), "POST", "/test", map[string]any{}, nil); err != nil {
+	_, err := core.HttpClientCall[map[string]any](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/test",
+		nil,
+		map[string]any{},
+		c.getHeaders(),
+	)
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -136,8 +157,14 @@ func TestDoJSON_NetworkError(t *testing.T) {
 	c := newClient("sk-test")
 	c.BaseURL = "http://invalid.localhost:99999"
 
-	var result ChatCompletionResponse
-	err := c.doJSON(context.Background(), "POST", "/test", map[string]any{}, &result)
+	_, err := core.HttpClientCall[ChatCompletionResponse](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/test",
+		nil,
+		map[string]any{},
+		c.getHeaders(),
+	)
 	if err == nil {
 		t.Fatal("expected network error")
 	}
@@ -246,12 +273,19 @@ func TestLive_DoJSON(t *testing.T) {
 	c := newClient(key)
 
 	body := map[string]any{
-		"model":    "kimi-k2-turbo-preview",
-		"messages": []Message{{Role: "user", Content: "Say hello in one word"}},
+		"model":      "kimi-k2-turbo-preview",
+		"messages":   []Message{{Role: "user", Content: "Say hello in one word"}},
 		"max_tokens": 10,
 	}
-	var resp ChatCompletionResponse
-	if err := c.doJSON(context.Background(), "POST", "/chat/completions", body, &resp); err != nil {
+	resp, err := core.HttpClientCall[ChatCompletionResponse](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/chat/completions",
+		nil,
+		body,
+		c.getHeaders(),
+	)
+	if err != nil {
 		t.Fatalf("live API call failed: %v", err)
 	}
 	if len(resp.Choices) == 0 {

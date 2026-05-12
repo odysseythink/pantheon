@@ -27,8 +27,16 @@ func (m *LanguageModel) Generate(ctx context.Context, req *core.Request) (*core.
 	if err != nil {
 		return nil, err
 	}
-	var resp ChatCompletionResponse
-	if err := m.client.doJSON(ctx, "POST", "/chat/completions", body, &resp); err != nil {
+
+	resp, err := core.HttpClientCall[ChatCompletionResponse](
+		ctx,
+		"POST",
+		m.client.BaseURL+"/chat/completions",
+		nil,
+		body,
+		m.client.getHeaders(),
+	)
+	if err != nil {
 		return nil, err
 	}
 	return parseCompletionResponse(&resp, m.model)
@@ -78,4 +86,3 @@ func (m *LanguageModel) GenerateObject(ctx context.Context, req *core.ObjectRequ
 
 	return openaicompat.ExtractObjectResponse(resp, m.model)
 }
-

@@ -1,0 +1,24 @@
+mode: set
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:18.43,18.71 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:21.40,21.58 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:24.98,26.2 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:29.101,31.2 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:34.116,42.72 2 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:42.72,47.3 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:47.8,47.44 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:47.44,54.3 2 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:54.8,54.44 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:54.44,56.3 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:58.2,59.16 2 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:59.16,61.3 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/model.go:62.2,62.58 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/provider.go:19.64,24.25 3 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/provider.go:24.25,26.3 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/provider.go:27.2,27.15 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/provider.go:34.37,35.27 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/provider.go:35.27,37.3 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/provider.go:41.49,42.27 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/provider.go:42.27,44.3 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/provider.go:48.34,50.2 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/provider.go:53.99,59.2 1 1
+github.com/odysseythink/pantheon/providers-extra/zhipu/provider.go:65.46,65.64 1 1

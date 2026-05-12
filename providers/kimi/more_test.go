@@ -90,7 +90,7 @@ func TestToKimiToolChoice_RequiredEmptyName(t *testing.T) {
 
 func TestEnsurePropertyTypes_ItemsNotMap(t *testing.T) {
 	schema := map[string]any{
-		"type": "array",
+		"type":  "array",
 		"items": "string",
 	}
 	result := ensurePropertyTypes(schema)
@@ -186,7 +186,6 @@ func TestChatCompletionStream_BuildRequestBodyError(t *testing.T) {
 	t.Fatal("expected error from stream")
 }
 
-
 func TestChatCompletionStream_NetworkError(t *testing.T) {
 	client := newClient("test-key")
 	client.BaseURL = "http://invalid.localhost:99999"
@@ -235,7 +234,14 @@ func TestClient_uploadFile_NoDst(t *testing.T) {
 
 func TestClient_doJSON_MarshalError(t *testing.T) {
 	c := newClient("sk-test")
-	err := c.doJSON(context.Background(), "POST", "/test", make(chan int), nil)
+	_, err := core.HttpClientCall[map[string]any](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/test",
+		nil,
+		make(chan int),
+		c.getHeaders(),
+	)
 	if err == nil {
 		t.Fatal("expected marshal error")
 	}
@@ -244,7 +250,14 @@ func TestClient_doJSON_MarshalError(t *testing.T) {
 func TestClient_doJSON_RequestError(t *testing.T) {
 	c := newClient("sk-test")
 	c.BaseURL = "://invalid-url"
-	err := c.doJSON(context.Background(), "POST", "/test", map[string]any{}, nil)
+	_, err := core.HttpClientCall[map[string]any](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/test",
+		nil,
+		map[string]any{},
+		c.getHeaders(),
+	)
 	if err == nil {
 		t.Fatal("expected request error")
 	}

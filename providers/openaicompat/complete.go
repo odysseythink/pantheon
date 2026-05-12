@@ -33,10 +33,25 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Req
 	if c.ChatCompletionPath != "" {
 		path = c.ChatCompletionPath
 	}
-	var resp ChatCompletionResponse
-	if err := c.doJSON(ctx, "POST", path, openaiReq, &resp); err != nil {
+	if c.Headers == nil {
+		c.Headers = map[string]string{}
+	}
+	c.Headers["Content-Type"] = "application/json"
+	if c.APIKey != "" {
+		c.Headers["Authorization"] = "Bearer " + c.APIKey
+	}
+	resp, err := core.HttpClientCall[ChatCompletionResponse](
+		ctx,
+		"POST",
+		c.BaseURL+path,
+		nil,
+		openaiReq,
+		c.Headers,
+	)
+	if err != nil {
 		return nil, err
 	}
+
 	return ToCoreResponse(&resp, model)
 }
 

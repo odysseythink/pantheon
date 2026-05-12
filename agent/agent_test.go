@@ -165,3 +165,66 @@ func TestWithMaxStepsInvalid(t *testing.T) {
 		t.Errorf("maxSteps: got %d, want 10 (default)", a.maxSteps)
 	}
 }
+
+type errorModel struct{}
+
+func (m *errorModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	return nil, errors.New("model error")
+}
+func (m *errorModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	return nil, errors.New("stream error")
+}
+func (m *errorModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return nil, errors.New("not implemented")
+}
+func (m *errorModel) Provider() string { return "error" }
+func (m *errorModel) Model() string    { return "error-model" }
+
+func TestRunGenerateError(t *testing.T) {
+	m := &errorModel{}
+	a := New(m)
+	_, err := a.Run(context.Background(), &Request{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "model error") {
+		t.Errorf("error: got %q", err.Error())
+	}
+}
+
+func TestRunToolExecutionError(t *testing.T) {
+	m := &mockModel{responses: []core.Message{
+		{Role: core.RoleAssistant, Content: []core.ContentPart{
+			core.ToolCallPart{ID: "call_1", Name: "broken", Arguments: `{}`},
+		}},
+		{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "done"}}},
+	}}
+
+	a := New(m, WithMaxSteps(5))
+	a.RegisterTool("broken", func(ctx context.Context, args string) (string, error) {
+		return "", errors.New("tool failed")
+	})
+
+	res, err := a.Run(context.Background(), &Request{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "broken", Parameters: &core.Schema{Type: "object"}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	toolMsg := res.Messages[2]
+	tr, ok := toolMsg.Content[0].(core.ToolResultPart)
+	if !ok {
+		t.Fatalf("expected ToolResultPart, got %T", toolMsg.Content[0])
+	}
+	if !tr.IsError {
+		t.Error("expected tool result to be an error")
+	}
+	tp, _ := tr.Content[0].(core.TextPart)
+	if !strings.Contains(tp.Text, "tool failed") {
+		t.Errorf("error text: got %q", tp.Text)
+	}
+}

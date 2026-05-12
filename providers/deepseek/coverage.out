@@ -1,0 +1,24 @@
+mode: set
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:18.43,18.71 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:21.40,21.58 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:24.98,26.2 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:29.101,31.2 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:34.116,42.72 2 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:42.72,47.3 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:47.8,47.44 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:47.44,54.3 2 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:54.8,54.44 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:54.44,56.3 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:58.2,59.16 2 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:59.16,61.3 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/model.go:62.2,62.58 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/provider.go:19.64,23.25 2 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/provider.go:23.25,25.3 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/provider.go:26.2,26.15 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/provider.go:33.37,34.27 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/provider.go:34.27,36.3 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/provider.go:40.49,41.27 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/provider.go:41.27,43.3 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/provider.go:47.34,49.2 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/provider.go:52.99,58.2 1 1
+github.com/odysseythink/pantheon/providers-extra/deepseek/provider.go:64.46,64.67 1 1

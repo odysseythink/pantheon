@@ -1,7 +1,6 @@
 package kimi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -56,43 +55,30 @@ func (c *Client) setHeaders(req *http.Request) {
 	}
 }
 
+func (c *Client) getHeaders() map[string]string {
+	if len(c.Headers) == 0 {
+		c.Headers = map[string]string{}
+	}
+	c.Headers["Content-Type"] = "application/json"
+	if c.APIKey != "" {
+		c.Headers["Authorization"] = "Bearer " + c.APIKey
+	}
+	// Kimi Code API (api.kimi.com) requires coding-agent identification headers.
+	if isKimiCode(c.BaseURL) {
+		c.Headers["User-Agent"] = "KimiCLI/1.0.0"
+		c.Headers["X-Msh-Platform"] = "kimi_cli"
+		c.Headers["X-Msh-Version"] = "1.0.0"
+		c.Headers["X-Msh-Device-Name"] = "localhost"
+		c.Headers["X-Msh-Device-Model"] = runtime.GOOS + " " + runtime.GOARCH
+		c.Headers["X-Msh-Os-Version"] = runtime.GOOS
+		c.Headers["X-Msh-Device-Id"] = "pantheon-test-device"
+	}
+	return c.Headers
+}
+
 func isKimiCode(baseURL string) bool {
 	return baseURL == "https://api.kimi.com/coding/v1" ||
 		baseURL == "https://api.kimi.com/coding/v1/"
-}
-
-func (c *Client) doJSON(ctx context.Context, method, path string, body, dst any) error {
-	url := c.BaseURL + path
-	var bodyReader io.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		bodyReader = bytes.NewReader(data)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, url, bodyReader)
-	if err != nil {
-		return err
-	}
-	c.setHeaders(req)
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		bodyData, _ := io.ReadAll(resp.Body)
-		return &core.ProviderError{
-			Message: string(bodyData),
-			Status:  resp.StatusCode,
-		}
-	}
-	if dst != nil {
-		return json.NewDecoder(resp.Body).Decode(dst)
-	}
-	return nil
 }
 
 func (c *Client) uploadFile(ctx context.Context, path string, body io.Reader, contentType string, dst any) error {

@@ -47,9 +47,17 @@ func TestDoJSON_Success(t *testing.T) {
 
 	c := NewClient(server.URL, "sk-test")
 	c.Headers["X-Custom"] = "value"
+	c.Headers["Content-Type"] = "application/json"
+	c.Headers["Authorization"] = "Bearer " + c.APIKey
 
-	var result map[string]string
-	err := c.doJSON(context.Background(), "POST", "/test", map[string]string{"key": "val"}, &result)
+	result, err := core.HttpClientCall[map[string]string](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/test",
+		nil,
+		map[string]string{"key": "val"},
+		c.Headers,
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,7 +74,15 @@ func TestDoJSON_ErrorStatus(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL, "sk-test")
-	err := c.doJSON(context.Background(), "POST", "/test", nil, nil)
+
+	_, err := core.HttpClientCall[map[string]string](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/test",
+		nil,
+		nil,
+		c.Headers,
+	)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -89,7 +105,14 @@ func TestDoJSON_NilBodyAndDst(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL, "")
-	err := c.doJSON(context.Background(), "GET", "/test", nil, nil)
+	_, err := core.HttpClientCall[map[string]string](
+		context.Background(),
+		"GET",
+		c.BaseURL+"/test",
+		nil,
+		nil,
+		c.Headers,
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -105,7 +128,14 @@ func TestDoJSON_NoAuth(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL, "")
-	err := c.doJSON(context.Background(), "GET", "/test", nil, nil)
+	_, err := core.HttpClientCall[map[string]string](
+		context.Background(),
+		"GET",
+		c.BaseURL+"/test",
+		nil,
+		nil,
+		c.Headers,
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

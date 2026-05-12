@@ -1,4 +1,4 @@
-package zhipu
+package qwen
 
 import (
 	"context"
@@ -8,25 +8,26 @@ import (
 	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
-const defaultBaseURL = "https://open.bigmodel.cn/api/paas/v4"
+const defaultBaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 type Provider struct {
 	client *openaicompat.Client
 }
 
-// New creates a new Zhipu AI provider with the given API key.
+// New creates a new Qwen provider with the given API key.
 // Options can be used to customize the base URL or HTTP client.
 func New(apiKey string, opts ...Option) (core.Provider, error) {
 	p := &Provider{
 		client: openaicompat.NewClient(defaultBaseURL, apiKey),
 	}
+	p.client.ChatCompletionPath = "/chat/completions"
 	for _, o := range opts {
 		o(p)
 	}
 	return p, nil
 }
 
-// Option configures the Zhipu provider.
+// Option configures the Qwen provider.
 type Option func(*Provider)
 
 // WithBaseURL sets a custom API base URL.
@@ -45,10 +46,10 @@ func WithHTTPClient(client *http.Client) Option {
 
 // Name returns the provider name.
 func (p *Provider) Name() string {
-	return "zhipu"
+	return "qwen"
 }
 
-// LanguageModel creates a new Zhipu language model for the given model ID.
+// LanguageModel creates a new Qwen language model for the given model ID.
 func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.LanguageModel, error) {
 	return &LanguageModel{
 		provider: p,
@@ -57,8 +58,8 @@ func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.Lang
 	}, nil
 }
 
-// ProviderOptions holds Zhipu-specific request options.
+// ProviderOptions holds Qwen-specific request options.
 type ProviderOptions struct{}
 
 // ProviderName returns the provider name for these options.
-func (ProviderOptions) ProviderName() string { return "zhipu" }
+func (ProviderOptions) ProviderName() string { return "qwen" }

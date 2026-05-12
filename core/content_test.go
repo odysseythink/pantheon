@@ -127,6 +127,58 @@ func TestMessageUnmarshal_UnknownPartType(t *testing.T) {
 	}
 }
 
+func TestUnmarshalContentPart_InvalidJSON(t *testing.T) {
+	cases := []string{
+		`{"type": "text", "text": 123}`,
+		`{"type": "reasoning", "text": 123}`,
+		`{"type": "image", "url": 123}`,
+		`{"type": "audio", "url": 123}`,
+		`{"type": "document", "data": 123}`,
+		`{"type": "tool_call", "id": 123}`,
+		`{"type": "tool_result", "tool_call_id": 123}`,
+	}
+	for _, c := range cases {
+		var msg Message
+		data := []byte(`{"role": "user", "content": [` + c + `]}`)
+		if err := json.Unmarshal(data, &msg); err == nil {
+			t.Errorf("expected error for invalid JSON: %s", c)
+		}
+	}
+}
+
+func TestMessageUnmarshal_InvalidJSON(t *testing.T) {
+	var msg Message
+	if err := json.Unmarshal([]byte(`{invalid`), &msg); err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestToolResultPartUnmarshal_InvalidJSON(t *testing.T) {
+	var trp ToolResultPart
+	if err := json.Unmarshal([]byte(`{invalid`), &trp); err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestToolResultPartUnmarshal_InvalidNestedContent(t *testing.T) {
+	data := []byte(`{"tool_call_id": "c1", "name": "search", "content": [{"type": "unknown"}], "is_error": false}`)
+	var trp ToolResultPart
+	if err := json.Unmarshal(data, &trp); err == nil {
+		t.Fatal("expected error for invalid nested content")
+	}
+}
+
+func TestContentPart_Interface(t *testing.T) {
+	// contentPart() is a marker method; calling it ensures coverage.
+	TextPart{}.contentPart()
+	ReasoningPart{}.contentPart()
+	ImagePart{}.contentPart()
+	AudioPart{}.contentPart()
+	DocumentPart{}.contentPart()
+	ToolCallPart{}.contentPart()
+	ToolResultPart{}.contentPart()
+}
+
 func TestToolResultPartRoundTrip(t *testing.T) {
 	msg := Message{
 		Role: RoleTool,
@@ -174,5 +226,21 @@ func TestToolResultPartRoundTrip(t *testing.T) {
 	}
 	if ip, ok := trp.Content[1].(ImagePart); !ok || ip.URL != "http://example.com/img.png" {
 		t.Errorf("nested image part: got %+v", trp.Content[1])
+	}
+}
+
+func TestMessageUnmarshalJSON_DirectError(t *testing.T) {
+	var m Message
+	if err := m.UnmarshalJSON([]byte(`{invalid`)); err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestUnmarshalContentPart_InvalidTypeJSON(t *testing.T) {
+	// Valid Message structure but content element is not valid JSON for type extraction
+	data := []byte(`{"role": "user", "content": ["not-a-json-object"]}`)
+	var msg Message
+	if err := json.Unmarshal(data, &msg); err == nil {
+		t.Fatal("expected error for invalid content element JSON")
 	}
 }

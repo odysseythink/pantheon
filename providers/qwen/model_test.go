@@ -1,4 +1,4 @@
-package deepseek
+package qwen
 
 import (
 	"context"
@@ -14,11 +14,11 @@ import (
 
 func TestGenerate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/chat/completions" {
+		if r.URL.Path != "/chat/completions" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		resp := openaicompat.ChatCompletionResponse{
-			Model: "deepseek-chat",
+			Model: "qwen-plus",
 			Choices: []openaicompat.Choice{{
 				Message: openaicompat.Message{
 					Role:    "assistant",
@@ -33,7 +33,7 @@ func TestGenerate(t *testing.T) {
 	defer server.Close()
 
 	p, _ := New("test-key", WithBaseURL(server.URL))
-	model, _ := p.LanguageModel(context.Background(), "deepseek-chat")
+	model, _ := p.LanguageModel(context.Background(), "qwen-plus")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
 		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
@@ -55,7 +55,7 @@ func TestGenerate(t *testing.T) {
 func TestGenerateWithTool(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := openaicompat.ChatCompletionResponse{
-			Model: "deepseek-chat",
+			Model: "qwen-plus",
 			Choices: []openaicompat.Choice{{
 				Message: openaicompat.Message{
 					Role: "assistant",
@@ -76,7 +76,7 @@ func TestGenerateWithTool(t *testing.T) {
 	defer server.Close()
 
 	p, _ := New("test-key", WithBaseURL(server.URL))
-	model, _ := p.LanguageModel(context.Background(), "deepseek-chat")
+	model, _ := p.LanguageModel(context.Background(), "qwen-plus")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
 		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather?"}}}},
@@ -100,7 +100,7 @@ func TestGenerateWithTool(t *testing.T) {
 func TestGenerateObject(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := openaicompat.ChatCompletionResponse{
-			Model: "deepseek-chat",
+			Model: "qwen-plus",
 			Choices: []openaicompat.Choice{{
 				Message: openaicompat.Message{
 					Role:    "assistant",
@@ -114,7 +114,7 @@ func TestGenerateObject(t *testing.T) {
 	defer server.Close()
 
 	p, _ := New("test-key", WithBaseURL(server.URL))
-	model, _ := p.LanguageModel(context.Background(), "deepseek-chat")
+	model, _ := p.LanguageModel(context.Background(), "qwen-plus")
 
 	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
 		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate an object"}}}},
@@ -140,7 +140,7 @@ func TestGenerateObject(t *testing.T) {
 
 func TestStream(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/chat/completions" {
+		if r.URL.Path != "/chat/completions" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -151,13 +151,13 @@ func TestStream(t *testing.T) {
 		}
 
 		chunks := []openaicompat.ChatCompletionResponse{
-			{Model: "deepseek-chat", Choices: []openaicompat.Choice{{
+			{Model: "qwen-plus", Choices: []openaicompat.Choice{{
 				Delta: openaicompat.Message{Role: "assistant", Content: "Hello"},
 			}}},
-			{Model: "deepseek-chat", Choices: []openaicompat.Choice{{
+			{Model: "qwen-plus", Choices: []openaicompat.Choice{{
 				Delta: openaicompat.Message{Content: " world"},
 			}}},
-			{Model: "deepseek-chat", Choices: []openaicompat.Choice{{
+			{Model: "qwen-plus", Choices: []openaicompat.Choice{{
 				Delta:        openaicompat.Message{Content: ""},
 				FinishReason: ptr("stop"),
 			}}},
@@ -173,7 +173,7 @@ func TestStream(t *testing.T) {
 	defer server.Close()
 
 	p, _ := New("test-key", WithBaseURL(server.URL))
-	model, _ := p.LanguageModel(context.Background(), "deepseek-chat")
+	model, _ := p.LanguageModel(context.Background(), "qwen-plus")
 
 	stream, err := model.Stream(context.Background(), &core.Request{
 		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
@@ -205,6 +205,115 @@ func TestStream(t *testing.T) {
 	}
 	if finishReason != "stop" {
 		t.Errorf("finish reason: got %q, want stop", finishReason)
+	}
+}
+
+func TestGenerateObject_ToolMode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := openaicompat.ChatCompletionResponse{
+			Model: "qwen-plus",
+			Choices: []openaicompat.Choice{{
+				Message: openaicompat.Message{
+					Role: "assistant",
+					ToolCalls: []openaicompat.ToolCall{{
+						ID:   "call_1",
+						Type: "function",
+						Function: struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						}{Name: "generate_object", Arguments: `{"name":"tool","value":99}`},
+					}},
+				},
+				FinishReason: ptr("tool_calls"),
+			}},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p, _ := New("test-key", WithBaseURL(server.URL))
+	model, _ := p.LanguageModel(context.Background(), "qwen-plus")
+
+	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate an object"}}}},
+		Schema: &core.Schema{Type: "object", Properties: map[string]*core.Schema{
+			"name":  {Type: "string"},
+			"value": {Type: "integer"},
+		}},
+		Mode: core.ObjectModeTool,
+	})
+	if err != nil {
+		t.Fatalf("generate object: %v", err)
+	}
+	if resp.Object == nil {
+		t.Fatal("expected object")
+	}
+	if resp.Object["name"] != "tool" {
+		t.Errorf("unexpected name: %+v", resp.Object)
+	}
+	if resp.Object["value"] != float64(99) {
+		t.Errorf("unexpected value: %+v", resp.Object)
+	}
+}
+
+func TestGenerateObject_TextMode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := openaicompat.ChatCompletionResponse{
+			Model: "qwen-plus",
+			Choices: []openaicompat.Choice{{
+				Message: openaicompat.Message{
+					Role:    "assistant",
+					Content: `{"name":"text","value":42}`,
+				},
+				FinishReason: ptr("stop"),
+			}},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	p, _ := New("test-key", WithBaseURL(server.URL))
+	model, _ := p.LanguageModel(context.Background(), "qwen-plus")
+
+	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate an object"}}}},
+		Schema: &core.Schema{Type: "object", Properties: map[string]*core.Schema{
+			"name":  {Type: "string"},
+			"value": {Type: "integer"},
+		}},
+		Mode: core.ObjectModeText,
+	})
+	if err != nil {
+		t.Fatalf("generate object: %v", err)
+	}
+	if resp.Object == nil {
+		t.Fatal("expected object")
+	}
+	if resp.Object["name"] != "text" {
+		t.Errorf("unexpected name: %+v", resp.Object)
+	}
+	if resp.Object["value"] != float64(42) {
+		t.Errorf("unexpected value: %+v", resp.Object)
+	}
+}
+
+func TestGenerateObject_Error(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]any{"error": "invalid key"})
+	}))
+	defer server.Close()
+
+	p, _ := New("test-key", WithBaseURL(server.URL))
+	model, _ := p.LanguageModel(context.Background(), "qwen-plus")
+
+	_, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
+		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate an object"}}}},
+		Schema:   &core.Schema{Type: "object"},
+		Mode:     core.ObjectModeAuto,
+	})
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }
 

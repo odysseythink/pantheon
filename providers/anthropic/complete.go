@@ -43,8 +43,19 @@ func (c *Client) Messages(ctx context.Context, model string, req *core.Request) 
 		}
 	}
 
-	var resp MessagesResponse
-	if err := c.doJSON(ctx, "POST", "/v1/messages", anthropicReq, &resp); err != nil {
+	resp, err := core.HttpClientCall[MessagesResponse](
+		ctx,
+		"POST",
+		c.BaseURL+"/v1/messages",
+		nil,
+		anthropicReq,
+		map[string]string{
+			"Content-Type":      "application/json",
+			"x-api-key":         c.APIKey,
+			"anthropic-version": "2023-06-01",
+		},
+	)
+	if err != nil {
 		return nil, err
 	}
 	return ToCoreResponse(&resp, model)

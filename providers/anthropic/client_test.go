@@ -59,8 +59,18 @@ func TestDoJSON_200OK(t *testing.T) {
 	c := NewClient("test-key")
 	c.BaseURL = server.URL
 
-	var dst map[string]string
-	err := c.doJSON(context.Background(), "POST", "/v1/test", map[string]string{"hello": "world"}, &dst)
+	dst, err := core.HttpClientCall[map[string]string](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/v1/test",
+		nil,
+		map[string]string{"hello": "world"},
+		map[string]string{
+			"Content-Type":      "application/json",
+			"x-api-key":         c.APIKey,
+			"anthropic-version": "2023-06-01",
+		},
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -80,7 +90,18 @@ func TestDoJSON_400Error(t *testing.T) {
 	c := NewClient("test-key")
 	c.BaseURL = server.URL
 
-	err := c.doJSON(context.Background(), "POST", "/v1/test", nil, nil)
+	_, err := core.HttpClientCall[MessagesResponse](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/v1/test",
+		nil,
+		nil,
+		map[string]string{
+			"Content-Type":      "application/json",
+			"x-api-key":         c.APIKey,
+			"anthropic-version": "2023-06-01",
+		},
+	)
 	if err == nil {
 		t.Fatal("expected error")
 	}

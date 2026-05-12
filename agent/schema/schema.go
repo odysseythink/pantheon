@@ -9,6 +9,9 @@ import (
 	"github.com/odysseythink/pantheon/core"
 )
 
+// jsonMarshal is a variable alias for json.Marshal, allowing tests to inject failures.
+var jsonMarshal = json.Marshal
+
 // Generate creates a JSON Schema from a Go type.
 // This delegates to core.GenerateSchema.
 func Generate(t reflect.Type) *core.Schema {
@@ -94,7 +97,7 @@ func RepairToolCall(toolCall *core.ToolCallPart, schema *core.Schema) (*core.Too
 		return nil, fmt.Errorf("unable to repair tool call arguments: %w", err)
 	}
 
-	repairedJSON, err := json.Marshal(repaired)
+	repairedJSON, err := jsonMarshal(repaired)
 	if err != nil {
 		return nil, fmt.Errorf("unable to marshal repaired arguments: %w", err)
 	}
