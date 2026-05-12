@@ -61,12 +61,21 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 
 		for scanner.Scan() {
 			line := scanner.Text()
-			if !strings.HasPrefix(line, "data: ") {
+			if line == "" {
 				continue
 			}
-			data := strings.TrimPrefix(line, "data: ")
-			if data == "[DONE]" {
-				break
+			// Support SSE with or without space after "data:" and ndjson ("{...}") formats.
+			var data string
+			if strings.HasPrefix(line, "data:") {
+				data = strings.TrimPrefix(line, "data:")
+				data = strings.TrimPrefix(data, " ") // optional space
+				if data == "[DONE]" {
+					break
+				}
+			} else if len(line) > 0 && (line[0] == '{' || line[0] == '[') {
+				data = line
+			} else {
+				continue
 			}
 
 			var chunk ChatCompletionResponse

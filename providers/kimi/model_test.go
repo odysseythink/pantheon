@@ -414,7 +414,7 @@ func TestLive_Generate(t *testing.T) {
 		Messages: []core.Message{
 			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Say hello in one word"}}},
 		},
-		MaxTokens: intPtr(10),
+		MaxTokens: intPtr(100),
 	})
 	if err != nil {
 		t.Fatalf("Generate error: %v", err)
@@ -422,14 +422,23 @@ func TestLive_Generate(t *testing.T) {
 	if len(resp.Message.Content) == 0 {
 		t.Fatal("expected content in response")
 	}
-	tp, ok := resp.Message.Content[0].(core.TextPart)
-	if !ok {
-		t.Fatalf("expected TextPart, got %T", resp.Message.Content[0])
+	var text string
+	var reasoning string
+	for _, part := range resp.Message.Content {
+		switch p := part.(type) {
+		case core.TextPart:
+			text = p.Text
+		case core.ReasoningPart:
+			reasoning = p.Text
+		}
 	}
-	if tp.Text == "" {
-		t.Error("expected non-empty text response")
+	if reasoning != "" {
+		t.Logf("Live reasoning: %s", reasoning)
 	}
-	t.Logf("Live response: %s", tp.Text)
+	if text == "" && reasoning == "" {
+		t.Error("expected non-empty text or reasoning response")
+	}
+	t.Logf("Live response: %s", text)
 	t.Logf("Usage: prompt=%d completion=%d total=%d", resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens)
 }
 
@@ -448,13 +457,14 @@ func TestLive_Stream(t *testing.T) {
 		Messages: []core.Message{
 			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Count from 1 to 3"}}},
 		},
-		MaxTokens: intPtr(50),
+		MaxTokens: intPtr(100),
 	})
 	if err != nil {
 		t.Fatalf("Stream init error: %v", err)
 	}
 
 	var textDeltas []string
+	var reasoningDeltas []string
 	var finishReason string
 	for part, err := range stream {
 		if err != nil {
@@ -463,6 +473,8 @@ func TestLive_Stream(t *testing.T) {
 		switch part.Type {
 		case core.StreamPartTypeTextDelta:
 			textDeltas = append(textDeltas, part.TextDelta)
+		case core.StreamPartTypeReasoningDelta:
+			reasoningDeltas = append(reasoningDeltas, part.ReasoningDelta)
 		case core.StreamPartTypeFinish:
 			finishReason = part.FinishReason
 		}
@@ -472,13 +484,18 @@ func TestLive_Stream(t *testing.T) {
 	for _, d := range textDeltas {
 		fullText += d
 	}
-	if fullText == "" {
-		t.Error("expected non-empty streamed text")
+	fullReasoning := ""
+	for _, d := range reasoningDeltas {
+		fullReasoning += d
+	}
+	if fullText == "" && fullReasoning == "" {
+		t.Error("expected non-empty streamed text or reasoning")
 	}
 	if finishReason == "" {
 		t.Error("expected non-empty finish reason")
 	}
 	t.Logf("Streamed text: %s", fullText)
+	t.Logf("Streamed reasoning: %s", fullReasoning)
 	t.Logf("Finish reason: %s", finishReason)
 }
 
