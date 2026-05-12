@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/odysseythink/pantheon/core"
@@ -125,19 +126,20 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 			}
 
 			if chunk.Choices[0].FinishReason != nil {
-				for _, tc := range toolCalls {
-					sp := &core.StreamPart{
-						Type:     core.StreamPartTypeToolCall,
-						ToolCall: tc,
-					}
+				fr := *chunk.Choices[0].FinishReason
+				// Sort indices to yield tool calls in deterministic order
+				indices := make([]int, 0, len(toolCalls))
+				for idx := range toolCalls {
+					indices = append(indices, idx)
+				}
+				sort.Ints(indices)
+				for _, idx := range indices {
+					sp := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: toolCalls[idx]}
 					if !yield(sp, nil) {
 						return
 					}
 				}
-				sp := &core.StreamPart{
-					Type:         core.StreamPartTypeFinish,
-					FinishReason: *chunk.Choices[0].FinishReason,
-				}
+				sp := &core.StreamPart{Type: core.StreamPartTypeFinish, FinishReason: fr}
 				if !yield(sp, nil) {
 					return
 				}
