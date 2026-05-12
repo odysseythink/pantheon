@@ -77,13 +77,10 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 
 			if len(chunk.Choices) == 0 {
 				if chunk.Usage != nil {
+					usage := parseUsage(chunk.Usage)
 					sp := &core.StreamPart{
-						Type: core.StreamPartTypeUsage,
-						Usage: &core.Usage{
-							PromptTokens:     chunk.Usage.PromptTokens,
-							CompletionTokens: chunk.Usage.CompletionTokens,
-							TotalTokens:      chunk.Usage.TotalTokens,
-						},
+						Type:  core.StreamPartTypeUsage,
+						Usage: &usage,
 					}
 					if !yield(sp, nil) {
 						return
