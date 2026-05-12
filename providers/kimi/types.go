@@ -14,8 +14,7 @@ type ChatCompletionRequest struct {
 	Stream          bool           `json:"stream,omitempty"`
 	StreamOptions   *StreamOptions `json:"stream_options,omitempty"`
 	ReasoningEffort string         `json:"reasoning_effort,omitempty"`
-	PromptCacheKey  string         `json:"prompt_cache_key,omitempty"`
-	ExtraBody       map[string]any `json:"-,omitempty"`
+	PromptCacheKey  string `json:"prompt_cache_key,omitempty"`
 }
 
 // Message is a single message in the Kimi chat format.

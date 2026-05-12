@@ -41,7 +41,11 @@ func buildRequestBody(model string, req *core.Request, opts ProviderOptions) (ma
 	if len(req.Tools) > 0 {
 		tools := make([]Tool, 0, len(req.Tools))
 		for _, t := range req.Tools {
-			tools = append(tools, toKimiTool(t))
+			tool, err := toKimiTool(t)
+			if err != nil {
+				return nil, err
+			}
+			tools = append(tools, tool)
 		}
 		body["tools"] = tools
 		body["tool_choice"] = toKimiToolChoice(req.ToolChoice)
@@ -256,18 +260,23 @@ func joinTexts(texts []string) string {
 }
 
 // toKimiTool converts a core.ToolDefinition to Kimi Tool format.
-func toKimiTool(t core.ToolDefinition) Tool {
+func toKimiTool(t core.ToolDefinition) (Tool, error) {
 	if strings.HasPrefix(t.Name, "$") {
 		return Tool{
 			Type:     "builtin_function",
 			Function: Function{Name: t.Name},
-		}
+		}, nil
 	}
 	var params any
 	if t.Parameters != nil {
-		data, _ := json.Marshal(t.Parameters)
+		data, err := json.Marshal(t.Parameters)
+		if err != nil {
+			return Tool{}, fmt.Errorf("kimi: failed to marshal tool parameters: %w", err)
+		}
 		var m map[string]any
-		_ = json.Unmarshal(data, &m)
+		if err := json.Unmarshal(data, &m); err != nil {
+			return Tool{}, fmt.Errorf("kimi: failed to unmarshal tool parameters: %w", err)
+		}
 		params = ensurePropertyTypes(m)
 	}
 	return Tool{
@@ -277,7 +286,7 @@ func toKimiTool(t core.ToolDefinition) Tool {
 			Description: t.Description,
 			Parameters:  params,
 		},
-	}
+	}, nil
 }
 
 // toKimiToolChoice converts a core.ToolChoice to Kimi format.

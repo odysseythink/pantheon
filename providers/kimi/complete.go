@@ -42,6 +42,7 @@ func parseUsage(u *Usage) core.Usage {
 	if u == nil {
 		return core.Usage{}
 	}
+	// TODO: expose cached_tokens via core.Usage once the field is added.
 	cached := 0
 	if u.PromptTokensDetails != nil {
 		cached = u.PromptTokensDetails.CachedTokens

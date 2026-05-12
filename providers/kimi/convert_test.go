@@ -372,7 +372,10 @@ func TestIsEffectivelyEmpty(t *testing.T) {
 }
 
 func TestToKimiTool_Builtin(t *testing.T) {
-	tool := toKimiTool(core.ToolDefinition{Name: "$web_search", Description: "search", Parameters: &core.Schema{Type: "object"}})
+	tool, err := toKimiTool(core.ToolDefinition{Name: "$web_search", Description: "search", Parameters: &core.Schema{Type: "object"}})
+	if err != nil {
+		t.Fatalf("toKimiTool error: %v", err)
+	}
 	if tool.Type != "builtin_function" {
 		t.Errorf("type = %s", tool.Type)
 	}
@@ -388,7 +391,10 @@ func TestToKimiTool_Builtin(t *testing.T) {
 }
 
 func TestToKimiTool_Function(t *testing.T) {
-	tool := toKimiTool(core.ToolDefinition{Name: "get_weather", Description: "Get weather", Parameters: &core.Schema{Type: "object"}})
+	tool, err := toKimiTool(core.ToolDefinition{Name: "get_weather", Description: "Get weather", Parameters: &core.Schema{Type: "object"}})
+	if err != nil {
+		t.Fatalf("toKimiTool error: %v", err)
+	}
 	if tool.Type != "function" {
 		t.Errorf("type = %s", tool.Type)
 	}
