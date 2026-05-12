@@ -51,15 +51,32 @@ func buildRequestBody(model string, req *core.Request, opts ProviderOptions) (ma
 	}
 	if opts.Thinking != nil {
 		body["reasoning_effort"] = thinkingToReasoningEffort(opts.Thinking.Type)
+		extraBody := make(map[string]any)
+		if opts.ExtraBody != nil {
+			for k, v := range opts.ExtraBody {
+				extraBody[k] = v
+			}
+		}
 		thinkingMap := map[string]any{
 			"type": opts.Thinking.Type,
 		}
 		if opts.Thinking.Keep != "" {
 			thinkingMap["keep"] = opts.Thinking.Keep
 		}
-		body["extra_body"] = map[string]any{
-			"thinking": thinkingMap,
+		// Deep-merge the thinking sub-dict: generated fields win, but preserve
+		// extra fields from ExtraBody["thinking"].
+		if existingThinking, ok := extraBody["thinking"].(map[string]any); ok {
+			merged := make(map[string]any, len(existingThinking)+len(thinkingMap))
+			for k, v := range existingThinking {
+				merged[k] = v
+			}
+			for k, v := range thinkingMap {
+				merged[k] = v
+			}
+			thinkingMap = merged
 		}
+		extraBody["thinking"] = thinkingMap
+		body["extra_body"] = extraBody
 	} else if opts.ExtraBody != nil {
 		body["extra_body"] = opts.ExtraBody
 	}

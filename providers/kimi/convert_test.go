@@ -111,6 +111,45 @@ func TestBuildRequestBody_Thinking(t *testing.T) {
 	}
 }
 
+func TestBuildRequestBody_ExtraBodyWithThinking(t *testing.T) {
+	req := &core.Request{
+		Messages: []core.Message{
+			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "hi"}}},
+		},
+	}
+	opts := ProviderOptions{
+		Thinking:  &ThinkingConfig{Type: "enabled", Keep: "all"},
+		ExtraBody: map[string]any{"custom": "value", "thinking": map[string]any{"budget_tokens": 1000}},
+	}
+	body, err := buildRequestBody("kimi-test", req, opts)
+	if err != nil {
+		t.Fatalf("buildRequestBody error: %v", err)
+	}
+	if body["reasoning_effort"] != "high" {
+		t.Errorf("reasoning_effort = %v, want high", body["reasoning_effort"])
+	}
+	extraBody, ok := body["extra_body"].(map[string]any)
+	if !ok {
+		t.Fatalf("extra_body type = %T, want map[string]any", body["extra_body"])
+	}
+	if extraBody["custom"] != "value" {
+		t.Errorf("extra_body.custom = %v, want value", extraBody["custom"])
+	}
+	thinking, ok := extraBody["thinking"].(map[string]any)
+	if !ok {
+		t.Fatalf("thinking type = %T, want map[string]any", extraBody["thinking"])
+	}
+	if thinking["type"] != "enabled" {
+		t.Errorf("thinking.type = %v, want enabled", thinking["type"])
+	}
+	if thinking["keep"] != "all" {
+		t.Errorf("thinking.keep = %v, want all", thinking["keep"])
+	}
+	if thinking["budget_tokens"] != 1000 {
+		t.Errorf("thinking.budget_tokens = %v, want 1000", thinking["budget_tokens"])
+	}
+}
+
 func TestBuildRequestBody_ExtraBodyWithoutThinking(t *testing.T) {
 	req := &core.Request{
 		Messages: []core.Message{
@@ -251,6 +290,35 @@ func TestToKimiMessage_AssistantWithReasoning(t *testing.T) {
 	}
 	if msg.Content != "Result" {
 		t.Errorf("content = %v", msg.Content)
+	}
+}
+
+func TestToKimiMessage_AssistantWithReasoningAndToolCalls(t *testing.T) {
+	msg, err := toKimiMessage(core.Message{
+		Role: core.RoleAssistant,
+		Content: []core.ContentPart{
+			core.ReasoningPart{Text: "Let me think..."},
+			core.TextPart{Text: "   "},
+			core.ToolCallPart{ID: "call_1", Name: "foo", Arguments: `{}`},
+		},
+	})
+	if err != nil {
+		t.Fatalf("toKimiMessage error: %v", err)
+	}
+	if msg.Role != "assistant" {
+		t.Errorf("role = %s, want assistant", msg.Role)
+	}
+	if msg.ReasoningContent != "Let me think..." {
+		t.Errorf("reasoning_content = %v, want 'Let me think...'", msg.ReasoningContent)
+	}
+	if msg.Content != nil {
+		t.Errorf("content = %v, want nil", msg.Content)
+	}
+	if len(msg.ToolCalls) != 1 {
+		t.Fatalf("tool_calls = %v", msg.ToolCalls)
+	}
+	if msg.ToolCalls[0].ID != "call_1" || msg.ToolCalls[0].Function.Name != "foo" {
+		t.Errorf("tool_call = %+v", msg.ToolCalls[0])
 	}
 }
 
