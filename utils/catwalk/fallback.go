@@ -2,7 +2,6 @@ package catwalk
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -30,31 +29,18 @@ func listOpenAIModels(ctx context.Context, apiKey, baseURL string) ([]core.Model
 		return nil, fmt.Errorf("catwalk fallback: baseURL required for OpenAI-compatible provider")
 	}
 	url := strings.TrimSuffix(baseURL, "/") + "/models"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
+	headers := map[string]string{}
 	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+		headers["Authorization"] = "Bearer " + apiKey
 	}
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("catwalk fallback: status %d", resp.StatusCode)
-	}
-
-	var result struct {
+	result, err := core.HttpClientCall[struct {
 		Data []struct {
 			ID   string `json:"id"`
 			Name string `json:"name"`
 		} `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	}](ctx, http.MethodGet, url, nil, nil, headers)
+	if err != nil {
 		return nil, err
 	}
 
@@ -74,32 +60,18 @@ func listAnthropicModels(ctx context.Context, apiKey, baseURL string) ([]core.Mo
 		baseURL = "https://api.anthropic.com"
 	}
 	url := strings.TrimSuffix(baseURL, "/") + "/v1/models"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
+	headers := map[string]string{"anthropic-version": "2023-06-01"}
 	if apiKey != "" {
-		req.Header.Set("x-api-key", apiKey)
-		req.Header.Set("anthropic-version", "2023-06-01")
+		headers["x-api-key"] = apiKey
 	}
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("catwalk fallback: status %d", resp.StatusCode)
-	}
-
-	var result struct {
+	result, err := core.HttpClientCall[struct {
 		Data []struct {
 			ID   string `json:"id"`
 			Name string `json:"display_name"`
 		} `json:"data"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	}](ctx, http.MethodGet, url, nil, nil, headers)
+	if err != nil {
 		return nil, err
 	}
 
@@ -118,28 +90,18 @@ func listGoogleModels(ctx context.Context, apiKey, baseURL string) ([]core.Model
 	if baseURL == "" {
 		baseURL = "https://generativelanguage.googleapis.com"
 	}
-	url := fmt.Sprintf("%s/v1beta/models?key=%s", strings.TrimSuffix(baseURL, "/"), apiKey)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
+	url := strings.TrimSuffix(baseURL, "/") + "/v1beta/models"
+	var query map[string][]string
+	if apiKey != "" {
+		query = map[string][]string{"key": {apiKey}}
 	}
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("catwalk fallback: status %d", resp.StatusCode)
-	}
-
-	var result struct {
+	result, err := core.HttpClientCall[struct {
 		Models []struct {
 			Name string `json:"name"`
 		} `json:"models"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	}](ctx, http.MethodGet, url, query, nil, nil)
+	if err != nil {
 		return nil, err
 	}
 

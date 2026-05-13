@@ -36,8 +36,15 @@ func UploadFile(ctx context.Context, client *Client, data []byte, mimeType strin
 		return "", fmt.Errorf("kimi: close multipart writer: %w", err)
 	}
 
-	var resp FileUploadResponse
-	if err := client.uploadFile(ctx, "/files", &b, writer.FormDataContentType(), &resp); err != nil {
+	resp, err := core.HttpClientCall[FileUploadResponse](
+		ctx,
+		"POST",
+		client.BaseURL+"/files",
+		nil,
+		&b,
+		client.getHeaders(writer.FormDataContentType()),
+	)
+	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("ms://%s", resp.ID), nil

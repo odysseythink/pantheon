@@ -12,11 +12,26 @@ func ToOpenAIMessages(msgs []core.Message, systemPrompt string) ([]Message, erro
 	if systemPrompt != "" {
 		out = append(out, Message{Role: "system", Content: systemPrompt})
 	}
-	for _, m := range msgs {
+	for i, m := range msgs {
+		// RoleTool 消息中包含多个 ToolResultPart 时，拆分成多条 tool 消息
+		if m.Role == core.RoleTool {
+			for _, part := range m.Content {
+				if tr, ok := part.(core.ToolResultPart); ok {
+					out = append(out, Message{
+						Role:       "tool",
+						ToolCallID: tr.ToolCallID,
+						Content:    contentToString(tr.Content),
+					})
+				}
+			}
+			continue
+		}
 		om, err := toOpenAIMessage(m)
 		if err != nil {
+			fmt.Printf("[ToOpenAIMessages] msg[%d] role=%s ERROR: %v\n", i, m.Role, err)
 			return nil, err
 		}
+		fmt.Printf("[ToOpenAIMessages] msg[%d] role=%s tool_call_id=%s content_type=%T content=%v\n", i, om.Role, om.ToolCallID, om.Content, om.Content)
 		out = append(out, om)
 	}
 	return out, nil
@@ -88,8 +103,11 @@ func contentToString(parts []core.ContentPart) string {
 
 func contentToOpenAI(parts []core.ContentPart) (any, error) {
 	if len(parts) == 1 {
-		if p, ok := parts[0].(core.TextPart); ok {
+		switch p := parts[0].(type) {
+		case core.TextPart:
 			return p.Text, nil
+		case core.ToolResultPart:
+			return contentToString(p.Content), nil
 		}
 	}
 	var out []ContentPart
@@ -108,6 +126,8 @@ func contentToOpenAI(parts []core.ContentPart) (any, error) {
 					Detail: p.Detail,
 				},
 			})
+		case core.ToolResultPart:
+			out = append(out, ContentPart{Type: "text", Text: contentToString(p.Content)})
 		default:
 			return nil, fmt.Errorf("openai: unsupported content part in user message: %T", part)
 		}

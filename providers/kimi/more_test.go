@@ -227,7 +227,15 @@ func TestClient_uploadFile_NoDst(t *testing.T) {
 
 	var b strings.Builder
 	b.WriteString("test body")
-	if err := c.uploadFile(context.Background(), "/files", strings.NewReader("test"), "text/plain", nil); err != nil {
+	_, err := core.HttpClientCall[map[string]any](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/files",
+		nil,
+		strings.NewReader("test"),
+		c.getHeaders("text/plain"),
+	)
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -266,7 +274,14 @@ func TestClient_doJSON_RequestError(t *testing.T) {
 func TestClient_uploadFile_RequestError(t *testing.T) {
 	c := newClient("sk-test")
 	c.BaseURL = "://invalid-url"
-	err := c.uploadFile(context.Background(), "/test", strings.NewReader("test"), "text/plain", nil)
+	_, err := core.HttpClientCall[map[string]any](
+		context.Background(),
+		"POST",
+		c.BaseURL+"/test",
+		nil,
+		strings.NewReader("test"),
+		c.getHeaders("text/plain"),
+	)
 	if err == nil {
 		t.Fatal("expected request error")
 	}

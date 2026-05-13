@@ -2,7 +2,6 @@ package catwalk
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync"
@@ -77,24 +76,9 @@ func listFromCatwalk(ctx context.Context, providerName string) ([]core.Model, er
 
 func fetchCatwalk(ctx context.Context) ([]providerEntry, error) {
 	url := catwalkBaseURL + "/v2/providers"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("catwalk: create request: %w", err)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
+	entries, err := core.HttpClientCall[[]providerEntry](ctx, http.MethodGet, url, nil, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("catwalk: %w", ErrCatwalkUnavailable)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("catwalk: unexpected status %d: %w", resp.StatusCode, ErrCatwalkUnavailable)
-	}
-
-	var entries []providerEntry
-	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
-		return nil, fmt.Errorf("catwalk: decode response: %w", err)
 	}
 	return entries, nil
 }

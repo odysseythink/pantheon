@@ -21,6 +21,17 @@ func HttpClientCall[T any](
 	headers map[string]string,
 	timeouts ...int,
 ) (T, error) {
+	return HttpClientCallWithClient[T](nil, ctx, method, call_url, query, payload, headers, timeouts...)
+}
+
+func HttpClientCallWithClient[T any](
+	client *http.Client,
+	ctx context.Context, method, call_url string,
+	query map[string][]string,
+	payload any,
+	headers map[string]string,
+	timeouts ...int,
+) (T, error) {
 	var empty_resp T
 	u, err := url.Parse(call_url)
 	if err != nil {
@@ -46,18 +57,25 @@ func HttpClientCall[T any](
 	call_url = u.String()
 	var bodyReader io.Reader
 	if payload != nil {
-		data, err := json.Marshal(payload)
-		if err != nil {
-			return empty_resp, &ProviderError{
-				Message: err.Error(),
-				Status:  http.StatusInternalServerError,
+		if _, ok := payload.(io.Reader); ok {
+			bodyReader = payload.(io.Reader)
+		} else {
+			data, err := json.Marshal(payload)
+			if err != nil {
+				return empty_resp, &ProviderError{
+					Message: err.Error(),
+					Status:  http.StatusInternalServerError,
+				}
 			}
+			bodyReader = bytes.NewReader(data)
 		}
-		bodyReader = bytes.NewReader(data)
 	}
 
+	if client == nil {
+		client = http.DefaultClient
+	}
 	if len(timeouts) > 0 {
-		http.DefaultClient.Timeout = time.Duration(timeouts[0]) * time.Millisecond
+		client.Timeout = time.Duration(timeouts[0]) * time.Millisecond
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -85,7 +103,7 @@ func HttpClientCall[T any](
 		}
 	}
 	mlog.Debugf("------request=%s", string(dump))
-	resp, err := http.DefaultClient.Do(request)
+	resp, err := client.Do(request)
 	if err != nil {
 		mlog.Errorf("call http url %s[%s] failed:%v", call_url, method, err)
 		return empty_resp, &ProviderError{
