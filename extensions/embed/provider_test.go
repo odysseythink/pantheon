@@ -11,6 +11,10 @@ type mockEmbedProvider struct{}
 
 func (m *mockEmbedProvider) Name() string { return "mock-embed" }
 
+func (m *mockEmbedProvider) Models(ctx context.Context) ([]core.Model, error) {
+	return nil, nil
+}
+
 func (m *mockEmbedProvider) LanguageModel(ctx context.Context, modelID string) (core.LanguageModel, error) {
 	return nil, nil
 }
