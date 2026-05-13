@@ -15,6 +15,9 @@ func TestProviderInterface(t *testing.T) {
 type mockProvider struct{}
 
 func (m *mockProvider) Name() string { return "mock" }
+func (m *mockProvider) Models(ctx context.Context) ([]Model, error) {
+	return nil, nil
+}
 func (m *mockProvider) LanguageModel(ctx context.Context, modelID string) (LanguageModel, error) {
 	return &mockLanguageModel{}, nil
 }

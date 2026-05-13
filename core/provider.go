@@ -5,6 +5,7 @@ import "context"
 // Provider is a factory for language models.
 type Provider interface {
 	Name() string
+	Models(ctx context.Context) ([]Model, error)
 	LanguageModel(ctx context.Context, modelID string) (LanguageModel, error)
 }
 
