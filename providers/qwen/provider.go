@@ -6,6 +6,7 @@ import (
 
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
+	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
 const defaultBaseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
@@ -47,6 +48,11 @@ func WithHTTPClient(client *http.Client) Option {
 // Name returns the provider name.
 func (p *Provider) Name() string {
 	return "qwen"
+}
+
+// Models returns a list of available models from the Qwen API.
+func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
+	return catwalk.ListModels(ctx, p.Name(), p.client.APIKey, p.client.BaseURL)
 }
 
 // LanguageModel creates a new Qwen language model for the given model ID.
