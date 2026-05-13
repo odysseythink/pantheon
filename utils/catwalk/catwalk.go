@@ -37,8 +37,7 @@ func ListModels(ctx context.Context, providerName, apiKey, baseURL string) ([]co
 	if err == nil && len(models) > 0 {
 		return models, nil
 	}
-	// Fallback to vendor API — stub for now (Task 3 implements this)
-	return nil, fmt.Errorf("catwalk: %w (fallback not yet implemented)", err)
+	return fallbackToProvider(ctx, providerName, apiKey, baseURL)
 }
 
 func listFromCatwalk(ctx context.Context, providerName string) ([]core.Model, error) {
