@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
 type Provider struct {
@@ -40,6 +41,11 @@ func WithHTTPClient(httpClient *http.Client) Option {
 
 // Name returns the provider name.
 func (p *Provider) Name() string { return "google" }
+
+// Models returns the list of available models from the Google provider.
+func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
+	return catwalk.ListModels(ctx, p.Name(), p.client.apiKey, p.client.baseURL)
+}
 
 // LanguageModel creates a new Google language model for the given model ID.
 func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.LanguageModel, error) {

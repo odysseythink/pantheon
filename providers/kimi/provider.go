@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
 // Provider is the Moonshot (Kimi) provider.
@@ -25,6 +26,11 @@ func New(apiKey string, opts ...Option) (core.Provider, error) {
 // Name returns the provider name.
 func (p *Provider) Name() string {
 	return "kimi"
+}
+
+// Models returns the list of available models from the Kimi provider.
+func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
+	return catwalk.ListModels(ctx, p.Name(), p.client.APIKey, p.client.BaseURL)
 }
 
 // LanguageModel creates a new Kimi language model for the given model ID.

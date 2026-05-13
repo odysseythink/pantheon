@@ -7,6 +7,7 @@ import (
 
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
+	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
 type Provider struct {
@@ -64,6 +65,11 @@ func WithHTTPClient(client *http.Client) Option {
 // Name returns the provider name.
 func (p *Provider) Name() string {
 	return "azure"
+}
+
+// Models returns the list of available models from the Azure provider.
+func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
+	return catwalk.ListModels(ctx, p.Name(), p.client.APIKey, p.client.BaseURL)
 }
 
 // LanguageModel creates a new Azure language model for the given model ID.

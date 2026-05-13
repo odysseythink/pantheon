@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
 type Provider struct {
@@ -49,6 +50,11 @@ func WithHTTPClient(client *http.Client) Option {
 // Name returns the provider name.
 func (p *Provider) Name() string {
 	return "bedrock"
+}
+
+// Models returns the list of available models from the Bedrock provider.
+func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
+	return catwalk.ListModels(ctx, p.Name(), "", "")
 }
 
 // LanguageModel creates a new Bedrock language model for the given model ID.
