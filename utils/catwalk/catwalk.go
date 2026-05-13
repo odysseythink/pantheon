@@ -13,6 +13,16 @@ import (
 
 var catwalkBaseURL = "https://catwalk.charm.land"
 
+// GetBaseURL returns the current catwalk base URL.
+func GetBaseURL() string { return catwalkBaseURL }
+
+// SetBaseURL sets the catwalk base URL. Returns the previous value.
+func SetBaseURL(url string) string {
+	prev := catwalkBaseURL
+	catwalkBaseURL = url
+	return prev
+}
+
 var (
 	cacheData   []providerEntry
 	cacheExpiry time.Time

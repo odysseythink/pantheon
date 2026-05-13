@@ -235,5 +235,3 @@ func TestChatCompletionStream_InvalidJSON(t *testing.T) {
 	}
 	t.Fatal("expected error from stream")
 }
-
-

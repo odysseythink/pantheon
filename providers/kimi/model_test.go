@@ -11,7 +11,6 @@ import (
 	"github.com/odysseythink/pantheon/core"
 )
 
-
 func TestGenerate(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/chat/completions" {
@@ -397,7 +396,6 @@ func TestGenerate_RequestError(t *testing.T) {
 }
 
 // Live tests against the real Kimi API.
-
 
 func TestLive_Generate(t *testing.T) {
 	key := liveAPIKey(t)

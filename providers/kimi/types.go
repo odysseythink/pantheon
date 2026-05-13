@@ -14,7 +14,7 @@ type ChatCompletionRequest struct {
 	Stream          bool           `json:"stream,omitempty"`
 	StreamOptions   *StreamOptions `json:"stream_options,omitempty"`
 	ReasoningEffort string         `json:"reasoning_effort,omitempty"`
-	PromptCacheKey  string `json:"prompt_cache_key,omitempty"`
+	PromptCacheKey  string         `json:"prompt_cache_key,omitempty"`
 }
 
 // Message is a single message in the Kimi chat format.
@@ -28,8 +28,8 @@ type Message struct {
 
 // ContentPart is a content part in a multimodal user message.
 type ContentPart struct {
-	Type string `json:"type"`
-	Text string `json:"text,omitempty"`
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
 	ImageURL *struct {
 		URL    string `json:"url"`
 		Detail string `json:"detail,omitempty"`

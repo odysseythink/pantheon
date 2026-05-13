@@ -11,7 +11,7 @@ import (
 	"github.com/odysseythink/pantheon/core"
 )
 
-const defaultBaseURL = "https://api.moonshot.ai/v1"
+const defaultBaseURL = "https://api.kimi.com/coding/v1/"
 
 // Client is a Kimi API HTTP client.
 type Client struct {
