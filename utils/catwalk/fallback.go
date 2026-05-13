@@ -12,13 +12,13 @@ import (
 
 func fallbackToProvider(ctx context.Context, providerName, apiKey, baseURL string) ([]core.Model, error) {
 	switch providerName {
-	case "openai", "deepseek", "ollama", "openrouter", "qwen", "wenxin", "zhipu", "minimax", "kimi":
+	case "openai", "deepseek", "ollama", "openrouter", "zhipu", "minimax", "kimi":
 		return listOpenAIModels(ctx, apiKey, baseURL)
 	case "anthropic":
 		return listAnthropicModels(ctx, apiKey, baseURL)
 	case "google":
 		return listGoogleModels(ctx, apiKey, baseURL)
-	case "azure", "bedrock":
+	case "qwen", "wenxin", "azure", "bedrock":
 		return nil, fmt.Errorf("%w: %s", ErrProviderNotSupported, providerName)
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrProviderNotSupported, providerName)
