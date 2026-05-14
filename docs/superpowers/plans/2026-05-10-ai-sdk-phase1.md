@@ -18,8 +18,8 @@ ai/
 ├── core/
 │   ├── provider.go          # Provider, LanguageModel interfaces
 │   ├── model.go             # Request, Response, Usage, Stream types
-│   ├── content.go           # Message, Role, ContentPart types + JSON marshaling
-│   ├── content_test.go      # ContentPart JSON round-trip tests
+│   ├── content.go           # Message, Role, ContentParter types + JSON marshaling
+│   ├── content_test.go      # ContentParter JSON round-trip tests
 │   ├── object.go            # ObjectRequest, ObjectResponse
 │   ├── tool.go              # ToolDefinition, ToolChoice, Schema
 │   ├── errors.go            # Error types + classification helpers
@@ -149,10 +149,10 @@ const (
 
 type Message struct {
 	Role    Role
-	Content []ContentPart
+	Content []ContentParter
 }
 
-type ContentPart interface {
+type ContentParter interface {
 	contentPart()
 	MarshalJSON() ([]byte, error)
 }
@@ -229,7 +229,7 @@ func (p ToolCallPart) MarshalJSON() ([]byte, error) {
 
 type ToolResultPart struct {
 	ToolCallID string        `json:"tool_call_id"`
-	Content    []ContentPart `json:"content"`
+	Content    []ContentParter `json:"content"`
 	IsError    bool          `json:"is_error"`
 }
 
@@ -243,7 +243,7 @@ func (m Message) MarshalJSON() ([]byte, error) {
 	type alias Message
 	return json.Marshal(struct {
 		*alias
-		Content []ContentPart `json:"content"`
+		Content []ContentParter `json:"content"`
 	}{
 		alias:   (*alias)(&m),
 		Content: m.Content,
@@ -328,7 +328,7 @@ import (
 func TestMessageRoundTrip(t *testing.T) {
 	msg := Message{
 		Role: RoleUser,
-		Content: []ContentPart{
+		Content: []ContentParter{
 			TextPart{Text: "hello"},
 			ImagePart{URL: "http://example.com/img.png", Detail: "high"},
 			ToolCallPart{ID: "call_1", Name: "search", Arguments: `{"q":"x"}`},
@@ -813,13 +813,13 @@ type ChatCompletionRequest struct {
 
 type Message struct {
 	Role       string     `json:"role"`
-	Content    any        `json:"content"` // string or []ContentPart
+	Content    any        `json:"content"` // string or []ContentParter
 	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
 	ToolCallID string     `json:"tool_call_id,omitempty"`
 	Name       string     `json:"name,omitempty"`
 }
 
-type ContentPart struct {
+type ContentParter struct {
 	Type     string `json:"type"`
 	Text     string `json:"text,omitempty"`
 	ImageURL *struct {
@@ -921,11 +921,11 @@ func ToOpenAIMessages(msgs []core.Message, systemPrompt string) []Message {
 
 func toOpenAIMessage(m core.Message) Message {
 	switch m.Role {
-	case core.RoleSystem:
+	case core.MESSAGE_ROLE_SYSTEM:
 		return Message{Role: "system", Content: contentToString(m.Content)}
-	case core.RoleUser:
+	case core.MESSAGE_ROLE_USER:
 		return Message{Role: "user", Content: contentToOpenAI(m.Content)}
-	case core.RoleAssistant:
+	case core.MESSAGE_ROLE_ASSISTANT:
 		msg := Message{Role: "assistant"}
 		var textParts []string
 		for _, part := range m.Content {
@@ -952,7 +952,7 @@ func toOpenAIMessage(m core.Message) Message {
 			msg.Content = joinTexts(textParts)
 		}
 		return msg
-	case core.RoleTool:
+	case core.MESSAGE_ROLE_TOOL:
 		if len(m.Content) > 0 {
 			return Message{
 				Role:       "tool",
@@ -964,7 +964,7 @@ func toOpenAIMessage(m core.Message) Message {
 	return Message{Role: string(m.Role), Content: contentToString(m.Content)}
 }
 
-func contentToString(parts []core.ContentPart) string {
+func contentToString(parts []core.ContentParter) string {
 	var texts []string
 	for _, part := range parts {
 		if p, ok := part.(core.TextPart); ok {
@@ -974,19 +974,19 @@ func contentToString(parts []core.ContentPart) string {
 	return joinTexts(texts)
 }
 
-func contentToOpenAI(parts []core.ContentPart) any {
+func contentToOpenAI(parts []core.ContentParter) any {
 	if len(parts) == 1 {
 		if p, ok := parts[0].(core.TextPart); ok {
 			return p.Text
 		}
 	}
-	var out []ContentPart
+	var out []ContentParter
 	for _, part := range parts {
 		switch p := part.(type) {
 		case core.TextPart:
-			out = append(out, ContentPart{Type: "text", Text: p.Text})
+			out = append(out, ContentParter{Type: "text", Text: p.Text})
 		case core.ImagePart:
-			out = append(out, ContentPart{
+			out = append(out, ContentParter{
 				Type: "image_url",
 				ImageURL: &struct {
 					URL    string `json:"url"`
@@ -1001,7 +1001,7 @@ func contentToOpenAI(parts []core.ContentPart) any {
 	return out
 }
 
-func toolResultCallID(parts []core.ContentPart) string {
+func toolResultCallID(parts []core.ContentParter) string {
 	for _, part := range parts {
 		if p, ok := part.(core.ToolResultPart); ok {
 			return p.ToolCallID
@@ -1043,7 +1043,7 @@ func ToCoreResponse(resp *ChatCompletionResponse, model string) (*core.Response,
 		return nil, fmt.Errorf("no choices in response")
 	}
 	choice := resp.Choices[0]
-	msg := core.Message{Role: core.RoleAssistant}
+	msg := core.Message{Role: core.MESSAGE_ROLE_ASSISTANT}
 
 	if text, ok := choice.Message.Content.(string); ok && text != "" {
 		msg.Content = append(msg.Content, core.TextPart{Text: text})
@@ -1779,7 +1779,7 @@ import (
 func ToAnthropicMessages(msgs []core.Message) ([]Message, error) {
 	var out []Message
 	for _, m := range msgs {
-		if m.Role == core.RoleSystem {
+		if m.Role == core.MESSAGE_ROLE_SYSTEM {
 			continue // system handled separately
 		}
 		content, err := toAnthropicContent(m.Content)
@@ -1787,7 +1787,7 @@ func ToAnthropicMessages(msgs []core.Message) ([]Message, error) {
 			return nil, err
 		}
 		role := "user"
-		if m.Role == core.RoleAssistant {
+		if m.Role == core.MESSAGE_ROLE_ASSISTANT {
 			role = "assistant"
 		}
 		out = append(out, Message{Role: role, Content: content})
@@ -1795,7 +1795,7 @@ func ToAnthropicMessages(msgs []core.Message) ([]Message, error) {
 	return out, nil
 }
 
-func toAnthropicContent(parts []core.ContentPart) ([]Content, error) {
+func toAnthropicContent(parts []core.ContentParter) ([]Content, error) {
 	var out []Content
 	for _, part := range parts {
 		switch p := part.(type) {
@@ -1826,7 +1826,7 @@ func toAnthropicContent(parts []core.ContentPart) ([]Content, error) {
 	return out, nil
 }
 
-func contentToString(parts []core.ContentPart) string {
+func contentToString(parts []core.ContentParter) string {
 	var texts []string
 	for _, part := range parts {
 		if p, ok := part.(core.TextPart); ok {
@@ -1858,7 +1858,7 @@ func ToAnthropicTools(tools []core.ToolDefinition) []Tool {
 
 // ToCoreResponse converts Anthropic response to core.Response.
 func ToCoreResponse(resp *MessagesResponse, model string) (*core.Response, error) {
-	msg := core.Message{Role: core.RoleAssistant}
+	msg := core.Message{Role: core.MESSAGE_ROLE_ASSISTANT}
 	for _, c := range resp.Content {
 		switch c.Type {
 		case "text":
@@ -2455,7 +2455,7 @@ func TestGenerate(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "gpt-4")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("generate: %v", err)
@@ -2498,7 +2498,7 @@ func TestGenerateWithTool(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "gpt-4")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather?"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Weather?"}}}},
 		Tools: []core.ToolDefinition{{
 			Name:        "get_weather",
 			Description: "Get weather",
@@ -2558,7 +2558,7 @@ func TestAnthropicGenerate(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "claude-3-opus")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("generate: %v", err)
@@ -2631,7 +2631,7 @@ git commit -m "chore: tidy dependencies"
 
 **2. Placeholder scan:** No TBD, TODO, or vague steps found.
 
-**3. Type consistency:** All types match across tasks. `core.StreamResponse` is `iter.Seq2[*StreamPart, error]` consistently. `core.ContentPart` is used uniformly.
+**3. Type consistency:** All types match across tasks. `core.StreamResponse` is `iter.Seq2[*StreamPart, error]` consistently. `core.ContentParter` is used uniformly.
 
 ---
 

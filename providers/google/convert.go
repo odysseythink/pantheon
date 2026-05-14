@@ -13,11 +13,11 @@ func toGeminiMessages(msgs []core.Message) ([]Content, error) {
 	for _, m := range msgs {
 		role := "user"
 		switch m.Role {
-		case core.RoleUser:
+		case core.MESSAGE_ROLE_USER:
 			role = "user"
-		case core.RoleAssistant:
+		case core.MESSAGE_ROLE_ASSISTANT:
 			role = "model"
-		case core.RoleTool:
+		case core.MESSAGE_ROLE_TOOL:
 			role = "user"
 		}
 		parts, err := toGeminiParts(m.Content)
@@ -29,7 +29,7 @@ func toGeminiMessages(msgs []core.Message) ([]Content, error) {
 	return out, nil
 }
 
-func toGeminiParts(parts []core.ContentPart) ([]Part, error) {
+func toGeminiParts(parts []core.ContentParter) ([]Part, error) {
 	var out []Part
 	for _, part := range parts {
 		switch p := part.(type) {
@@ -77,7 +77,7 @@ func toGeminiParts(parts []core.ContentPart) ([]Part, error) {
 	return out, nil
 }
 
-func contentToString(parts []core.ContentPart) string {
+func contentToString(parts []core.ContentParter) string {
 	var texts []string
 	for _, part := range parts {
 		if p, ok := part.(core.TextPart); ok {
@@ -135,7 +135,7 @@ func toCoreResponse(resp *GenerateContentResponse, model string) (*core.Response
 	}
 
 	candidate := resp.Candidates[0]
-	msg := core.Message{Role: core.RoleAssistant}
+	msg := core.Message{Role: core.MESSAGE_ROLE_ASSISTANT}
 
 	for _, part := range candidate.Content.Parts {
 		if part.Text != "" {

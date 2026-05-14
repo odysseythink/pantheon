@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/types"
 )
 
 func TestChatCompletion_Success(t *testing.T) {
@@ -29,7 +30,7 @@ func TestChatCompletion_Success(t *testing.T) {
 
 	c := NewClient(server.URL, "sk-test")
 	resp, err := c.ChatCompletion(context.Background(), "gpt-4", &core.Request{
-		Messages:     []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages:     []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 		SystemPrompt: "Be helpful",
 	})
 	if err != nil {
@@ -52,7 +53,7 @@ func TestChatCompletion_Error(t *testing.T) {
 
 	c := NewClient(server.URL, "sk-bad")
 	_, err := c.ChatCompletion(context.Background(), "gpt-4", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err == nil {
 		t.Fatal("expected error")
@@ -76,7 +77,7 @@ func TestChatCompletion_WithTools(t *testing.T) {
 			Choices: []Choice{{
 				Message: Message{
 					Role: "assistant",
-					ToolCalls: []ToolCall{{
+					ToolCalls: []types.ToolCall{{
 						ID:   "call_1",
 						Type: "function",
 						Function: struct {
@@ -94,7 +95,7 @@ func TestChatCompletion_WithTools(t *testing.T) {
 
 	c := NewClient(server.URL, "sk-test")
 	resp, err := c.ChatCompletion(context.Background(), "gpt-4", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather?"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Weather?"}}}},
 		Tools: []core.ToolDefinition{{
 			Name:        "get_weather",
 			Description: "Get weather",
@@ -132,7 +133,7 @@ func TestChatCompletion_WithResponseFormat(t *testing.T) {
 
 	c := NewClient(server.URL, "sk-test")
 	_, err := c.ChatCompletion(context.Background(), "gpt-4", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate JSON"}}}},
+		Messages:       []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Generate JSON"}}}},
 		ResponseFormat: &core.ResponseFormat{Type: core.ResponseFormatTypeJSON},
 	})
 	if err != nil {
@@ -159,7 +160,7 @@ func TestChatCompletion_CustomPath(t *testing.T) {
 	c := NewClient(server.URL, "sk-test")
 	c.ChatCompletionPath = "/custom/path"
 	_, err := c.ChatCompletion(context.Background(), "gpt-4", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

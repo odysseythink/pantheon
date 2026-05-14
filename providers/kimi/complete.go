@@ -11,7 +11,7 @@ func parseCompletionResponse(resp *ChatCompletionResponse, model string) (*core.
 		return nil, errors.New("kimi: no choices in response")
 	}
 	choice := resp.Choices[0]
-	msg := core.Message{Role: core.RoleAssistant}
+	msg := core.Message{Role: core.MESSAGE_ROLE_ASSISTANT}
 	if choice.Message.ReasoningContent != "" {
 		msg.Content = append(msg.Content, core.ReasoningPart{Text: choice.Message.ReasoningContent})
 	}

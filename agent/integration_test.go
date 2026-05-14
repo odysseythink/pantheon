@@ -38,9 +38,9 @@ func TestIntegration_RunNoTools(t *testing.T) {
 	lm := newIntegrationModel(t, apiKey, model)
 
 	a := New(lm, WithMaxSteps(5))
-	res, err := a.Run(context.Background(), &Request{
+	res, err := a.Run(context.Background(), &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Say hello in one word."}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Say hello in one word."}}},
 		},
 	})
 	if err != nil {
@@ -74,9 +74,9 @@ func TestIntegration_RunWithTool(t *testing.T) {
 		return `{"temperature": 22, "condition": "sunny"}`, nil
 	})
 
-	res, err := a.Run(context.Background(), &Request{
+	res, err := a.Run(context.Background(), &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "What is the weather in Paris?"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "What is the weather in Paris?"}}},
 		},
 		Tools: []core.ToolDefinition{{
 			Name:        "get_weather",
@@ -132,9 +132,9 @@ func TestIntegration_RunStream(t *testing.T) {
 
 	var textDeltas []string
 	var lastUsage *core.Usage
-	for event, err := range a.RunStream(context.Background(), &Request{
+	for event, err := range a.RunStream(context.Background(), &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Count from 1 to 3."}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Count from 1 to 3."}}},
 		},
 	}) {
 		if err != nil {

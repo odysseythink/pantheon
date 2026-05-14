@@ -1,5 +1,7 @@
 package kimi
 
+import "github.com/odysseythink/pantheon/types"
+
 // ChatCompletionRequest is the request body for Kimi chat completions.
 type ChatCompletionRequest struct {
 	Model           string         `json:"model"`
@@ -19,15 +21,15 @@ type ChatCompletionRequest struct {
 
 // Message is a single message in the Kimi chat format.
 type Message struct {
-	Role             string     `json:"role"`
-	Content          any        `json:"content,omitempty"`
-	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID       string     `json:"tool_call_id,omitempty"`
-	ReasoningContent string     `json:"reasoning_content,omitempty"`
+	Role             string           `json:"role"`
+	Content          any              `json:"content,omitempty"`
+	ToolCalls        []types.ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID       string           `json:"tool_call_id,omitempty"`
+	ReasoningContent string           `json:"reasoning_content,omitempty"`
 }
 
-// ContentPart is a content part in a multimodal user message.
-type ContentPart struct {
+// ContentParter is a content part in a multimodal user message.
+type ContentParter struct {
 	Type     string `json:"type"`
 	Text     string `json:"text,omitempty"`
 	ImageURL *struct {
@@ -47,17 +49,6 @@ type Function struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Parameters  any    `json:"parameters,omitempty"`
-}
-
-// ToolCall is a tool call emitted by the model.
-type ToolCall struct {
-	Index    int    `json:"index,omitempty"`
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
-	} `json:"function"`
 }
 
 // StreamOptions configures streaming behavior.

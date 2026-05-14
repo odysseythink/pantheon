@@ -44,7 +44,7 @@ func TestIntegration_Generate(t *testing.T) {
 
 	resp, err := lm.Generate(context.Background(), &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Say hello in one word."}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Say hello in one word."}}},
 		},
 	})
 	if err != nil {
@@ -70,7 +70,7 @@ func TestIntegration_Stream(t *testing.T) {
 
 	stream, err := lm.Stream(context.Background(), &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Count from 1 to 3."}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Count from 1 to 3."}}},
 		},
 	})
 	if err != nil {
@@ -111,7 +111,7 @@ func TestIntegration_GenerateWithTool(t *testing.T) {
 
 	resp, err := lm.Generate(context.Background(), &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "What is the weather in Paris?"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "What is the weather in Paris?"}}},
 		},
 		Tools: []core.ToolDefinition{{
 			Name:        "get_weather",
@@ -148,7 +148,7 @@ func TestIntegration_GenerateObject(t *testing.T) {
 
 	resp, err := lm.GenerateObject(context.Background(), &core.ObjectRequest{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate a JSON object with a greeting field."}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Generate a JSON object with a greeting field."}}},
 		},
 		Schema: &core.Schema{
 			Type: "object",

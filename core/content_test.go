@@ -7,8 +7,8 @@ import (
 
 func TestMessageRoundTrip(t *testing.T) {
 	msg := Message{
-		Role: RoleUser,
-		Content: []ContentPart{
+		Role: MESSAGE_ROLE_USER,
+		Content: []ContentParter{
 			TextPart{Text: "hello"},
 			ImagePart{URL: "http://example.com/img.png", Detail: "high"},
 			ToolCallPart{ID: "call_1", Name: "search", Arguments: `{"q":"x"}`},
@@ -181,12 +181,12 @@ func TestContentPart_Interface(t *testing.T) {
 
 func TestToolResultPartRoundTrip(t *testing.T) {
 	msg := Message{
-		Role: RoleTool,
-		Content: []ContentPart{
+		Role: MESSAGE_ROLE_TOOL,
+		Content: []ContentParter{
 			ToolResultPart{
 				ToolCallID: "call_1",
 				Name:       "search",
-				Content: []ContentPart{
+				Content: []ContentParter{
 					TextPart{Text: "result text"},
 					ImagePart{URL: "http://example.com/img.png"},
 				},

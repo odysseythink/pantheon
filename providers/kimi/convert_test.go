@@ -14,7 +14,7 @@ func TestBuildRequestBody(t *testing.T) {
 
 	req := &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "hello"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}},
 		},
 		SystemPrompt:   "sys",
 		MaxTokens:      &maxTokens,
@@ -67,7 +67,7 @@ func TestBuildRequestBody(t *testing.T) {
 func TestBuildRequestBody_DefaultMaxTokens(t *testing.T) {
 	req := &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "hi"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hi"}}},
 		},
 	}
 	body, err := buildRequestBody("kimi-test", req, ProviderOptions{})
@@ -82,7 +82,7 @@ func TestBuildRequestBody_DefaultMaxTokens(t *testing.T) {
 func TestBuildRequestBody_Thinking(t *testing.T) {
 	req := &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "hi"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hi"}}},
 		},
 	}
 	opts := ProviderOptions{
@@ -114,7 +114,7 @@ func TestBuildRequestBody_Thinking(t *testing.T) {
 func TestBuildRequestBody_ExtraBodyWithThinking(t *testing.T) {
 	req := &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "hi"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hi"}}},
 		},
 	}
 	opts := ProviderOptions{
@@ -153,7 +153,7 @@ func TestBuildRequestBody_ExtraBodyWithThinking(t *testing.T) {
 func TestBuildRequestBody_ExtraBodyWithoutThinking(t *testing.T) {
 	req := &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "hi"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hi"}}},
 		},
 	}
 	opts := ProviderOptions{
@@ -174,7 +174,7 @@ func TestBuildRequestBody_ExtraBodyWithoutThinking(t *testing.T) {
 
 func TestToKimiMessages_SystemPrompt(t *testing.T) {
 	msgs, err := toKimiMessages([]core.Message{
-		{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "hello"}}},
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}},
 	}, "system-instruction")
 	if err != nil {
 		t.Fatalf("toKimiMessages error: %v", err)
@@ -189,8 +189,8 @@ func TestToKimiMessages_SystemPrompt(t *testing.T) {
 
 func TestToKimiMessage_System(t *testing.T) {
 	msg, err := toKimiMessage(core.Message{
-		Role:    core.RoleSystem,
-		Content: []core.ContentPart{core.TextPart{Text: "sys"}},
+		Role:    core.MESSAGE_ROLE_SYSTEM,
+		Content: []core.ContentParter{core.TextPart{Text: "sys"}},
 	})
 	if err != nil {
 		t.Fatalf("toKimiMessage error: %v", err)
@@ -202,8 +202,8 @@ func TestToKimiMessage_System(t *testing.T) {
 
 func TestToKimiMessage_UserText(t *testing.T) {
 	msg, err := toKimiMessage(core.Message{
-		Role:    core.RoleUser,
-		Content: []core.ContentPart{core.TextPart{Text: "hello"}},
+		Role:    core.MESSAGE_ROLE_USER,
+		Content: []core.ContentParter{core.TextPart{Text: "hello"}},
 	})
 	if err != nil {
 		t.Fatalf("toKimiMessage error: %v", err)
@@ -215,8 +215,8 @@ func TestToKimiMessage_UserText(t *testing.T) {
 
 func TestToKimiMessage_UserMultimodal(t *testing.T) {
 	msg, err := toKimiMessage(core.Message{
-		Role: core.RoleUser,
-		Content: []core.ContentPart{
+		Role: core.MESSAGE_ROLE_USER,
+		Content: []core.ContentParter{
 			core.TextPart{Text: "look"},
 			core.ImagePart{URL: "http://example.com/img.png", Detail: "high"},
 		},
@@ -224,7 +224,7 @@ func TestToKimiMessage_UserMultimodal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("toKimiMessage error: %v", err)
 	}
-	parts, ok := msg.Content.([]ContentPart)
+	parts, ok := msg.Content.([]ContentParter)
 	if !ok || len(parts) != 2 {
 		t.Fatalf("content = %v", msg.Content)
 	}
@@ -238,8 +238,8 @@ func TestToKimiMessage_UserMultimodal(t *testing.T) {
 
 func TestToKimiMessage_AssistantText(t *testing.T) {
 	msg, err := toKimiMessage(core.Message{
-		Role:    core.RoleAssistant,
-		Content: []core.ContentPart{core.TextPart{Text: "hi there"}},
+		Role:    core.MESSAGE_ROLE_ASSISTANT,
+		Content: []core.ContentParter{core.TextPart{Text: "hi there"}},
 	})
 	if err != nil {
 		t.Fatalf("toKimiMessage error: %v", err)
@@ -251,8 +251,8 @@ func TestToKimiMessage_AssistantText(t *testing.T) {
 
 func TestToKimiMessage_AssistantWithToolCalls(t *testing.T) {
 	msg, err := toKimiMessage(core.Message{
-		Role: core.RoleAssistant,
-		Content: []core.ContentPart{
+		Role: core.MESSAGE_ROLE_ASSISTANT,
+		Content: []core.ContentParter{
 			core.TextPart{Text: "   "},
 			core.ToolCallPart{ID: "call_1", Name: "foo", Arguments: `{}`},
 		},
@@ -276,8 +276,8 @@ func TestToKimiMessage_AssistantWithToolCalls(t *testing.T) {
 
 func TestToKimiMessage_AssistantWithReasoning(t *testing.T) {
 	msg, err := toKimiMessage(core.Message{
-		Role: core.RoleAssistant,
-		Content: []core.ContentPart{
+		Role: core.MESSAGE_ROLE_ASSISTANT,
+		Content: []core.ContentParter{
 			core.ReasoningPart{Text: "Let me think..."},
 			core.TextPart{Text: "Result"},
 		},
@@ -295,8 +295,8 @@ func TestToKimiMessage_AssistantWithReasoning(t *testing.T) {
 
 func TestToKimiMessage_AssistantWithReasoningAndToolCalls(t *testing.T) {
 	msg, err := toKimiMessage(core.Message{
-		Role: core.RoleAssistant,
-		Content: []core.ContentPart{
+		Role: core.MESSAGE_ROLE_ASSISTANT,
+		Content: []core.ContentParter{
 			core.ReasoningPart{Text: "Let me think..."},
 			core.TextPart{Text: "   "},
 			core.ToolCallPart{ID: "call_1", Name: "foo", Arguments: `{}`},
@@ -324,9 +324,9 @@ func TestToKimiMessage_AssistantWithReasoningAndToolCalls(t *testing.T) {
 
 func TestToKimiMessage_ToolResult(t *testing.T) {
 	msg, err := toKimiMessage(core.Message{
-		Role: core.RoleTool,
-		Content: []core.ContentPart{
-			core.ToolResultPart{ToolCallID: "call_1", Name: "foo", Content: []core.ContentPart{core.TextPart{Text: "result"}}},
+		Role: core.MESSAGE_ROLE_TOOL,
+		Content: []core.ContentParter{
+			core.ToolResultPart{ToolCallID: "call_1", Name: "foo", Content: []core.ContentParter{core.TextPart{Text: "result"}}},
 		},
 	})
 	if err != nil {
@@ -338,9 +338,9 @@ func TestToKimiMessage_ToolResult(t *testing.T) {
 }
 
 func TestContentToString(t *testing.T) {
-	parts := []core.ContentPart{
+	parts := []core.ContentParter{
 		core.TextPart{Text: "a"},
-		core.ToolResultPart{Content: []core.ContentPart{core.TextPart{Text: "b"}}},
+		core.ToolResultPart{Content: []core.ContentParter{core.TextPart{Text: "b"}}},
 	}
 	if s := contentToString(parts); s != "a\nb" {
 		t.Errorf("contentToString = %q", s)
@@ -348,7 +348,7 @@ func TestContentToString(t *testing.T) {
 }
 
 func TestToolResultCallID(t *testing.T) {
-	parts := []core.ContentPart{
+	parts := []core.ContentParter{
 		core.ToolResultPart{ToolCallID: "id-123"},
 	}
 	if id := toolResultCallID(parts); id != "id-123" {

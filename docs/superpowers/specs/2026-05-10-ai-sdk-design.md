@@ -125,11 +125,11 @@ const (
 
 type Message struct {
     Role    Role
-    Content []ContentPart  // 空切片 = 无内容
+    Content []ContentParter  // 空切片 = 无内容
 }
 
-// ContentPart 是 one-of 联合类型
-type ContentPart interface {
+// ContentParter 是 one-of 联合类型
+type ContentParter interface {
     contentPart()
 }
 
@@ -139,12 +139,12 @@ type ImagePart       struct { URL string; Data []byte; MIMEType string; Detail s
 type AudioPart       struct { URL string; Data []byte; MIMEType string }
 type DocumentPart    struct { Data []byte; MIMEType string; Name string }
 type ToolCallPart    struct { ID string; Name string; Arguments string }
-type ToolResultPart  struct { ToolCallID string; Content []ContentPart; IsError bool }
+type ToolResultPart  struct { ToolCallID string; Content []ContentParter; IsError bool }
 ```
 
 **兼容性说明**：
 - `ody` 现有代码基本可直接映射（它已有 Part 模型）
-- `hermind` 的 `Content` union → `[]ContentPart`
+- `hermind` 的 `Content` union → `[]ContentParter`
 - `dify` 的 `UserPromptMessage`/`AssistantPromptMessage` → `Message{Role: RoleUser/RoleAssistant}`
 
 ### 2.3 请求与响应

@@ -11,7 +11,7 @@ import (
 func ToAnthropicMessages(msgs []core.Message) ([]Message, error) {
 	var out []Message
 	for _, m := range msgs {
-		if m.Role == core.RoleSystem {
+		if m.Role == core.MESSAGE_ROLE_SYSTEM {
 			continue
 		}
 		content, err := toAnthropicContent(m.Content)
@@ -19,7 +19,7 @@ func ToAnthropicMessages(msgs []core.Message) ([]Message, error) {
 			return nil, err
 		}
 		role := "user"
-		if m.Role == core.RoleAssistant {
+		if m.Role == core.MESSAGE_ROLE_ASSISTANT {
 			role = "assistant"
 		}
 		out = append(out, Message{Role: role, Content: content})
@@ -27,7 +27,7 @@ func ToAnthropicMessages(msgs []core.Message) ([]Message, error) {
 	return out, nil
 }
 
-func toAnthropicContent(parts []core.ContentPart) ([]Content, error) {
+func toAnthropicContent(parts []core.ContentParter) ([]Content, error) {
 	var out []Content
 	for _, part := range parts {
 		switch p := part.(type) {
@@ -57,7 +57,7 @@ func toAnthropicContent(parts []core.ContentPart) ([]Content, error) {
 	return out, nil
 }
 
-func contentToString(parts []core.ContentPart) string {
+func contentToString(parts []core.ContentParter) string {
 	var texts []string
 	for _, part := range parts {
 		if p, ok := part.(core.TextPart); ok {
@@ -88,7 +88,7 @@ func ToAnthropicTools(tools []core.ToolDefinition) []Tool {
 }
 
 func ToCoreResponse(resp *MessagesResponse, model string) (*core.Response, error) {
-	msg := core.Message{Role: core.RoleAssistant}
+	msg := core.Message{Role: core.MESSAGE_ROLE_ASSISTANT}
 	for _, c := range resp.Content {
 		switch c.Type {
 		case "text":

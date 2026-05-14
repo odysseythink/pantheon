@@ -10,7 +10,7 @@ import (
 
 func TestToAnthropicMessages_UserText(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hello"}}},
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hello"}}},
 	}
 	got, err := ToAnthropicMessages(msgs)
 	if err != nil {
@@ -29,7 +29,7 @@ func TestToAnthropicMessages_UserText(t *testing.T) {
 
 func TestToAnthropicMessages_AssistantText(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "Hi there"}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "Hi there"}}},
 	}
 	got, err := ToAnthropicMessages(msgs)
 	if err != nil {
@@ -45,7 +45,7 @@ func TestToAnthropicMessages_AssistantText(t *testing.T) {
 
 func TestToAnthropicMessages_ToolCall(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleAssistant, Content: []core.ContentPart{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{
 			core.ToolCallPart{ID: "call_1", Name: "get_weather", Arguments: `{"city":"Paris"}`},
 		}},
 	}
@@ -70,10 +70,10 @@ func TestToAnthropicMessages_ToolCall(t *testing.T) {
 
 func TestToAnthropicMessages_ToolResult(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleUser, Content: []core.ContentPart{
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{
 			core.ToolResultPart{
 				ToolCallID: "call_1",
-				Content:    []core.ContentPart{core.TextPart{Text: "Sunny"}},
+				Content:    []core.ContentParter{core.TextPart{Text: "Sunny"}},
 				IsError:    false,
 			},
 		}},
@@ -95,8 +95,8 @@ func TestToAnthropicMessages_ToolResult(t *testing.T) {
 
 func TestToAnthropicMessages_SystemPromptSkipped(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleSystem, Content: []core.ContentPart{core.TextPart{Text: "You are helpful"}}},
-		{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hello"}}},
+		{Role: core.MESSAGE_ROLE_SYSTEM, Content: []core.ContentParter{core.TextPart{Text: "You are helpful"}}},
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hello"}}},
 	}
 	got, err := ToAnthropicMessages(msgs)
 	if err != nil {
@@ -112,7 +112,7 @@ func TestToAnthropicMessages_SystemPromptSkipped(t *testing.T) {
 
 func TestToAnthropicMessages_UnsupportedPartError(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleUser, Content: []core.ContentPart{core.AudioPart{URL: "http://example.com/audio.mp3"}}},
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.AudioPart{URL: "http://example.com/audio.mp3"}}},
 	}
 	_, err := ToAnthropicMessages(msgs)
 	if err == nil {
@@ -121,7 +121,7 @@ func TestToAnthropicMessages_UnsupportedPartError(t *testing.T) {
 }
 
 func TestToAnthropicContent_Text(t *testing.T) {
-	parts := []core.ContentPart{core.TextPart{Text: "Hello world"}}
+	parts := []core.ContentParter{core.TextPart{Text: "Hello world"}}
 	got, err := toAnthropicContent(parts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -132,7 +132,7 @@ func TestToAnthropicContent_Text(t *testing.T) {
 }
 
 func TestToAnthropicContent_ImageWithData(t *testing.T) {
-	parts := []core.ContentPart{core.ImagePart{Data: []byte("imagedata"), MIMEType: "image/png"}}
+	parts := []core.ContentParter{core.ImagePart{Data: []byte("imagedata"), MIMEType: "image/png"}}
 	got, err := toAnthropicContent(parts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -153,7 +153,7 @@ func TestToAnthropicContent_ImageWithData(t *testing.T) {
 }
 
 func TestToAnthropicContent_ImageURLError(t *testing.T) {
-	parts := []core.ContentPart{core.ImagePart{URL: "http://example.com/image.png"}}
+	parts := []core.ContentParter{core.ImagePart{URL: "http://example.com/image.png"}}
 	_, err := toAnthropicContent(parts)
 	if err == nil {
 		t.Fatal("expected error for image URL")
@@ -161,7 +161,7 @@ func TestToAnthropicContent_ImageURLError(t *testing.T) {
 }
 
 func TestToAnthropicContent_ToolCall(t *testing.T) {
-	parts := []core.ContentPart{core.ToolCallPart{ID: "call_1", Name: "calc", Arguments: `{"a":1}`}}
+	parts := []core.ContentParter{core.ToolCallPart{ID: "call_1", Name: "calc", Arguments: `{"a":1}`}}
 	got, err := toAnthropicContent(parts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -175,10 +175,10 @@ func TestToAnthropicContent_ToolCall(t *testing.T) {
 }
 
 func TestToAnthropicContent_ToolResult(t *testing.T) {
-	parts := []core.ContentPart{
+	parts := []core.ContentParter{
 		core.ToolResultPart{
 			ToolCallID: "call_1",
-			Content:    []core.ContentPart{core.TextPart{Text: "result"}},
+			Content:    []core.ContentParter{core.TextPart{Text: "result"}},
 			IsError:    true,
 		},
 	}
@@ -199,7 +199,7 @@ func TestToAnthropicContent_ToolResult(t *testing.T) {
 }
 
 func TestToAnthropicContent_UnsupportedPartError(t *testing.T) {
-	parts := []core.ContentPart{core.DocumentPart{Data: []byte("pdf"), MIMEType: "application/pdf"}}
+	parts := []core.ContentParter{core.DocumentPart{Data: []byte("pdf"), MIMEType: "application/pdf"}}
 	_, err := toAnthropicContent(parts)
 	if err == nil {
 		t.Fatal("expected error for unsupported content part")
@@ -207,7 +207,7 @@ func TestToAnthropicContent_UnsupportedPartError(t *testing.T) {
 }
 
 func TestContentToString_MultipleTextParts(t *testing.T) {
-	parts := []core.ContentPart{
+	parts := []core.ContentParter{
 		core.TextPart{Text: "Hello"},
 		core.TextPart{Text: "world"},
 	}
@@ -356,7 +356,7 @@ func TestToCoreResponse_NoCandidates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got.Message.Role != core.RoleAssistant {
+	if got.Message.Role != core.MESSAGE_ROLE_ASSISTANT {
 		t.Errorf("unexpected role: %s", got.Message.Role)
 	}
 	if len(got.Message.Content) != 0 {

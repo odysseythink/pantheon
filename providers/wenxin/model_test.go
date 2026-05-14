@@ -10,6 +10,7 @@ import (
 
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
+	"github.com/odysseythink/pantheon/types"
 )
 
 func TestGenerate(t *testing.T) {
@@ -36,7 +37,7 @@ func TestGenerate(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "ernie-4.0-turbo-8k")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("generate: %v", err)
@@ -59,7 +60,7 @@ func TestGenerateWithTool(t *testing.T) {
 			Choices: []openaicompat.Choice{{
 				Message: openaicompat.Message{
 					Role: "assistant",
-					ToolCalls: []openaicompat.ToolCall{{
+					ToolCalls: []types.ToolCall{{
 						ID:   "call_1",
 						Type: "function",
 						Function: struct {
@@ -79,7 +80,7 @@ func TestGenerateWithTool(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "ernie-4.0-turbo-8k")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather?"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Weather?"}}}},
 		Tools: []core.ToolDefinition{{
 			Name:        "get_weather",
 			Description: "Get weather",
@@ -117,7 +118,7 @@ func TestGenerateObject(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "ernie-4.0-turbo-8k")
 
 	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate an object"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Generate an object"}}}},
 		Schema: &core.Schema{Type: "object", Properties: map[string]*core.Schema{
 			"name":  {Type: "string"},
 			"value": {Type: "integer"},
@@ -176,7 +177,7 @@ func TestStream(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "ernie-4.0-turbo-8k")
 
 	stream, err := model.Stream(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("stream init: %v", err)

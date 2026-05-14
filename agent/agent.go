@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/odysseythink/pantheon/agent/compression"
 	"github.com/odysseythink/pantheon/core"
 )
 
@@ -12,6 +13,7 @@ type Agent struct {
 	model        core.LanguageModel
 	maxSteps     int
 	toolRegistry map[string]ToolFunc
+	compressor   *compression.Compressor
 }
 
 // New creates a new Agent.
@@ -32,13 +34,6 @@ func (a *Agent) RegisterTool(name string, fn ToolFunc) {
 	a.toolRegistry[name] = fn
 }
 
-// Request is a single agent execution request.
-type Request struct {
-	Messages     []core.Message
-	SystemPrompt string
-	Tools        []core.ToolDefinition
-}
-
 // Result is the outcome of a completed agent run.
 type Result struct {
 	Messages []core.Message
@@ -46,13 +41,20 @@ type Result struct {
 }
 
 // Run executes the agent loop until completion or max steps.
-func (a *Agent) Run(ctx context.Context, req *Request) (*Result, error) {
+func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 	messages := append([]core.Message(nil), req.Messages...)
 	var totalUsage core.Usage
 	var lastHadToolCalls bool
 
 	for step := 0; step < a.maxSteps; step++ {
 		lastHadToolCalls = false
+		if a.compressor != nil {
+			compressed, err := a.compressor.Compress(ctx, messages)
+			if err != nil {
+				return nil, fmt.Errorf("compress history: %w", err)
+			}
+			messages = compressed
+		}
 		resp, err := a.model.Generate(ctx, &core.Request{
 			Messages:     messages,
 			SystemPrompt: req.SystemPrompt,
@@ -77,11 +79,11 @@ func (a *Agent) Run(ctx context.Context, req *Request) (*Result, error) {
 		for _, tc := range toolCalls {
 			result, isError := a.executeTool(ctx, tc)
 			messages = append(messages, core.Message{
-				Role: core.RoleTool,
-				Content: []core.ContentPart{core.ToolResultPart{
+				Role: core.MESSAGE_ROLE_TOOL,
+				Content: []core.ContentParter{core.ToolResultPart{
 					ToolCallID: tc.ID,
 					Name:       tc.Name,
-					Content:    []core.ContentPart{core.TextPart{Text: result}},
+					Content:    []core.ContentParter{core.TextPart{Text: result}},
 					IsError:    isError,
 				}},
 			})
@@ -110,7 +112,7 @@ func (a *Agent) executeTool(ctx context.Context, tc core.ToolCallPart) (string, 
 	return result, false
 }
 
-func extractToolCalls(parts []core.ContentPart) []core.ToolCallPart {
+func extractToolCalls(parts []core.ContentParter) []core.ToolCallPart {
 	var out []core.ToolCallPart
 	for _, p := range parts {
 		if tc, ok := p.(core.ToolCallPart); ok {

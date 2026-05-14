@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/types"
 )
 
 func TestToOpenAIMessages_SystemPrompt(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hello"}}},
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hello"}}},
 	}
 	out, err := ToOpenAIMessages(msgs, "You are a helper")
 	if err != nil {
@@ -27,7 +28,7 @@ func TestToOpenAIMessages_SystemPrompt(t *testing.T) {
 
 func TestToOpenAIMessages_UserText(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}},
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}},
 	}
 	out, err := ToOpenAIMessages(msgs, "")
 	if err != nil {
@@ -43,7 +44,7 @@ func TestToOpenAIMessages_UserText(t *testing.T) {
 
 func TestToOpenAIMessages_UserMultimodal(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleUser, Content: []core.ContentPart{
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{
 			core.TextPart{Text: "What is this?"},
 			core.ImagePart{URL: "http://example.com/img.png", Detail: "high"},
 		}},
@@ -52,9 +53,9 @@ func TestToOpenAIMessages_UserMultimodal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	parts, ok := out[0].Content.([]ContentPart)
+	parts, ok := out[0].Content.([]ContentParter)
 	if !ok {
-		t.Fatalf("expected []ContentPart, got %T", out[0].Content)
+		t.Fatalf("expected []ContentParter, got %T", out[0].Content)
 	}
 	if len(parts) != 2 {
 		t.Fatalf("expected 2 parts, got %d", len(parts))
@@ -69,7 +70,7 @@ func TestToOpenAIMessages_UserMultimodal(t *testing.T) {
 
 func TestToOpenAIMessages_AssistantText(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "Hello!"}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "Hello!"}}},
 	}
 	out, err := ToOpenAIMessages(msgs, "")
 	if err != nil {
@@ -85,7 +86,7 @@ func TestToOpenAIMessages_AssistantText(t *testing.T) {
 
 func TestToOpenAIMessages_AssistantWithToolCalls(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleAssistant, Content: []core.ContentPart{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{
 			core.TextPart{Text: "Let me check"},
 			core.ToolCallPart{ID: "call_1", Name: "get_weather", Arguments: `{"city":"NYC"}`},
 		}},
@@ -113,8 +114,8 @@ func TestToOpenAIMessages_AssistantWithToolCalls(t *testing.T) {
 
 func TestToOpenAIMessages_ToolResult(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleTool, Content: []core.ContentPart{
-			core.ToolResultPart{ToolCallID: "call_1", Name: "get_weather", Content: []core.ContentPart{core.TextPart{Text: "Sunny"}}},
+		{Role: core.MESSAGE_ROLE_TOOL, Content: []core.ContentParter{
+			core.ToolResultPart{ToolCallID: "call_1", Name: "get_weather", Content: []core.ContentParter{core.TextPart{Text: "Sunny"}}},
 		}},
 	}
 	out, err := ToOpenAIMessages(msgs, "")
@@ -131,7 +132,7 @@ func TestToOpenAIMessages_ToolResult(t *testing.T) {
 
 func TestToOpenAIMessages_UnsupportedAssistantPart(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleAssistant, Content: []core.ContentPart{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{
 			core.ImagePart{URL: "http://example.com/img.png"},
 		}},
 	}
@@ -143,7 +144,7 @@ func TestToOpenAIMessages_UnsupportedAssistantPart(t *testing.T) {
 
 func TestToOpenAIMessages_UnsupportedUserPart(t *testing.T) {
 	msgs := []core.Message{
-		{Role: core.RoleUser, Content: []core.ContentPart{
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{
 			core.AudioPart{URL: "http://example.com/audio.mp3"},
 		}},
 	}
@@ -154,7 +155,7 @@ func TestToOpenAIMessages_UnsupportedUserPart(t *testing.T) {
 }
 
 func TestContentToString(t *testing.T) {
-	parts := []core.ContentPart{
+	parts := []core.ContentParter{
 		core.TextPart{Text: "Hello"},
 		core.TextPart{Text: "World"},
 	}
@@ -175,7 +176,7 @@ func TestJoinTexts(t *testing.T) {
 }
 
 func TestToolResultCallID(t *testing.T) {
-	parts := []core.ContentPart{
+	parts := []core.ContentParter{
 		core.TextPart{Text: "foo"},
 		core.ToolResultPart{ToolCallID: "call_123"},
 	}
@@ -239,7 +240,7 @@ func TestToCoreResponse_ToolCall(t *testing.T) {
 		Choices: []Choice{{
 			Message: Message{
 				Role: "assistant",
-				ToolCalls: []ToolCall{{
+				ToolCalls: []types.ToolCall{{
 					ID:   "call_1",
 					Type: "function",
 					Function: struct {

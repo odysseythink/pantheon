@@ -38,7 +38,7 @@ type StreamResponse = iter.Seq2[*StreamEvent, error]
 
 // RunStream executes the agent with streaming output.
 // It retries only if the initial Stream call fails; mid-stream errors are not retried.
-func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
+func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse {
 	return func(yield func(*StreamEvent, error) bool) {
 		messages := append([]core.Message(nil), req.Messages...)
 		var lastHadToolCalls bool
@@ -47,6 +47,15 @@ func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 			lastHadToolCalls = false
 			if !yield(&StreamEvent{Type: StreamEventTypeStepStart, Step: step + 1}, nil) {
 				return
+			}
+
+			if a.compressor != nil {
+				compressed, err := a.compressor.Compress(ctx, messages)
+				if err != nil {
+					yield(&StreamEvent{Type: StreamEventTypeError}, fmt.Errorf("compress history: %w", err))
+					return
+				}
+				messages = compressed
 			}
 
 			stream, err := a.model.Stream(ctx, &core.Request{
@@ -60,7 +69,7 @@ func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 			}
 
 			var assistantMsg core.Message
-			assistantMsg.Role = core.RoleAssistant
+			assistantMsg.Role = core.MESSAGE_ROLE_ASSISTANT
 
 			for part, err := range stream {
 				if err != nil {
@@ -108,12 +117,12 @@ func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 				toolResult := core.ToolResultPart{
 					ToolCallID: tc.ID,
 					Name:       tc.Name,
-					Content:    []core.ContentPart{core.TextPart{Text: result}},
+					Content:    []core.ContentParter{core.TextPart{Text: result}},
 					IsError:    isError,
 				}
 				messages = append(messages, core.Message{
-					Role:    core.RoleTool,
-					Content: []core.ContentPart{toolResult},
+					Role:    core.MESSAGE_ROLE_TOOL,
+					Content: []core.ContentParter{toolResult},
 				})
 				if !yield(&StreamEvent{Type: StreamEventTypeToolResult, ToolResult: &toolResult, Step: step + 1}, nil) {
 					return

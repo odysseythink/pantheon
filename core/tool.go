@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 )
@@ -83,4 +84,25 @@ func generateSchemaFromType(t reflect.Type) *Schema {
 	default:
 		return &Schema{Type: "object"}
 	}
+}
+
+// SchemaFromJSON parses a JSON Schema from raw JSON bytes.
+func SchemaFromJSON(data []byte) (*Schema, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+	var s Schema
+	if err := json.Unmarshal(data, &s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+// MustSchemaFromJSON parses a JSON Schema from raw JSON bytes and panics on error.
+func MustSchemaFromJSON(data []byte) *Schema {
+	s, err := SchemaFromJSON(data)
+	if err != nil {
+		panic(err)
+	}
+	return s
 }

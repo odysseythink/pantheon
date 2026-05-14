@@ -1,5 +1,7 @@
 package openaicompat
 
+import "github.com/odysseythink/pantheon/types"
+
 // ChatCompletionRequest is the request body for OpenAI-compatible chat completions.
 type ChatCompletionRequest struct {
 	Model          string         `json:"model"`
@@ -17,15 +19,15 @@ type ChatCompletionRequest struct {
 
 // Message is a single message in the OpenAI chat format.
 type Message struct {
-	Role       string     `json:"role"`
-	Content    any        `json:"content"`
-	ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string     `json:"tool_call_id,omitempty"`
-	Name       string     `json:"name,omitempty"`
+	Role       string           `json:"role"`
+	Content    any              `json:"content"`
+	ToolCalls  []types.ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID string           `json:"tool_call_id,omitempty"`
+	Name       string           `json:"name,omitempty"`
 }
 
-// ContentPart is a content part in a multimodal user message.
-type ContentPart struct {
+// ContentParter is a content part in a multimodal user message.
+type ContentParter struct {
 	Type     string `json:"type"`
 	Text     string `json:"text,omitempty"`
 	ImageURL *struct {
@@ -45,17 +47,6 @@ type Function struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Parameters  any    `json:"parameters"`
-}
-
-// ToolCall is a tool call emitted by the model.
-type ToolCall struct {
-	Index    int    `json:"index"`
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
-	} `json:"function"`
 }
 
 // StreamOptions configures streaming behavior.

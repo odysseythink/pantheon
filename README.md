@@ -54,7 +54,7 @@ func main() {
 
     resp, err := model.Generate(ctx, &core.Request{
         Messages: []core.Message{
-            {Role: core.RoleUser, Content: []core.ContentPart{
+            {Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{
                 core.TextPart{Text: "What is Go?"},
             }},
         },
@@ -101,7 +101,7 @@ a.RegisterTool("getWeather", func(city string) string {
 
 result, err := a.Run(ctx, &agent.Request{
     Messages: []core.Message{
-        {Role: core.RoleUser, Content: []core.ContentPart{
+        {Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{
             core.TextPart{Text: "What's the weather in Tokyo?"},
         }},
     },
@@ -167,7 +167,7 @@ Pantheon is organized into four layers with strict downward dependencies:
 └─────────────────────────────────────┘
 ```
 
-- **`core/`** — `Provider`, `LanguageModel`, `Message`, `ContentPart`, `ToolDefinition`, `Schema`, streaming primitives. Zero external AI SDK dependencies.
+- **`core/`** — `Provider`, `LanguageModel`, `Message`, `ContentParter`, `ToolDefinition`, `Schema`, streaming primitives. Zero external AI SDK dependencies.
 - **`providers/`** — Each sub-package implements `core.Provider` and `core.LanguageModel` for a specific backend.
 - **`extensions/`** — Pure composition wrappers over `core.LanguageModel`. Add retry, fallback, embedding, or error classification without changing the interface.
 - **`agent/`** — Orchestrates a `LanguageModel` with a tool registry. Handles the full loop: model generates → tools execute → results feed back → repeat until completion.

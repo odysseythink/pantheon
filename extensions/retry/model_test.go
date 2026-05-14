@@ -26,7 +26,7 @@ func (m *mockModel) Generate(ctx context.Context, req *core.Request) (*core.Resp
 		m.responses = m.responses[1:]
 		return r, nil
 	}
-	return &core.Response{Message: core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "ok"}}}}, nil
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "ok"}}}}, nil
 }
 
 func (m *mockModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
@@ -48,7 +48,6 @@ func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest)
 	}
 	return &core.ObjectResponse{Object: map[string]any{"result": "ok"}}, nil
 }
-
 
 func (m *mockModel) Provider() string { return "mock" }
 func (m *mockModel) Model() string    { return "mock-model" }
@@ -175,7 +174,6 @@ func TestGenerateObjectRetriesOnFailure(t *testing.T) {
 		t.Errorf("unexpected object: %+v", resp.Object)
 	}
 }
-
 
 func TestRetryNegativeMaxRetries(t *testing.T) {
 	inner := &mockModel{}

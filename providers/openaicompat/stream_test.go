@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/types"
 )
 
 func TestChatCompletionStream_Text(t *testing.T) {
@@ -50,7 +51,7 @@ func TestChatCompletionStream_Text(t *testing.T) {
 
 	c := NewClient(server.URL, "sk-test")
 	stream := c.ChatCompletionStream(context.Background(), "gpt-4", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 
 	var textDeltas []string
@@ -110,7 +111,7 @@ func TestChatCompletionStream_WithUsage(t *testing.T) {
 
 	c := NewClient(server.URL, "sk-test")
 	stream := c.ChatCompletionStream(context.Background(), "gpt-4", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 
 	var usageFound bool
@@ -139,7 +140,7 @@ func TestChatCompletionStream_ErrorStatus(t *testing.T) {
 
 	c := NewClient(server.URL, "sk-test")
 	stream := c.ChatCompletionStream(context.Background(), "gpt-4", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 
 	for _, err := range stream {
@@ -170,7 +171,7 @@ func TestChatCompletionStream_ToolCall(t *testing.T) {
 			{Model: "gpt-4", Choices: []Choice{{
 				Delta: Message{
 					Role: "assistant",
-					ToolCalls: []ToolCall{{
+					ToolCalls: []types.ToolCall{{
 						Index: 0,
 						ID:    "call_1",
 						Type:  "function",
@@ -195,7 +196,7 @@ func TestChatCompletionStream_ToolCall(t *testing.T) {
 
 	c := NewClient(server.URL, "sk-test")
 	stream := c.ChatCompletionStream(context.Background(), "gpt-4", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather?"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Weather?"}}}},
 	})
 
 	var toolCallFound bool

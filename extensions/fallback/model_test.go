@@ -20,7 +20,7 @@ func (m *mockModel) Generate(ctx context.Context, req *core.Request) (*core.Resp
 	if m.fail {
 		return nil, &core.ProviderError{Status: 500, Message: "fail"}
 	}
-	return &core.Response{Message: core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: m.name}}}}, nil
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: m.name}}}}, nil
 }
 
 func (m *mockModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
@@ -37,7 +37,6 @@ func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest)
 	m.calls++
 	return nil, errors.New("not implemented")
 }
-
 
 func (m *mockModel) Provider() string { return m.name }
 func (m *mockModel) Model() string    { return m.name }

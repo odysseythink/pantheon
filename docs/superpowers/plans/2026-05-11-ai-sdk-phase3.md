@@ -61,7 +61,7 @@ type mockModel struct {
 
 func (m *mockModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
 	if m.callIdx >= len(m.responses) {
-		return &core.Response{Message: core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "done"}}}}, nil
+		return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}}}, nil
 	}
 	msg := m.responses[m.callIdx]
 	m.callIdx++
@@ -87,7 +87,7 @@ func TestRunNoTools(t *testing.T) {
 	m := &mockModel{}
 	a := New(m)
 	res, err := a.Run(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}}},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -99,10 +99,10 @@ func TestRunNoTools(t *testing.T) {
 
 func TestRunWithToolCall(t *testing.T) {
 	m := &mockModel{responses: []core.Message{
-		{Role: core.RoleAssistant, Content: []core.ContentPart{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{
 			core.ToolCallPart{ID: "call_1", Name: "get_weather", Arguments: `{"city":"NYC"}`},
 		}},
-		{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "It's sunny"}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "It's sunny"}}},
 	}}
 
 	weatherTool := core.ToolDefinition{
@@ -113,7 +113,7 @@ func TestRunWithToolCall(t *testing.T) {
 
 	a := New(m, WithMaxSteps(5))
 	res, err := a.Run(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather in NYC?"}}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Weather in NYC?"}}}}},
 		Tools:    []core.ToolDefinition{weatherTool},
 	})
 	if err != nil {
@@ -130,14 +130,14 @@ func TestRunWithToolCall(t *testing.T) {
 func TestRunMaxSteps(t *testing.T) {
 	// Model always returns a tool call — should stop at MaxSteps
 	m := &mockModel{responses: []core.Message{
-		{Role: core.RoleAssistant, Content: []core.ContentPart{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{
 			core.ToolCallPart{ID: "call_1", Name: "loop", Arguments: `{}`},
 		}},
 	}}
 
 	a := New(m, WithMaxSteps(2))
 	_, err := a.Run(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Loop"}}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Loop"}}}}},
 		Tools:    []core.ToolDefinition{{Name: "loop", Parameters: &core.Schema{Type: "object"}}},
 	})
 	if err == nil {
@@ -297,10 +297,10 @@ func (a *Agent) Run(ctx context.Context, req *Request) (*Result, error) {
 		for _, tc := range toolCalls {
 			result := fmt.Sprintf("Tool %q executed with args: %s", tc.Name, tc.Arguments)
 			messages = append(messages, core.Message{
-				Role: core.RoleTool,
-				Content: []core.ContentPart{core.ToolResultPart{
+				Role: core.MESSAGE_ROLE_TOOL,
+				Content: []core.ContentParter{core.ToolResultPart{
 					ToolCallID: tc.ID,
-					Content:    []core.ContentPart{core.TextPart{Text: result}},
+					Content:    []core.ContentParter{core.TextPart{Text: result}},
 					IsError:    false,
 				}},
 			})
@@ -319,7 +319,7 @@ func (a *Agent) Run(ctx context.Context, req *Request) (*Result, error) {
 	}, nil
 }
 
-func extractToolCalls(parts []core.ContentPart) []core.ToolCallPart {
+func extractToolCalls(parts []core.ContentParter) []core.ToolCallPart {
 	var out []core.ToolCallPart
 	for _, p := range parts {
 		if tc, ok := p.(core.ToolCallPart); ok {
@@ -373,7 +373,7 @@ type mockStreamModel struct {
 }
 
 func (m *mockStreamModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
-	return &core.Response{Message: core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "ok"}}}}, nil
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "ok"}}}}, nil
 }
 
 func (m *mockStreamModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
@@ -406,7 +406,7 @@ func TestRunStreamTextOnly(t *testing.T) {
 
 	var deltas []string
 	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}}},
 	}) {
 		if err != nil {
 			t.Fatalf("stream error: %v", err)
@@ -434,7 +434,7 @@ func TestRunStreamWithTool(t *testing.T) {
 
 	var toolCall *core.ToolCallPart
 	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather?"}}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Weather?"}}}}},
 		Tools:    []core.ToolDefinition{{Name: "get_weather", Parameters: &core.Schema{Type: "object"}}},
 	}) {
 		if err != nil {
@@ -514,7 +514,7 @@ func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 			}
 
 			var assistantMsg core.Message
-			assistantMsg.Role = core.RoleAssistant
+			assistantMsg.Role = core.MESSAGE_ROLE_ASSISTANT
 
 			for part, err := range stream {
 				if err != nil {
@@ -556,12 +556,12 @@ func (a *Agent) RunStream(ctx context.Context, req *Request) StreamResponse {
 				result := fmt.Sprintf("Tool %q executed with args: %s", tc.Name, tc.Arguments)
 				toolResult := core.ToolResultPart{
 					ToolCallID: tc.ID,
-					Content:    []core.ContentPart{core.TextPart{Text: result}},
+					Content:    []core.ContentParter{core.TextPart{Text: result}},
 					IsError:    false,
 				}
 				messages = append(messages, core.Message{
-					Role:    core.RoleTool,
-					Content: []core.ContentPart{toolResult},
+					Role:    core.MESSAGE_ROLE_TOOL,
+					Content: []core.ContentParter{toolResult},
 				})
 				if !yield(&StreamEvent{Type: StreamEventTypeToolResult, ToolResult: &toolResult, Step: step + 1}, nil) {
 					return
@@ -624,7 +624,7 @@ import (
 type mockModel struct{}
 
 func (m *mockModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
-	return &core.Response{Message: core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "Summary of previous conversation"}}}}, nil
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "Summary of previous conversation"}}}}, nil
 }
 
 func (m *mockModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) { return nil, nil }
@@ -640,8 +640,8 @@ func (m *mockModel) Model() string    { return "mock" }
 func TestCompressUnderThreshold(t *testing.T) {
 	c := &Compressor{MaxMessages: 10, MaxTokens: 1000, KeepLastN: 2}
 	msgs := []core.Message{
-		{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "a"}}},
-		{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "b"}}},
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "a"}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "b"}}},
 	}
 	out, err := c.Compress(context.Background(), msgs)
 	if err != nil {
@@ -656,10 +656,10 @@ func TestCompressOverMaxMessages(t *testing.T) {
 	model := &mockModel{}
 	c := &Compressor{Model: model, MaxMessages: 3, MaxTokens: 10000, KeepLastN: 2}
 	msgs := []core.Message{
-		{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "msg1"}}},
-		{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "msg2"}}},
-		{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "msg3"}}},
-		{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "msg4"}}},
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "msg1"}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "msg2"}}},
+		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "msg3"}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "msg4"}}},
 	}
 	out, err := c.Compress(context.Background(), msgs)
 	if err != nil {
@@ -668,7 +668,7 @@ func TestCompressOverMaxMessages(t *testing.T) {
 	if len(out) != 3 { // summary + keepLastN(2)
 		t.Errorf("len: got %d, want 3", len(out))
 	}
-	if out[0].Role != core.RoleSystem {
+	if out[0].Role != core.MESSAGE_ROLE_SYSTEM {
 		t.Errorf("first msg role: got %q, want system", out[0].Role)
 	}
 }
@@ -722,8 +722,8 @@ func (c *Compressor) Compress(ctx context.Context, messages []core.Message) ([]c
 
 	resp, err := c.Model.Generate(ctx, &core.Request{
 		Messages: []core.Message{{
-			Role: core.RoleUser,
-			Content: []core.ContentPart{core.TextPart{Text: fmt.Sprintf(
+			Role: core.MESSAGE_ROLE_USER,
+			Content: []core.ContentParter{core.TextPart{Text: fmt.Sprintf(
 				"Summarize the following conversation in a few sentences. Be concise:\n\n%s",
 				messagesToString(toSummarize),
 			)}},
@@ -734,8 +734,8 @@ func (c *Compressor) Compress(ctx context.Context, messages []core.Message) ([]c
 	}
 
 	summary := core.Message{
-		Role:    core.RoleSystem,
-		Content: []core.ContentPart{core.TextPart{Text: "Previous context: " + contentToString(resp.Message.Content)}},
+		Role:    core.MESSAGE_ROLE_SYSTEM,
+		Content: []core.ContentParter{core.TextPart{Text: "Previous context: " + contentToString(resp.Message.Content)}},
 	}
 
 	return append([]core.Message{summary}, keep...), nil
@@ -761,7 +761,7 @@ func messagesToString(msgs []core.Message) string {
 	return out
 }
 
-func contentToString(parts []core.ContentPart) string {
+func contentToString(parts []core.ContentParter) string {
 	var texts []string
 	for _, part := range parts {
 		if p, ok := part.(core.TextPart); ok {

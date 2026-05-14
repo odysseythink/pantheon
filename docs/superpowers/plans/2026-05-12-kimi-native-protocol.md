@@ -74,8 +74,8 @@ type Message struct {
 	ReasoningContent string     `json:"reasoning_content,omitempty"`
 }
 
-// ContentPart is a content part in a multimodal user message.
-type ContentPart struct {
+// ContentParter is a content part in a multimodal user message.
+type ContentParter struct {
 	Type     string `json:"type"`
 	Text     string `json:"text,omitempty"`
 	ImageURL *struct {
@@ -491,15 +491,15 @@ func toKimiMessages(msgs []core.Message, systemPrompt string) ([]Message, error)
 
 func toKimiMessage(m core.Message) (Message, error) {
 	switch m.Role {
-	case core.RoleSystem:
+	case core.MESSAGE_ROLE_SYSTEM:
 		return Message{Role: "system", Content: contentToString(m.Content)}, nil
-	case core.RoleUser:
+	case core.MESSAGE_ROLE_USER:
 		content, err := contentToKimi(m.Content)
 		if err != nil {
 			return Message{}, err
 		}
 		return Message{Role: "user", Content: content}, nil
-	case core.RoleAssistant:
+	case core.MESSAGE_ROLE_ASSISTANT:
 		msg := Message{Role: "assistant"}
 		var textParts []string
 		var reasoningContent string
@@ -536,7 +536,7 @@ func toKimiMessage(m core.Message) (Message, error) {
 			msg.Content = nil
 		}
 		return msg, nil
-	case core.RoleTool:
+	case core.MESSAGE_ROLE_TOOL:
 		if len(m.Content) > 0 {
 			return Message{
 				Role:       "tool",
@@ -557,7 +557,7 @@ func isEffectivelyEmpty(texts []string) bool {
 	return true
 }
 
-func contentToString(parts []core.ContentPart) string {
+func contentToString(parts []core.ContentParter) string {
 	var texts []string
 	for _, part := range parts {
 		switch p := part.(type) {
@@ -572,19 +572,19 @@ func contentToString(parts []core.ContentPart) string {
 	return joinTexts(texts)
 }
 
-func contentToKimi(parts []core.ContentPart) (any, error) {
+func contentToKimi(parts []core.ContentParter) (any, error) {
 	if len(parts) == 1 {
 		if p, ok := parts[0].(core.TextPart); ok {
 			return p.Text, nil
 		}
 	}
-	var out []ContentPart
+	var out []ContentParter
 	for _, part := range parts {
 		switch p := part.(type) {
 		case core.TextPart:
-			out = append(out, ContentPart{Type: "text", Text: p.Text})
+			out = append(out, ContentParter{Type: "text", Text: p.Text})
 		case core.ImagePart:
-			out = append(out, ContentPart{
+			out = append(out, ContentParter{
 				Type: "image_url",
 				ImageURL: &struct {
 					URL    string `json:"url"`
@@ -601,7 +601,7 @@ func contentToKimi(parts []core.ContentPart) (any, error) {
 	return out, nil
 }
 
-func toolResultCallID(parts []core.ContentPart) string {
+func toolResultCallID(parts []core.ContentParter) string {
 	for _, part := range parts {
 		if p, ok := part.(core.ToolResultPart); ok {
 			return p.ToolCallID
@@ -737,7 +737,7 @@ func parseCompletionResponse(resp *ChatCompletionResponse, model string) (*core.
 		return nil, fmt.Errorf("kimi: no choices in response")
 	}
 	choice := resp.Choices[0]
-	msg := core.Message{Role: core.RoleAssistant}
+	msg := core.Message{Role: core.MESSAGE_ROLE_ASSISTANT}
 
 	if reasoningContent := choice.Message.ReasoningContent; reasoningContent != "" {
 		msg.Content = append(msg.Content, core.ReasoningPart{Text: reasoningContent})
@@ -1258,8 +1258,8 @@ func TestToKimiTool_NormalizeSchema(t *testing.T) {
 
 func TestToKimiMessage_AssistantEmptyContentWithToolCall(t *testing.T) {
 	msg := core.Message{
-		Role: core.RoleAssistant,
-		Content: []core.ContentPart{
+		Role: core.MESSAGE_ROLE_ASSISTANT,
+		Content: []core.ContentParter{
 			core.TextPart{Text: ""},
 		},
 		ToolCalls: []core.ToolCallPart{
@@ -1280,8 +1280,8 @@ func TestToKimiMessage_AssistantEmptyContentWithToolCall(t *testing.T) {
 
 func TestToKimiMessage_AssistantReasoningContent(t *testing.T) {
 	msg := core.Message{
-		Role: core.RoleAssistant,
-		Content: []core.ContentPart{
+		Role: core.MESSAGE_ROLE_ASSISTANT,
+		Content: []core.ContentParter{
 			core.ReasoningPart{Text: "Let me think..."},
 			core.TextPart{Text: "The answer is 4."},
 		},
@@ -1301,7 +1301,7 @@ func TestToKimiMessage_AssistantReasoningContent(t *testing.T) {
 func TestBuildRequestBody_Thinking(t *testing.T) {
 	req := &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hello"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hello"}}},
 		},
 	}
 	opts := ProviderOptions{
@@ -1333,7 +1333,7 @@ func TestBuildRequestBody_Thinking(t *testing.T) {
 func TestBuildRequestBody_PromptCacheKey(t *testing.T) {
 	req := &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hello"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hello"}}},
 		},
 	}
 	opts := ProviderOptions{PromptCacheKey: "session-123"}
@@ -1624,8 +1624,8 @@ import (
 func TestExtractObjectResponse(t *testing.T) {
 	resp := &core.Response{
 		Message: core.Message{
-			Role: core.RoleAssistant,
-			Content: []core.ContentPart{
+			Role: core.MESSAGE_ROLE_ASSISTANT,
+			Content: []core.ContentParter{
 				core.TextPart{Text: `{"greeting":"hello"}`},
 			},
 		},

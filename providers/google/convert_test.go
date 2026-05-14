@@ -18,7 +18,7 @@ func TestToGeminiMessages(t *testing.T) {
 		{
 			name: "user text",
 			msgs: []core.Message{
-				{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hello"}}},
+				{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hello"}}},
 			},
 			want: []Content{
 				{Role: "user", Parts: []Part{{Text: "Hello"}}},
@@ -27,7 +27,7 @@ func TestToGeminiMessages(t *testing.T) {
 		{
 			name: "assistant text",
 			msgs: []core.Message{
-				{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "Hi there"}}},
+				{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "Hi there"}}},
 			},
 			want: []Content{
 				{Role: "model", Parts: []Part{{Text: "Hi there"}}},
@@ -36,7 +36,7 @@ func TestToGeminiMessages(t *testing.T) {
 		{
 			name: "tool role",
 			msgs: []core.Message{
-				{Role: core.RoleTool, Content: []core.ContentPart{core.TextPart{Text: "Result"}}},
+				{Role: core.MESSAGE_ROLE_TOOL, Content: []core.ContentParter{core.TextPart{Text: "Result"}}},
 			},
 			want: []Content{
 				{Role: "user", Parts: []Part{{Text: "Result"}}},
@@ -45,7 +45,7 @@ func TestToGeminiMessages(t *testing.T) {
 		{
 			name: "system prompt maps to user",
 			msgs: []core.Message{
-				{Role: core.RoleSystem, Content: []core.ContentPart{core.TextPart{Text: "You are helpful"}}},
+				{Role: core.MESSAGE_ROLE_SYSTEM, Content: []core.ContentParter{core.TextPart{Text: "You are helpful"}}},
 			},
 			want: []Content{
 				{Role: "user", Parts: []Part{{Text: "You are helpful"}}},
@@ -54,9 +54,9 @@ func TestToGeminiMessages(t *testing.T) {
 		{
 			name: "multiple messages",
 			msgs: []core.Message{
-				{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hello"}}},
-				{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}},
-				{Role: core.RoleTool, Content: []core.ContentPart{core.TextPart{Text: "Done"}}},
+				{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hello"}}},
+				{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}},
+				{Role: core.MESSAGE_ROLE_TOOL, Content: []core.ContentParter{core.TextPart{Text: "Done"}}},
 			},
 			want: []Content{
 				{Role: "user", Parts: []Part{{Text: "Hello"}}},
@@ -82,57 +82,57 @@ func TestToGeminiMessages(t *testing.T) {
 func TestToGeminiParts(t *testing.T) {
 	tests := []struct {
 		name    string
-		parts   []core.ContentPart
+		parts   []core.ContentParter
 		want    []Part
 		wantErr string
 	}{
 		{
 			name:  "text",
-			parts: []core.ContentPart{core.TextPart{Text: "hello"}},
+			parts: []core.ContentParter{core.TextPart{Text: "hello"}},
 			want:  []Part{{Text: "hello"}},
 		},
 		{
 			name:  "image with data",
-			parts: []core.ContentPart{core.ImagePart{Data: []byte("img"), MIMEType: "image/png"}},
+			parts: []core.ContentParter{core.ImagePart{Data: []byte("img"), MIMEType: "image/png"}},
 			want:  []Part{{InlineData: &Blob{MimeType: "image/png", Data: base64.StdEncoding.EncodeToString([]byte("img"))}}},
 		},
 		{
 			name:    "image URL error",
-			parts:   []core.ContentPart{core.ImagePart{URL: "http://example.com/img.png", MIMEType: "image/png"}},
+			parts:   []core.ContentParter{core.ImagePart{URL: "http://example.com/img.png", MIMEType: "image/png"}},
 			wantErr: "google: image URLs must be fetched first",
 		},
 		{
 			name:  "audio with data",
-			parts: []core.ContentPart{core.AudioPart{Data: []byte("audio"), MIMEType: "audio/mp3"}},
+			parts: []core.ContentParter{core.AudioPart{Data: []byte("audio"), MIMEType: "audio/mp3"}},
 			want:  []Part{{InlineData: &Blob{MimeType: "audio/mp3", Data: base64.StdEncoding.EncodeToString([]byte("audio"))}}},
 		},
 		{
 			name:    "audio URL error",
-			parts:   []core.ContentPart{core.AudioPart{URL: "http://example.com/audio.mp3", MIMEType: "audio/mp3"}},
+			parts:   []core.ContentParter{core.AudioPart{URL: "http://example.com/audio.mp3", MIMEType: "audio/mp3"}},
 			wantErr: "google: audio URLs must be fetched first",
 		},
 		{
 			name:  "document with data",
-			parts: []core.ContentPart{core.DocumentPart{Data: []byte("doc"), MIMEType: "application/pdf"}},
+			parts: []core.ContentParter{core.DocumentPart{Data: []byte("doc"), MIMEType: "application/pdf"}},
 			want:  []Part{{InlineData: &Blob{MimeType: "application/pdf", Data: base64.StdEncoding.EncodeToString([]byte("doc"))}}},
 		},
 		{
 			name:  "tool call",
-			parts: []core.ContentPart{core.ToolCallPart{ID: "1", Name: "get_weather", Arguments: `{"city":"Paris"}`}},
+			parts: []core.ContentParter{core.ToolCallPart{ID: "1", Name: "get_weather", Arguments: `{"city":"Paris"}`}},
 			want:  []Part{{FunctionCall: &FunctionCall{Name: "get_weather", Args: map[string]interface{}{"city": "Paris"}}}},
 		},
 		{
 			name:  "tool result",
-			parts: []core.ContentPart{core.ToolResultPart{ToolCallID: "1", Name: "get_weather", Content: []core.ContentPart{core.TextPart{Text: "sunny"}}}},
+			parts: []core.ContentParter{core.ToolResultPart{ToolCallID: "1", Name: "get_weather", Content: []core.ContentParter{core.TextPart{Text: "sunny"}}}},
 			want:  []Part{{FunctionResponse: &FunctionResponse{Name: "get_weather", Response: map[string]interface{}{"result": "sunny"}}}}},
 		{
 			name:    "unsupported part error",
-			parts:   []core.ContentPart{core.ReasoningPart{Text: "thinking"}},
+			parts:   []core.ContentParter{core.ReasoningPart{Text: "thinking"}},
 			wantErr: "google: unsupported content part: core.ReasoningPart",
 		},
 		{
 			name:    "invalid JSON arguments error",
-			parts:   []core.ContentPart{core.ToolCallPart{ID: "1", Name: "get_weather", Arguments: `not json`}},
+			parts:   []core.ContentParter{core.ToolCallPart{ID: "1", Name: "get_weather", Arguments: `not json`}},
 			wantErr: "google: invalid tool call arguments",
 		},
 	}
@@ -175,27 +175,27 @@ func indexOfSubstring(s, substr string) int {
 func TestContentToString(t *testing.T) {
 	tests := []struct {
 		name  string
-		parts []core.ContentPart
+		parts []core.ContentParter
 		want  string
 	}{
 		{
 			name:  "single text part",
-			parts: []core.ContentPart{core.TextPart{Text: "hello"}},
+			parts: []core.ContentParter{core.TextPart{Text: "hello"}},
 			want:  "hello",
 		},
 		{
 			name:  "multiple text parts",
-			parts: []core.ContentPart{core.TextPart{Text: "hello"}, core.TextPart{Text: "world"}},
+			parts: []core.ContentParter{core.TextPart{Text: "hello"}, core.TextPart{Text: "world"}},
 			want:  "hello\nworld",
 		},
 		{
 			name:  "empty",
-			parts: []core.ContentPart{},
+			parts: []core.ContentParter{},
 			want:  "",
 		},
 		{
 			name:  "ignores non-text parts",
-			parts: []core.ContentPart{core.ImagePart{Data: []byte("img")}, core.TextPart{Text: "hi"}},
+			parts: []core.ContentParter{core.ImagePart{Data: []byte("img")}, core.TextPart{Text: "hi"}},
 			want:  "hi",
 		},
 	}
@@ -304,7 +304,7 @@ func TestToCoreResponse(t *testing.T) {
 			},
 			model: "gemini-pro",
 			want: &core.Response{
-				Message:      core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "Hello"}}},
+				Message:      core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "Hello"}}},
 				FinishReason: "STOP",
 				Model:        "gemini-pro",
 			},
@@ -321,7 +321,7 @@ func TestToCoreResponse(t *testing.T) {
 			},
 			model: "gemini-pro",
 			want: &core.Response{
-				Message: core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{
+				Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{
 					core.ToolCallPart{ID: "get_weather", Name: "get_weather", Arguments: `{"city":"Paris"}`},
 				}},
 				FinishReason: "STOP",
@@ -358,7 +358,7 @@ func TestToCoreResponse(t *testing.T) {
 			},
 			model: "gemini-pro",
 			want: &core.Response{
-				Message:      core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}},
+				Message:      core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}},
 				FinishReason: "STOP",
 				Usage:        core.Usage{PromptTokens: 5, CompletionTokens: 4, TotalTokens: 9},
 				Model:        "gemini-pro",

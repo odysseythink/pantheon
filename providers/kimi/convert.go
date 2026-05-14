@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/types"
 )
 
 // buildRequestBody constructs the Kimi chat completion request body as map[string]any.
@@ -125,15 +126,15 @@ func toKimiMessages(msgs []core.Message, systemPrompt string) ([]Message, error)
 // toKimiMessage converts a single core.Message to Kimi format.
 func toKimiMessage(m core.Message) (Message, error) {
 	switch m.Role {
-	case core.RoleSystem:
+	case core.MESSAGE_ROLE_SYSTEM:
 		return Message{Role: "system", Content: contentToString(m.Content)}, nil
-	case core.RoleUser:
+	case core.MESSAGE_ROLE_USER:
 		content, err := contentToKimi(m.Content)
 		if err != nil {
 			return Message{}, err
 		}
 		return Message{Role: "user", Content: content}, nil
-	case core.RoleAssistant:
+	case core.MESSAGE_ROLE_ASSISTANT:
 		msg := Message{Role: "assistant"}
 		var textParts []string
 		var reasoningContent string
@@ -144,7 +145,7 @@ func toKimiMessage(m core.Message) (Message, error) {
 			case core.ReasoningPart:
 				reasoningContent += p.Text
 			case core.ToolCallPart:
-				msg.ToolCalls = append(msg.ToolCalls, ToolCall{
+				msg.ToolCalls = append(msg.ToolCalls, types.ToolCall{
 					ID:   p.ID,
 					Type: "function",
 					Function: struct {
@@ -170,7 +171,7 @@ func toKimiMessage(m core.Message) (Message, error) {
 			msg.Content = nil
 		}
 		return msg, nil
-	case core.RoleTool:
+	case core.MESSAGE_ROLE_TOOL:
 		return Message{
 			Role:       "tool",
 			ToolCallID: toolResultCallID(m.Content),
@@ -191,7 +192,7 @@ func isEffectivelyEmpty(texts []string) bool {
 }
 
 // contentToString joins all core.TextPart and recursively processes core.ToolResultPart.
-func contentToString(parts []core.ContentPart) string {
+func contentToString(parts []core.ContentParter) string {
 	var texts []string
 	for _, part := range parts {
 		switch p := part.(type) {
@@ -207,20 +208,20 @@ func contentToString(parts []core.ContentPart) string {
 }
 
 // contentToKimi converts content parts to Kimi multimodal format.
-// For a single text part it returns a string; otherwise it returns []ContentPart.
-func contentToKimi(parts []core.ContentPart) (any, error) {
+// For a single text part it returns a string; otherwise it returns []ContentParter.
+func contentToKimi(parts []core.ContentParter) (any, error) {
 	if len(parts) == 1 {
 		if p, ok := parts[0].(core.TextPart); ok {
 			return p.Text, nil
 		}
 	}
-	var out []ContentPart
+	var out []ContentParter
 	for _, part := range parts {
 		switch p := part.(type) {
 		case core.TextPart:
-			out = append(out, ContentPart{Type: "text", Text: p.Text})
+			out = append(out, ContentParter{Type: "text", Text: p.Text})
 		case core.ImagePart:
-			out = append(out, ContentPart{
+			out = append(out, ContentParter{
 				Type: "image_url",
 				ImageURL: &struct {
 					URL    string `json:"url"`
@@ -238,7 +239,7 @@ func contentToKimi(parts []core.ContentPart) (any, error) {
 }
 
 // toolResultCallID extracts the ToolCallID from the first core.ToolResultPart.
-func toolResultCallID(parts []core.ContentPart) string {
+func toolResultCallID(parts []core.ContentParter) string {
 	for _, part := range parts {
 		if p, ok := part.(core.ToolResultPart); ok {
 			return p.ToolCallID

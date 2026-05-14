@@ -35,7 +35,7 @@ func TestAnthropicGenerate(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "claude-3-opus")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("generate: %v", err)
@@ -76,7 +76,7 @@ func TestAnthropicStream(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "claude-3-opus")
 
 	stream, err := model.Stream(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("stream init: %v", err)

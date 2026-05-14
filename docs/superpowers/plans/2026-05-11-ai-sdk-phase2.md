@@ -249,7 +249,7 @@ func (m *mockModel) Generate(ctx context.Context, req *core.Request) (*core.Resp
 		m.responses = m.responses[1:]
 		return r, nil
 	}
-	return &core.Response{Message: core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "ok"}}}}, nil
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "ok"}}}}, nil
 }
 
 func (m *mockModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
@@ -579,7 +579,7 @@ func (m *mockModel) Generate(ctx context.Context, req *core.Request) (*core.Resp
 	if m.fail {
 		return nil, &core.ProviderError{Status: 500, Message: "fail"}
 	}
-	return &core.Response{Message: core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: m.name}}}}, nil
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: m.name}}}}, nil
 }
 
 func (m *mockModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {

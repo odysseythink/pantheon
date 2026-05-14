@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/types"
 )
 
 func TestGenerate(t *testing.T) {
@@ -35,7 +36,7 @@ func TestGenerate(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "moonshot-v1-8k")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("generate: %v", err)
@@ -58,7 +59,7 @@ func TestGenerateWithTool(t *testing.T) {
 			Choices: []Choice{{
 				Message: Message{
 					Role: "assistant",
-					ToolCalls: []ToolCall{{
+					ToolCalls: []types.ToolCall{{
 						ID:   "call_1",
 						Type: "function",
 						Function: struct {
@@ -78,7 +79,7 @@ func TestGenerateWithTool(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "moonshot-v1-8k")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather?"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Weather?"}}}},
 		Tools: []core.ToolDefinition{{
 			Name:        "get_weather",
 			Description: "Get weather",
@@ -116,7 +117,7 @@ func TestGenerateObject(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "moonshot-v1-8k")
 
 	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate an object"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Generate an object"}}}},
 		Schema: &core.Schema{Type: "object", Properties: map[string]*core.Schema{
 			"name":  {Type: "string"},
 			"value": {Type: "integer"},
@@ -144,7 +145,7 @@ func TestGenerateObject_ToolMode(t *testing.T) {
 			Choices: []Choice{{
 				Message: Message{
 					Role: "assistant",
-					ToolCalls: []ToolCall{{
+					ToolCalls: []types.ToolCall{{
 						ID:   "call_obj",
 						Type: "function",
 						Function: struct {
@@ -164,7 +165,7 @@ func TestGenerateObject_ToolMode(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "moonshot-v1-8k")
 
 	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Generate"}}}},
 		Schema: &core.Schema{Type: "object", Properties: map[string]*core.Schema{
 			"name":  {Type: "string"},
 			"value": {Type: "integer"},
@@ -202,7 +203,7 @@ func TestGenerateObject_TextMode(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "moonshot-v1-8k")
 
 	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Generate"}}}},
 		Schema: &core.Schema{Type: "object", Properties: map[string]*core.Schema{
 			"name":  {Type: "string"},
 			"value": {Type: "integer"},
@@ -240,7 +241,7 @@ func TestGenerateObject_AutoMode(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "moonshot-v1-8k")
 
 	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Generate"}}}},
 		Schema: &core.Schema{Type: "object", Properties: map[string]*core.Schema{
 			"name":  {Type: "string"},
 			"value": {Type: "integer"},
@@ -296,7 +297,7 @@ func TestStream(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "moonshot-v1-8k")
 
 	stream, err := model.Stream(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("stream init: %v", err)
@@ -349,7 +350,7 @@ func TestGenerateWithReasoning(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "moonshot-v1-8k")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "What is 2+2?"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "What is 2+2?"}}}},
 	})
 	if err != nil {
 		t.Fatalf("generate: %v", err)
@@ -388,7 +389,7 @@ func TestGenerate_RequestError(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "moonshot-v1-8k")
 
 	_, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err == nil {
 		t.Fatal("expected error")
@@ -410,7 +411,7 @@ func TestLive_Generate(t *testing.T) {
 
 	resp, err := model.Generate(context.Background(), &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Say hello in one word"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Say hello in one word"}}},
 		},
 		MaxTokens: intPtr(100),
 	})
@@ -453,7 +454,7 @@ func TestLive_Stream(t *testing.T) {
 
 	stream, err := model.Stream(context.Background(), &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Count from 1 to 3"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Count from 1 to 3"}}},
 		},
 		MaxTokens: intPtr(100),
 	})
@@ -510,7 +511,7 @@ func TestLive_GenerateWithTool(t *testing.T) {
 
 	resp, err := model.Generate(context.Background(), &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "What is the weather in Paris?"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "What is the weather in Paris?"}}},
 		},
 		Tools: []core.ToolDefinition{{
 			Name:        "get_weather",
@@ -554,7 +555,7 @@ func TestLive_GenerateObject(t *testing.T) {
 
 	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate a JSON object with a greeting field."}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Generate a JSON object with a greeting field."}}},
 		},
 		Schema: &core.Schema{
 			Type: "object",

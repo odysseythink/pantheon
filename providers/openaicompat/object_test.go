@@ -9,8 +9,8 @@ import (
 func TestExtractObjectResponse_FromText(t *testing.T) {
 	resp := &core.Response{
 		Message: core.Message{
-			Role:    core.RoleAssistant,
-			Content: []core.ContentPart{core.TextPart{Text: `{"name":"test","value":42}`}},
+			Role:    core.MESSAGE_ROLE_ASSISTANT,
+			Content: []core.ContentParter{core.TextPart{Text: `{"name":"test","value":42}`}},
 		},
 		FinishReason: "stop",
 		Usage:        core.Usage{TotalTokens: 10},
@@ -37,8 +37,8 @@ func TestExtractObjectResponse_FromText(t *testing.T) {
 func TestExtractObjectResponse_FromToolCall(t *testing.T) {
 	resp := &core.Response{
 		Message: core.Message{
-			Role: core.RoleAssistant,
-			Content: []core.ContentPart{core.ToolCallPart{
+			Role: core.MESSAGE_ROLE_ASSISTANT,
+			Content: []core.ContentParter{core.ToolCallPart{
 				ID:        "call_1",
 				Name:      "generate_object",
 				Arguments: `{"result":true}`,
@@ -61,8 +61,8 @@ func TestExtractObjectResponse_FromToolCall(t *testing.T) {
 func TestExtractObjectResponse_InvalidJSON(t *testing.T) {
 	resp := &core.Response{
 		Message: core.Message{
-			Role:    core.RoleAssistant,
-			Content: []core.ContentPart{core.TextPart{Text: `not json`}},
+			Role:    core.MESSAGE_ROLE_ASSISTANT,
+			Content: []core.ContentParter{core.TextPart{Text: `not json`}},
 		},
 	}
 	_, err := ExtractObjectResponse(resp, "gpt-4")
@@ -74,8 +74,8 @@ func TestExtractObjectResponse_InvalidJSON(t *testing.T) {
 func TestExtractObjectResponse_NoContent(t *testing.T) {
 	resp := &core.Response{
 		Message: core.Message{
-			Role:    core.RoleAssistant,
-			Content: []core.ContentPart{},
+			Role:    core.MESSAGE_ROLE_ASSISTANT,
+			Content: []core.ContentParter{},
 		},
 	}
 	_, err := ExtractObjectResponse(resp, "gpt-4")

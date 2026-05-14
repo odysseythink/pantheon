@@ -16,8 +16,8 @@ func TestBuildRequestBody_Error(t *testing.T) {
 	// Pass an invalid message that causes toKimiMessage to fail
 	req := &core.Request{
 		Messages: []core.Message{{
-			Role:    core.RoleAssistant,
-			Content: []core.ContentPart{core.ImagePart{URL: "http://example.com"}},
+			Role:    core.MESSAGE_ROLE_ASSISTANT,
+			Content: []core.ContentParter{core.ImagePart{URL: "http://example.com"}},
 		}},
 	}
 	_, err := buildRequestBody("kimi-k2", req, ProviderOptions{})
@@ -28,8 +28,8 @@ func TestBuildRequestBody_Error(t *testing.T) {
 
 func TestToKimiMessage_UnknownRole(t *testing.T) {
 	msg := core.Message{
-		Role:    core.Role("unknown"),
-		Content: []core.ContentPart{core.TextPart{Text: "hello"}},
+		Role:    core.MessageRoleType("unknown"),
+		Content: []core.ContentParter{core.TextPart{Text: "hello"}},
 	}
 	result, err := toKimiMessage(msg)
 	if err != nil {
@@ -42,7 +42,7 @@ func TestToKimiMessage_UnknownRole(t *testing.T) {
 
 func TestToKimiMessage_EmptyToolMessage(t *testing.T) {
 	msg := core.Message{
-		Role: core.RoleTool,
+		Role: core.MESSAGE_ROLE_TOOL,
 	}
 	result, err := toKimiMessage(msg)
 	if err != nil {
@@ -54,7 +54,7 @@ func TestToKimiMessage_EmptyToolMessage(t *testing.T) {
 }
 
 func TestToolResultCallID_Empty(t *testing.T) {
-	parts := []core.ContentPart{core.TextPart{Text: "no tool result"}}
+	parts := []core.ContentParter{core.TextPart{Text: "no tool result"}}
 	id := toolResultCallID(parts)
 	if id != "" {
 		t.Errorf("expected empty id, got %s", id)
@@ -62,7 +62,7 @@ func TestToolResultCallID_Empty(t *testing.T) {
 }
 
 func TestContentToKimi_Unsupported(t *testing.T) {
-	parts := []core.ContentPart{core.TextPart{Text: "hello"}, core.ImagePart{URL: "http://example.com"}, core.ReasoningPart{Text: "think"}}
+	parts := []core.ContentParter{core.TextPart{Text: "hello"}, core.ImagePart{URL: "http://example.com"}, core.ReasoningPart{Text: "think"}}
 	_, err := contentToKimi(parts)
 	if err == nil {
 		t.Fatal("expected error for unsupported content part in user message")
@@ -139,8 +139,8 @@ func TestGenerate_BuildRequestBodyError(t *testing.T) {
 
 	_, err := model.Generate(context.Background(), &core.Request{
 		Messages: []core.Message{{
-			Role:    core.RoleAssistant,
-			Content: []core.ContentPart{core.ImagePart{URL: "http://example.com"}},
+			Role:    core.MESSAGE_ROLE_ASSISTANT,
+			Content: []core.ContentParter{core.ImagePart{URL: "http://example.com"}},
 		}},
 	})
 	if err == nil {
@@ -159,7 +159,7 @@ func TestGenerateObject_GenerateError(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "moonshot-v1-8k")
 
 	_, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Generate"}}}},
 		Schema:   &core.Schema{Type: "object"},
 		Mode:     core.ObjectModeJSON,
 	})
@@ -172,8 +172,8 @@ func TestChatCompletionStream_BuildRequestBodyError(t *testing.T) {
 	client := newClient("test-key")
 	stream := chatCompletionStream(context.Background(), client, "kimi-k2", &core.Request{
 		Messages: []core.Message{{
-			Role:    core.RoleAssistant,
-			Content: []core.ContentPart{core.ImagePart{URL: "http://example.com"}},
+			Role:    core.MESSAGE_ROLE_ASSISTANT,
+			Content: []core.ContentParter{core.ImagePart{URL: "http://example.com"}},
 		}},
 	})
 
@@ -190,7 +190,7 @@ func TestChatCompletionStream_NetworkError(t *testing.T) {
 	client := newClient("test-key")
 	client.BaseURL = "http://invalid.localhost:99999"
 	stream := chatCompletionStream(context.Background(), client, "kimi-k2", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 
 	for _, err := range stream {
@@ -289,8 +289,8 @@ func TestClient_uploadFile_RequestError(t *testing.T) {
 
 func TestToKimiMessage_AssistantUnsupportedPart(t *testing.T) {
 	msg := core.Message{
-		Role:    core.RoleAssistant,
-		Content: []core.ContentPart{core.ImagePart{URL: "http://example.com"}},
+		Role:    core.MESSAGE_ROLE_ASSISTANT,
+		Content: []core.ContentParter{core.ImagePart{URL: "http://example.com"}},
 	}
 	_, err := toKimiMessage(msg)
 	if err == nil {
@@ -308,8 +308,8 @@ func TestExtractProviderOptions_GetMethod(t *testing.T) {
 
 func TestToKimiMessage_UserUnsupportedPart(t *testing.T) {
 	msg := core.Message{
-		Role:    core.RoleUser,
-		Content: []core.ContentPart{core.ReasoningPart{Text: "think"}},
+		Role:    core.MESSAGE_ROLE_USER,
+		Content: []core.ContentParter{core.ReasoningPart{Text: "think"}},
 	}
 	_, err := toKimiMessage(msg)
 	if err == nil {
@@ -337,8 +337,8 @@ func TestEnsurePropertyTypes_PropertyNotMap(t *testing.T) {
 
 func TestToKimiMessages_Error(t *testing.T) {
 	msgs := []core.Message{{
-		Role:    core.RoleAssistant,
-		Content: []core.ContentPart{core.ImagePart{URL: "http://example.com"}},
+		Role:    core.MESSAGE_ROLE_ASSISTANT,
+		Content: []core.ContentParter{core.ImagePart{URL: "http://example.com"}},
 	}}
 	_, err := toKimiMessages(msgs, "")
 	if err == nil {

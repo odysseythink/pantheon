@@ -8,12 +8,12 @@ func TestRequest_Struct(t *testing.T) {
 	maxTokens := 100
 	temp := 0.7
 	req := Request{
-		Messages:     []Message{{Role: RoleUser, Content: []ContentPart{TextPart{Text: "Hi"}}}},
-		SystemPrompt: "Be helpful",
-		Tools:        []ToolDefinition{{Name: "test", Description: "A test tool"}},
-		MaxTokens:    &maxTokens,
-		Temperature:  &temp,
-		TopP:         &temp,
+		Messages:      []Message{{Role: MESSAGE_ROLE_USER, Content: []ContentParter{TextPart{Text: "Hi"}}}},
+		SystemPrompt:  "Be helpful",
+		Tools:         []ToolDefinition{{Name: "test", Description: "A test tool"}},
+		MaxTokens:     &maxTokens,
+		Temperature:   &temp,
+		TopP:          &temp,
 		StopSequences: []string{"STOP"},
 	}
 	if req.SystemPrompt != "Be helpful" {
@@ -26,7 +26,7 @@ func TestRequest_Struct(t *testing.T) {
 
 func TestResponse_Struct(t *testing.T) {
 	resp := Response{
-		Message:      Message{Role: RoleAssistant, Content: []ContentPart{TextPart{Text: "Hello"}}},
+		Message:      Message{Role: MESSAGE_ROLE_ASSISTANT, Content: []ContentParter{TextPart{Text: "Hello"}}},
 		FinishReason: "stop",
 		Usage:        Usage{PromptTokens: 5, CompletionTokens: 3, TotalTokens: 8},
 		Model:        "gpt-4",
@@ -65,7 +65,7 @@ func TestStreamPart_Struct(t *testing.T) {
 
 func TestObjectRequest_Struct(t *testing.T) {
 	req := ObjectRequest{
-		Messages:     []Message{{Role: RoleUser, Content: []ContentPart{TextPart{Text: "Hi"}}}},
+		Messages:     []Message{{Role: MESSAGE_ROLE_USER, Content: []ContentParter{TextPart{Text: "Hi"}}}},
 		SystemPrompt: "Be helpful",
 		Schema:       &Schema{Type: "object"},
 		Mode:         ObjectModeAuto,

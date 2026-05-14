@@ -46,7 +46,7 @@ func TestGenerate(t *testing.T) {
 	}
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("generate: %v", err)
@@ -92,7 +92,7 @@ func TestGenerateWithTool(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "gemini-pro")
 
 	resp, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "What's the weather?"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "What's the weather?"}}}},
 		Tools: []core.ToolDefinition{{
 			Name:        "get_weather",
 			Description: "Get weather",
@@ -147,7 +147,7 @@ func TestGenerateObject(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "gemini-pro")
 
 	resp, err := model.GenerateObject(context.Background(), &core.ObjectRequest{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Give me a person"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Give me a person"}}}},
 		Schema: &core.Schema{
 			Type: "object",
 			Properties: map[string]*core.Schema{
@@ -197,7 +197,7 @@ func TestStream(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "gemini-pro")
 
 	stream, err := model.Stream(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 	if err != nil {
 		t.Fatalf("stream init: %v", err)
@@ -251,7 +251,7 @@ func TestGenerateBlockedPrompt(t *testing.T) {
 	model, _ := p.LanguageModel(context.Background(), "gemini-pro")
 
 	_, err := model.Generate(context.Background(), &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Bad prompt"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Bad prompt"}}}},
 	})
 	if err == nil {
 		t.Fatal("expected error for blocked prompt")

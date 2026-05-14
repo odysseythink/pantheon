@@ -229,4 +229,4 @@ These are package-level functions, not part of `core.Provider`.
 |---|---|
 | Should we keep `openaicompat.Client` as an internal delegate? | **No.** The Kimi client will be standalone to have full control over request/response wire format. It reuses the same HTTP pattern but does not import `openaicompat` types. |
 | Should `core.ReasoningPart` be used for `reasoning_content`? | **Yes.** Map `reasoning_content` to `core.ReasoningPart{Text: reasoning_content}` on the response side. On the request side (assistant history message), map `core.ReasoningPart` back to `reasoning_content` field. |
-| Should `UploadVideo` return a `core.ContentPart`? | **No.** Return the `ms://` URL string. Callers can construct `core.ImagePart{URL: url}` or a future `core.VideoPart` if needed. |
+| Should `UploadVideo` return a `core.ContentParter`? | **No.** Return the `ms://` URL string. Callers can construct `core.ImagePart{URL: url}` or a future `core.VideoPart` if needed. |

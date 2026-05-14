@@ -15,7 +15,7 @@ type mockStreamModel struct {
 }
 
 func (m *mockStreamModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
-	return &core.Response{Message: core.Message{Role: core.RoleAssistant, Content: []core.ContentPart{core.TextPart{Text: "ok"}}}}, nil
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "ok"}}}}, nil
 }
 
 func (m *mockStreamModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
@@ -41,7 +41,6 @@ func (m *mockStreamModel) GenerateObject(ctx context.Context, req *core.ObjectRe
 	return nil, nil
 }
 
-
 func (m *mockStreamModel) Provider() string { return "mock" }
 func (m *mockStreamModel) Model() string    { return "mock" }
 
@@ -55,8 +54,8 @@ func TestRunStreamTextOnly(t *testing.T) {
 	a := New(m)
 
 	var deltas []string
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	}) {
 		if err != nil {
 			t.Fatalf("stream error: %v", err)
@@ -91,8 +90,8 @@ func TestRunStreamWithTool(t *testing.T) {
 	var toolCall *core.ToolCallPart
 	var toolResult *core.ToolResultPart
 	var text string
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather?"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Weather?"}}}},
 		Tools:    []core.ToolDefinition{{Name: "get_weather", Parameters: &core.Schema{Type: "object"}}},
 	}) {
 		if err != nil {
@@ -136,8 +135,8 @@ func TestRunStreamReasoningDelta(t *testing.T) {
 	a := New(m)
 
 	var reasoning []string
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	}) {
 		if err != nil {
 			t.Fatalf("stream error: %v", err)
@@ -167,8 +166,8 @@ func TestRunStreamMaxStepsError(t *testing.T) {
 	a := New(m, WithMaxSteps(2))
 
 	var lastErr error
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Loop"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Loop"}}}},
 		Tools:    []core.ToolDefinition{{Name: "loop", Parameters: &core.Schema{Type: "object"}}},
 	}) {
 		if err != nil {
@@ -202,8 +201,8 @@ func TestRunStreamToolNotFound(t *testing.T) {
 	// intentionally not registering "missing" tool
 
 	var toolResult *core.ToolResultPart
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Test"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
 		Tools:    []core.ToolDefinition{{Name: "missing", Parameters: &core.Schema{Type: "object"}}},
 	}) {
 		if err != nil {
@@ -241,8 +240,8 @@ func TestRunStreamInitError(t *testing.T) {
 	a := New(m)
 
 	var lastErr error
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	}) {
 		if err != nil {
 			lastErr = err
@@ -281,8 +280,8 @@ func TestRunStreamMidError(t *testing.T) {
 	a := New(m)
 
 	var lastErr error
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	}) {
 		if err != nil {
 			lastErr = err
@@ -310,8 +309,8 @@ func TestRunStreamUsageEvent(t *testing.T) {
 	a := New(m)
 
 	var usage *core.Usage
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	}) {
 		if err != nil {
 			t.Fatalf("stream error: %v", err)
@@ -339,8 +338,8 @@ func TestRunStreamYieldStop(t *testing.T) {
 	a := New(m)
 
 	count := 0
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	}) {
 		if err != nil {
 			t.Fatalf("stream error: %v", err)
@@ -366,8 +365,8 @@ func TestRunStreamYieldStopAtStepStart(t *testing.T) {
 	a := New(m)
 
 	count := 0
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	}) {
 		if err != nil {
 			t.Fatalf("stream error: %v", err)
@@ -393,8 +392,8 @@ func TestRunStreamYieldStopAtReasoning(t *testing.T) {
 	a := New(m)
 
 	count := 0
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	}) {
 		if err != nil {
 			t.Fatalf("stream error: %v", err)
@@ -426,8 +425,8 @@ func TestRunStreamYieldStopAtToolResult(t *testing.T) {
 	})
 
 	count := 0
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather?"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Weather?"}}}},
 		Tools:    []core.ToolDefinition{{Name: "get_weather", Parameters: &core.Schema{Type: "object"}}},
 	}) {
 		if err != nil {
@@ -453,8 +452,8 @@ func TestRunStreamYieldStopAtToolCall(t *testing.T) {
 	a := New(m, WithMaxSteps(5))
 
 	count := 0
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Search"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Search"}}}},
 		Tools:    []core.ToolDefinition{{Name: "search", Parameters: &core.Schema{Type: "object"}}},
 	}) {
 		if err != nil {
@@ -481,8 +480,8 @@ func TestRunStreamYieldStopAtUsage(t *testing.T) {
 	a := New(m)
 
 	count := 0
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	}) {
 		if err != nil {
 			t.Fatalf("stream error: %v", err)
@@ -507,8 +506,8 @@ func TestRunStreamYieldStopAtStepFinish(t *testing.T) {
 	a := New(m)
 
 	count := 0
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	}) {
 		if err != nil {
 			t.Fatalf("stream error: %v", err)
@@ -540,8 +539,8 @@ func TestRunStreamYieldStopAtStepFinishAfterTool(t *testing.T) {
 	})
 
 	count := 0
-	for event, err := range a.RunStream(context.Background(), &Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Search"}}}},
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Search"}}}},
 		Tools:    []core.ToolDefinition{{Name: "search", Parameters: &core.Schema{Type: "object"}}},
 	}) {
 		if err != nil {

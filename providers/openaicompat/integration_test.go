@@ -46,7 +46,7 @@ func TestIntegration_ChatCompletion(t *testing.T) {
 
 	resp, err := c.ChatCompletion(context.Background(), cfg.Model, &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Say hello in one word."}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Say hello in one word."}}},
 		},
 	})
 	if err != nil {
@@ -73,7 +73,7 @@ func TestIntegration_ChatCompletionStream(t *testing.T) {
 
 	stream := c.ChatCompletionStream(context.Background(), cfg.Model, &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Count from 1 to 5."}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Count from 1 to 5."}}},
 		},
 	})
 
@@ -111,7 +111,7 @@ func TestIntegration_ChatCompletionWithTools(t *testing.T) {
 
 	resp, err := c.ChatCompletion(context.Background(), cfg.Model, &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "What is the weather in New York?"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "What is the weather in New York?"}}},
 		},
 		Tools: []core.ToolDefinition{{
 			Name:        "get_weather",
@@ -149,7 +149,7 @@ func TestIntegration_ObjectGeneration(t *testing.T) {
 
 	resp, err := c.ChatCompletion(context.Background(), cfg.Model, &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Generate a JSON object with a greeting field."}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Generate a JSON object with a greeting field."}}},
 		},
 		ResponseFormat: &core.ResponseFormat{Type: core.ResponseFormatTypeJSON},
 	})

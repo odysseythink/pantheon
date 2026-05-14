@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/types"
 )
 
 // ToOpenAIMessages converts core.Message slice to OpenAI wire format.
@@ -14,7 +15,7 @@ func ToOpenAIMessages(msgs []core.Message, systemPrompt string) ([]Message, erro
 	}
 	for i, m := range msgs {
 		// RoleTool 消息中包含多个 ToolResultPart 时，拆分成多条 tool 消息
-		if m.Role == core.RoleTool {
+		if m.Role == core.MESSAGE_ROLE_TOOL {
 			for _, part := range m.Content {
 				if tr, ok := part.(core.ToolResultPart); ok {
 					out = append(out, Message{
@@ -39,15 +40,15 @@ func ToOpenAIMessages(msgs []core.Message, systemPrompt string) ([]Message, erro
 
 func toOpenAIMessage(m core.Message) (Message, error) {
 	switch m.Role {
-	case core.RoleSystem:
+	case core.MESSAGE_ROLE_SYSTEM:
 		return Message{Role: "system", Content: contentToString(m.Content)}, nil
-	case core.RoleUser:
+	case core.MESSAGE_ROLE_USER:
 		content, err := contentToOpenAI(m.Content)
 		if err != nil {
 			return Message{}, err
 		}
 		return Message{Role: "user", Content: content}, nil
-	case core.RoleAssistant:
+	case core.MESSAGE_ROLE_ASSISTANT:
 		msg := Message{Role: "assistant"}
 		var textParts []string
 		for _, part := range m.Content {
@@ -55,7 +56,7 @@ func toOpenAIMessage(m core.Message) (Message, error) {
 			case core.TextPart:
 				textParts = append(textParts, p.Text)
 			case core.ToolCallPart:
-				msg.ToolCalls = append(msg.ToolCalls, ToolCall{
+				msg.ToolCalls = append(msg.ToolCalls, types.ToolCall{
 					ID:   p.ID,
 					Type: "function",
 					Function: struct {
@@ -74,7 +75,7 @@ func toOpenAIMessage(m core.Message) (Message, error) {
 			msg.Content = joinTexts(textParts)
 		}
 		return msg, nil
-	case core.RoleTool:
+	case core.MESSAGE_ROLE_TOOL:
 		if len(m.Content) > 0 {
 			return Message{
 				Role:       "tool",
@@ -86,7 +87,7 @@ func toOpenAIMessage(m core.Message) (Message, error) {
 	return Message{Role: string(m.Role), Content: contentToString(m.Content)}, nil
 }
 
-func contentToString(parts []core.ContentPart) string {
+func contentToString(parts []core.ContentParter) string {
 	var texts []string
 	for _, part := range parts {
 		switch p := part.(type) {
@@ -101,7 +102,7 @@ func contentToString(parts []core.ContentPart) string {
 	return joinTexts(texts)
 }
 
-func contentToOpenAI(parts []core.ContentPart) (any, error) {
+func contentToOpenAI(parts []core.ContentParter) (any, error) {
 	if len(parts) == 1 {
 		switch p := parts[0].(type) {
 		case core.TextPart:
@@ -110,13 +111,13 @@ func contentToOpenAI(parts []core.ContentPart) (any, error) {
 			return contentToString(p.Content), nil
 		}
 	}
-	var out []ContentPart
+	var out []ContentParter
 	for _, part := range parts {
 		switch p := part.(type) {
 		case core.TextPart:
-			out = append(out, ContentPart{Type: "text", Text: p.Text})
+			out = append(out, ContentParter{Type: "text", Text: p.Text})
 		case core.ImagePart:
-			out = append(out, ContentPart{
+			out = append(out, ContentParter{
 				Type: "image_url",
 				ImageURL: &struct {
 					URL    string `json:"url"`
@@ -127,7 +128,7 @@ func contentToOpenAI(parts []core.ContentPart) (any, error) {
 				},
 			})
 		case core.ToolResultPart:
-			out = append(out, ContentPart{Type: "text", Text: contentToString(p.Content)})
+			out = append(out, ContentParter{Type: "text", Text: contentToString(p.Content)})
 		default:
 			return nil, fmt.Errorf("openai: unsupported content part in user message: %T", part)
 		}
@@ -135,7 +136,7 @@ func contentToOpenAI(parts []core.ContentPart) (any, error) {
 	return out, nil
 }
 
-func toolResultCallID(parts []core.ContentPart) string {
+func toolResultCallID(parts []core.ContentParter) string {
 	for _, part := range parts {
 		if p, ok := part.(core.ToolResultPart); ok {
 			return p.ToolCallID
@@ -177,7 +178,7 @@ func ToCoreResponse(resp *ChatCompletionResponse, model string) (*core.Response,
 		return nil, fmt.Errorf("no choices in response")
 	}
 	choice := resp.Choices[0]
-	msg := core.Message{Role: core.RoleAssistant}
+	msg := core.Message{Role: core.MESSAGE_ROLE_ASSISTANT}
 
 	if text, ok := choice.Message.Content.(string); ok && text != "" {
 		msg.Content = append(msg.Content, core.TextPart{Text: text})

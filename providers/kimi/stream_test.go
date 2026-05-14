@@ -28,7 +28,7 @@ func TestChatCompletionStream_Basic(t *testing.T) {
 
 	stream := chatCompletionStream(context.Background(), client, "kimi-k2", &core.Request{
 		Messages: []core.Message{
-			{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Say hello"}}},
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Say hello"}}},
 		},
 	})
 
@@ -71,7 +71,7 @@ func TestChatCompletionStream_ReasoningDelta(t *testing.T) {
 	client.HTTPClient = server.Client()
 
 	stream := chatCompletionStream(context.Background(), client, "kimi-k2", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "What is 2+2?"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "What is 2+2?"}}}},
 	})
 
 	var reasoningDeltas []string
@@ -113,7 +113,7 @@ func TestChatCompletionStream_ToolCalls(t *testing.T) {
 	client.HTTPClient = server.Client()
 
 	stream := chatCompletionStream(context.Background(), client, "kimi-k2", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Weather?"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Weather?"}}}},
 	})
 
 	var toolCall *core.ToolCallPart
@@ -159,7 +159,7 @@ func TestChatCompletionStream_UsageOnly(t *testing.T) {
 	client.HTTPClient = server.Client()
 
 	stream := chatCompletionStream(context.Background(), client, "kimi-k2", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 
 	var usage *core.Usage
@@ -192,7 +192,7 @@ func TestChatCompletionStream_HTTPError(t *testing.T) {
 	client.HTTPClient = server.Client()
 
 	stream := chatCompletionStream(context.Background(), client, "kimi-k2", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 
 	for _, err := range stream {
@@ -224,7 +224,7 @@ func TestChatCompletionStream_InvalidJSON(t *testing.T) {
 	client.HTTPClient = server.Client()
 
 	stream := chatCompletionStream(context.Background(), client, "kimi-k2", &core.Request{
-		Messages: []core.Message{{Role: core.RoleUser, Content: []core.ContentPart{core.TextPart{Text: "Hi"}}}},
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
 	})
 
 	for _, err := range stream {
