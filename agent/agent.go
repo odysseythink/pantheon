@@ -2,10 +2,12 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/odysseythink/pantheon/agent/compression"
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/tool"
 )
 
 // Agent orchestrates a LanguageModel with tool execution.
@@ -13,6 +15,7 @@ type Agent struct {
 	model        core.LanguageModel
 	maxSteps     int
 	toolRegistry map[string]ToolFunc
+	registry     *tool.Registry
 	compressor   *compression.Compressor
 }
 
@@ -101,6 +104,10 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 }
 
 func (a *Agent) executeTool(ctx context.Context, tc core.ToolCallPart) (string, bool) {
+	if a.registry != nil {
+		result, err := a.registry.Dispatch(ctx, tc.Name, json.RawMessage(tc.Arguments))
+		return result, err != nil
+	}
 	fn, ok := a.toolRegistry[tc.Name]
 	if !ok {
 		return fmt.Sprintf("tool %q not found", tc.Name), true

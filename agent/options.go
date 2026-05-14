@@ -1,6 +1,9 @@
 package agent
 
-import "github.com/odysseythink/pantheon/agent/compression"
+import (
+	"github.com/odysseythink/pantheon/agent/compression"
+	"github.com/odysseythink/pantheon/tool"
+)
 
 // Option configures an Agent.
 type Option func(*Agent)
@@ -21,5 +24,14 @@ func WithMaxSteps(n int) Option {
 func WithCompressor(c *compression.Compressor) Option {
 	return func(a *Agent) {
 		a.compressor = c
+	}
+}
+
+// WithRegistry attaches a rich tool.Registry that takes precedence
+// over RegisterTool calls. When set, the executor reads metadata
+// (schema, MaxResultChars, IsInteractive) from the registry.
+func WithRegistry(reg *tool.Registry) Option {
+	return func(a *Agent) {
+		a.registry = reg
 	}
 }
