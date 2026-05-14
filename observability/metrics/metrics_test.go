@@ -14,7 +14,7 @@ func TestCounterIncAndScrape(t *testing.T) {
 	c.With(map[string]string{"platform": "api_server"}).Inc()
 
 	var buf bytes.Buffer
-	reg.WriteTo(&buf)
+	reg.WriteMetrics(&buf)
 	out := buf.String()
 
 	if !strings.Contains(out, "# HELP gateway_messages_total Total inbound messages.") {
@@ -48,7 +48,7 @@ func TestHistogramObserveAndScrape(t *testing.T) {
 	h.With(map[string]string{"platform": "fake"}).Observe(2.0)
 
 	var buf bytes.Buffer
-	reg.WriteTo(&buf)
+	reg.WriteMetrics(&buf)
 	out := buf.String()
 
 	if !strings.Contains(out, "# TYPE gateway_handler_duration_seconds histogram") {
@@ -74,7 +74,7 @@ func TestCounterEmptyLabels(t *testing.T) {
 	c := reg.NewCounter("plain", "plain counter")
 	c.With(nil).Add(5)
 	var buf bytes.Buffer
-	reg.WriteTo(&buf)
+	reg.WriteMetrics(&buf)
 	if !strings.Contains(buf.String(), "plain 5") {
 		t.Errorf("expected 'plain 5', got %s", buf.String())
 	}

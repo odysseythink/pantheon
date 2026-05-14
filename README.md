@@ -10,6 +10,12 @@ Pantheon is a unified AI SDK for Go. It provides a single, provider-agnostic int
 - **Structured Output** — Generate typed objects via JSON Schema or tool-mode extraction with `GenerateObject`.
 - **Resilient by Design** — Composable retry, fallback, and error-classification extensions. No magic, just wrapper structs.
 - **Multi-Provider** — Core providers ship with the main module; extra providers live in a separate, independently versioned module.
+- **Agent Toolkit** — `agent/budget` iteration counter, `agent/trajectory` JSONL writer, `tool` rich registry with panic recovery and truncation, `extensions/toolselector` keyword-based filtering, `extensions/delegate` subagent dispatch.
+- **Observability** — `observability/tracing` OTLP HTTP exporter and `observability/metrics` Prometheus-format registry.
+- **Security** — `security/mcpoauth` OAuth 2.1 client, `security/osv` vulnerability lookup, `security/urlsafety` allow/deny host policy.
+- **Skills** — `extensions/skills` markdown skill parser, loader, registry, retriever (with embedding rerank), injector, and LLM-based evolver.
+- **Judge** — `extensions/judge` LLM-as-judge for conversation quality scoring and skill draft extraction.
+- **Utilities** — `utils/pricing` catwalk-backed cost calculator, `utils/redact` secret-pattern scrubber, `extensions/embed` cosine similarity and reranking.
 
 ## Installation
 

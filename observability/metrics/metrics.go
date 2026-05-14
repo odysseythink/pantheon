@@ -76,12 +76,12 @@ func (r *Registry) NewHistogram(name, help string) *Histogram {
 // ServeHTTP writes the Prometheus text exposition format to w.
 func (r *Registry) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-	r.WriteTo(w)
+	r.WriteMetrics(w)
 }
 
-// WriteTo dumps metrics to any io.Writer. Tests use this to check
+// WriteMetrics dumps metrics to any io.Writer. Tests use this to check
 // output without an HTTP round-trip.
-func (r *Registry) WriteTo(w io.Writer) {
+func (r *Registry) WriteMetrics(w io.Writer) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
