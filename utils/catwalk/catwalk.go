@@ -40,8 +40,15 @@ var providerIDMapping = map[string]string{
 }
 
 // ListModels returns the list of models for the given provider.
-// It tries catwalk first (with caching), then falls back to the vendor API.
+// When baseURL is non-empty the vendor API is queried directly; this avoids
+// catwalk returning the vendor's official model list when the user has
+// configured a custom endpoint (self-hosted, proxy, etc.).
+// When baseURL is empty it tries catwalk first (with caching), then falls
+// back to the vendor API.
 func ListModels(ctx context.Context, providerName, apiKey, baseURL string) ([]core.Model, error) {
+	if baseURL != "" {
+		return fallbackToProvider(ctx, providerName, apiKey, baseURL)
+	}
 	models, err := listFromCatwalk(ctx, providerName)
 	if err == nil && len(models) > 0 {
 		return models, nil
