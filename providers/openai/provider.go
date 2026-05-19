@@ -52,7 +52,11 @@ func (p *Provider) Name() string {
 
 // Models returns a list of available models from the OpenAI API.
 func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
-	return catwalk.ListModels(ctx, p.Name(), p.client.APIKey, p.client.BaseURL)
+	baseURL := p.client.BaseURL
+	if baseURL == defaultBaseURL {
+		baseURL = ""
+	}
+	return catwalk.ListModels(ctx, p.Name(), p.client.APIKey, baseURL)
 }
 
 // LanguageModel creates a new OpenAI language model for the given model ID.
