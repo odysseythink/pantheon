@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/extensions/embed"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
@@ -28,6 +29,18 @@ func (m *LanguageModel) Generate(ctx context.Context, req *core.Request) (*core.
 // Stream sends a streaming chat completion request.
 func (m *LanguageModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
 	return m.client.ChatCompletionStream(ctx, m.model, req), nil
+}
+
+// EmbeddingModel implements embed.EmbeddingModel for the OpenAI provider.
+type EmbeddingModel struct {
+	provider *Provider
+	client   *openaicompat.Client
+	model    string
+}
+
+// Embed generates embeddings for the given texts.
+func (m *EmbeddingModel) Embed(ctx context.Context, texts []string) (*embed.EmbeddingResponse, error) {
+	return m.client.CreateEmbeddings(ctx, m.model, texts)
 }
 
 // GenerateObject generates a structured object from the model.
