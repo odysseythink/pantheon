@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/extensions/rerank"
 )
 
 // integrationConfig holds configuration for live LLM integration tests,
@@ -168,4 +169,41 @@ func TestIntegration_ObjectGeneration(t *testing.T) {
 		t.Fatal("expected object in response")
 	}
 	t.Logf("Generated object: %+v", objResp.Object)
+}
+
+func TestIntegration_Rerank(t *testing.T) {
+	baseURL := os.Getenv("OPENAICOMPAT_BASE_URL")
+	apiKey := os.Getenv("OPENAICOMPAT_API_KEY")
+	model := os.Getenv("OPENAICOMPAT_RERANK_MODEL")
+	if baseURL == "" || apiKey == "" || model == "" {
+		t.Skip("Skipping rerank integration test: set OPENAICOMPAT_BASE_URL, OPENAICOMPAT_API_KEY, OPENAICOMPAT_RERANK_MODEL to run")
+	}
+
+	c := NewClient(baseURL, apiKey)
+	c.RerankFormat = RerankFormatOpenAICompatible
+
+	resp, err := c.CreateRerank(context.Background(), model, &rerank.RerankRequest{
+		Query: "What is the capital of France?",
+		Documents: []string{
+			"Paris is the capital and most populous city of France.",
+			"Berlin is the capital of Germany.",
+			"Madrid is the capital of Spain.",
+			"The Eiffel Tower is located in Paris.",
+		},
+		TopN:            3,
+		ReturnDocuments: true,
+	})
+	if err != nil {
+		t.Fatalf("CreateRerank error: %v", err)
+	}
+	if len(resp.Results) == 0 {
+		t.Fatal("expected at least one result")
+	}
+	if len(resp.Results) > 3 {
+		t.Errorf("expected at most 3 results, got %d", len(resp.Results))
+	}
+	for i, r := range resp.Results {
+		t.Logf("Result[%d]: index=%d score=%.4f text=%q", i, r.Index, r.RelevanceScore, r.Document)
+	}
+	t.Logf("Usage: prompt=%d total=%d", resp.Usage.PromptTokens, resp.Usage.TotalTokens)
 }
