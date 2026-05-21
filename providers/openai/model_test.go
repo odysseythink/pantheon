@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/extensions/rerank"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
 	"github.com/odysseythink/pantheon/types"
 )
@@ -371,6 +372,44 @@ func TestStream_Error(t *testing.T) {
 		return
 	}
 	t.Fatal("expected error during stream iteration")
+}
+
+func TestRerank(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/rerank" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"model": "bge-reranker",
+			"results": [
+				{"index": 0, "relevance_score": 0.95, "document": {"text": "doc a"}}
+			],
+			"usage": {"prompt_tokens": 5, "total_tokens": 5}
+		}`))
+	}))
+	defer server.Close()
+
+	p, _ := New("test-key", WithBaseURL(server.URL))
+	rp, ok := p.(rerank.Provider)
+	if !ok {
+		t.Fatal("expected provider to implement rerank.Provider")
+	}
+	model, _ := rp.RerankModel(context.Background(), "bge-reranker")
+	resp, err := model.Rerank(context.Background(), &rerank.RerankRequest{
+		Query:           "test",
+		Documents:       []string{"doc a"},
+		ReturnDocuments: true,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(resp.Results))
+	}
+	if resp.Results[0].Document != "doc a" {
+		t.Errorf("unexpected document: %q", resp.Results[0].Document)
+	}
 }
 
 func ptr(s string) *string { return &s }
