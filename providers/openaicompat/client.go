@@ -4,6 +4,16 @@ import (
 	"net/http"
 )
 
+// RerankFormat defines the API format for rerank requests.
+type RerankFormat string
+
+const (
+	RerankFormatAuto             RerankFormat = "auto"
+	RerankFormatOpenAICompatible RerankFormat = "openai"
+	RerankFormatCohereV2         RerankFormat = "cohere"
+	RerankFormatJina             RerankFormat = "jina"
+)
+
 // Client is a generic OpenAI-compatible HTTP client.
 type Client struct {
 	BaseURL            string
@@ -11,6 +21,8 @@ type Client struct {
 	HTTPClient         *http.Client
 	Headers            map[string]string
 	ChatCompletionPath string // default empty means "/v1/chat/completions"
+	RerankPath         string // default empty means "/v1/rerank"
+	RerankFormat       RerankFormat
 }
 
 // NewClient creates a new OpenAI-compatible client for the given base URL and API key.
