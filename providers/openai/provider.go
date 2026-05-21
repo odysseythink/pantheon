@@ -6,6 +6,7 @@ import (
 
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/extensions/embed"
+	"github.com/odysseythink/pantheon/extensions/rerank"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
 	"github.com/odysseythink/pantheon/utils/catwalk"
 )
@@ -71,6 +72,15 @@ func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.Lang
 // EmbeddingModel creates a new OpenAI embedding model for the given model ID.
 func (p *Provider) EmbeddingModel(ctx context.Context, modelID string) (embed.EmbeddingModel, error) {
 	return &EmbeddingModel{
+		provider: p,
+		client:   p.client,
+		model:    modelID,
+	}, nil
+}
+
+// RerankModel creates a new OpenAI rerank model for the given model ID.
+func (p *Provider) RerankModel(ctx context.Context, modelID string) (rerank.RerankModel, error) {
+	return &RerankModel{
 		provider: p,
 		client:   p.client,
 		model:    modelID,

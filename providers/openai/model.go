@@ -5,6 +5,7 @@ import (
 
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/extensions/embed"
+	"github.com/odysseythink/pantheon/extensions/rerank"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
@@ -41,6 +42,18 @@ type EmbeddingModel struct {
 // Embed generates embeddings for the given texts.
 func (m *EmbeddingModel) Embed(ctx context.Context, texts []string) (*embed.EmbeddingResponse, error) {
 	return m.client.CreateEmbeddings(ctx, m.model, texts)
+}
+
+// RerankModel implements rerank.RerankModel for the OpenAI provider.
+type RerankModel struct {
+	provider *Provider
+	client   *openaicompat.Client
+	model    string
+}
+
+// Rerank reorders documents by relevance to the query.
+func (m *RerankModel) Rerank(ctx context.Context, req *rerank.RerankRequest) (*rerank.RerankResponse, error) {
+	return m.client.CreateRerank(ctx, m.model, req)
 }
 
 // GenerateObject generates a structured object from the model.
