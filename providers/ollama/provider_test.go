@@ -62,6 +62,18 @@ func TestProvider_LanguageModel(t *testing.T) {
 	}
 }
 
+func TestProvider_EmbeddingModel(t *testing.T) {
+	p, _ := New("")
+	prov := p.(*Provider)
+	model, err := prov.EmbeddingModel(context.Background(), "nomic-embed-text")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if model == nil {
+		t.Fatal("expected non-nil embedding model")
+	}
+}
+
 func TestProviderOptions_ProviderName(t *testing.T) {
 	opts := ProviderOptions{}
 	if opts.ProviderName() != "ollama" {

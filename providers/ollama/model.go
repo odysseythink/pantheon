@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/extensions/embed"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
@@ -12,6 +13,18 @@ type LanguageModel struct {
 	provider *Provider
 	client   *openaicompat.Client
 	model    string
+}
+
+// EmbeddingModel implements embed.EmbeddingModel for the Ollama provider.
+type EmbeddingModel struct {
+	provider *Provider
+	client   *openaicompat.Client
+	model    string
+}
+
+// Embed generates vector embeddings for the given texts.
+func (m *EmbeddingModel) Embed(ctx context.Context, texts []string) (*embed.EmbeddingResponse, error) {
+	return m.client.CreateEmbeddings(ctx, m.model, texts)
 }
 
 // Provider returns the provider name.
