@@ -45,6 +45,10 @@ func (m *RerankModel) loadModel() error {
 			ConversionPrecision: tasks.F32,
 		}
 		modelPath := conf.FullModelPath()
+
+		// LoadTextClassification reads tokenizer_config.json internally, but
+		// doLowerCase is unexported on TextClassification, so we read it here
+		// to avoid duplicating the lowercasing logic from TextClassification.tokenize.
 		tokenizerConfig, err := bert.ConfigFromFile[bert.TokenizerConfig](filepath.Join(modelPath, "tokenizer_config.json"))
 		if err == nil {
 			m.doLowerCase = tokenizerConfig.DoLowerCase
@@ -57,39 +61,40 @@ func (m *RerankModel) loadModel() error {
 	return nil
 }
 
-func (m *RerankModel) tokenizePair(query, doc string) []string {
+// tokenizePair tokenizes query and doc, then builds the
+// [CLS] query [SEP] doc [SEP] sequence.
+// It returns the full token sequence and the query length
+// (number of tokens up to and including the first [SEP]).
+func (m *RerankModel) tokenizePair(query, doc string) ([]string, int) {
 	if m.doLowerCase {
 		query = strings.ToLower(query)
 		doc = strings.ToLower(doc)
 	}
 	queryTokens := tokenizers.GetStrings(m.tc.Tokenizer.Tokenize(query))
 	docTokens := tokenizers.GetStrings(m.tc.Tokenizer.Tokenize(doc))
+	return buildTokenPair(queryTokens, docTokens)
+}
+
+// buildTokenPair constructs the [CLS] query [SEP] doc [SEP] token sequence.
+// It returns the tokens and the query length (including [CLS] and [SEP]).
+func buildTokenPair(queryTokens, docTokens []string) ([]string, int) {
 	tokens := make([]string, 0, 2+len(queryTokens)+len(docTokens))
 	tokens = append(tokens, wordpiecetokenizer.DefaultClassToken)
 	tokens = append(tokens, queryTokens...)
 	tokens = append(tokens, wordpiecetokenizer.DefaultSequenceSeparator)
 	tokens = append(tokens, docTokens...)
 	tokens = append(tokens, wordpiecetokenizer.DefaultSequenceSeparator)
-	return tokens
+	queryLen := len(queryTokens) + 2 // [CLS] + queryTokens + [SEP]
+	return tokens, queryLen
 }
 
-func (m *RerankModel) truncate(tokens []string) []string {
-	maxLen := m.tc.Model.Bert.Config.MaxPositionEmbeddings
+// truncate limits the token sequence to maxLen, preserving the query and
+// truncating the document from the end if necessary.
+func truncate(tokens []string, queryLen, maxLen int) []string {
 	if len(tokens) <= maxLen {
 		return tokens
 	}
 	sep := wordpiecetokenizer.DefaultSequenceSeparator
-	firstSepIdx := -1
-	for i, t := range tokens {
-		if t == sep {
-			firstSepIdx = i
-			break
-		}
-	}
-	if firstSepIdx == -1 {
-		return tokens[:maxLen]
-	}
-	queryLen := firstSepIdx + 1
 	if queryLen >= maxLen {
 		return append(tokens[:maxLen-1], sep)
 	}
@@ -98,9 +103,6 @@ func (m *RerankModel) truncate(tokens []string) []string {
 		return tokens[:queryLen]
 	}
 	end := queryLen + docMaxLen
-	if end >= len(tokens) {
-		end = len(tokens) - 1
-	}
 	result := make([]string, 0, maxLen)
 	result = append(result, tokens[:end]...)
 	result = append(result, sep)
@@ -125,10 +127,11 @@ func (m *RerankModel) Rerank(ctx context.Context, req *rerank.RerankRequest) (*r
 		return nil, err
 	}
 
+	maxLen := m.tc.Model.Bert.Config.MaxPositionEmbeddings
 	results := make([]rerank.RerankResult, 0, len(req.Documents))
 	for i, doc := range req.Documents {
-		tokens := m.tokenizePair(req.Query, doc)
-		tokens = m.truncate(tokens)
+		tokens, queryLen := m.tokenizePair(req.Query, doc)
+		tokens = truncate(tokens, queryLen, maxLen)
 		logitTensor := m.tc.Model.Classify(tokens)
 		logit := mat.Data[float64](logitTensor)[0]
 		score := sigmoid(logit)

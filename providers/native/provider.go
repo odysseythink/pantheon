@@ -47,7 +47,7 @@ func (p *Provider) Name() string {
 	return "native"
 }
 
-// Models returns a static list of known local embedding models.
+// Models returns a static list of known local embedding and reranker models.
 func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
 	return []core.Model{
 		{ID: "sentence-transformers/all-MiniLM-L6-v2", Name: "all-MiniLM-L6-v2"},
@@ -58,10 +58,10 @@ func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
 	}, nil
 }
 
-// LanguageModel returns an error because the native provider does not support
-// chat completion.
+// LanguageModel returns an error because the native provider supports embedding
+// and reranking, but not chat completion.
 func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.LanguageModel, error) {
-	return nil, fmt.Errorf("native: provider only supports embedding, not chat completion")
+	return nil, fmt.Errorf("native: provider supports embedding and reranking, not chat completion")
 }
 
 // EmbeddingModel creates a new native embedding model for the given model ID.
