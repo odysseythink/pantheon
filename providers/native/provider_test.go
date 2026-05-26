@@ -98,7 +98,7 @@ func TestEmbeddingModel_Embed_FallsBackToProviderModelName(t *testing.T) {
 	}
 }
 
-func TestEmbeddingModel_Embed_WithMockModel(t *testing.T) {
+func TestEmbeddingModel_Embed_EmptyModelDir(t *testing.T) {
 	// Create a minimal model directory structure that cybertron can attempt to load.
 	// This test verifies the code path up to model loading without requiring a real model.
 	tmpDir := t.TempDir()

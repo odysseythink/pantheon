@@ -24,6 +24,8 @@ type EmbeddingModel struct {
 }
 
 // Embed generates embeddings for the given texts using a local BERT model.
+// Model loading happens lazily on the first call and errors are cached permanently
+// for the lifetime of the EmbeddingModel (sync.Once semantics).
 func (m *EmbeddingModel) Embed(ctx context.Context, texts []string) (*embed.EmbeddingResponse, error) {
 	m.once.Do(func() {
 		modelDir := m.provider.modelDir
@@ -47,7 +49,7 @@ func (m *EmbeddingModel) Embed(ctx context.Context, texts []string) (*embed.Embe
 		return nil, fmt.Errorf("native: failed to load model: %w", m.loadErr)
 	}
 
-	var embeddings [][]float32
+	embeddings := make([][]float32, 0, len(texts))
 	for _, text := range texts {
 		result, err := m.model.Encode(ctx, text, int(bert.MeanPooling))
 		if err != nil {

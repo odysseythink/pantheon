@@ -9,6 +9,12 @@ import (
 	"github.com/odysseythink/pantheon/extensions/embed"
 )
 
+var (
+	_ core.Provider       = (*Provider)(nil)
+	_ embed.Provider      = (*Provider)(nil)
+	_ embed.EmbeddingModel = (*EmbeddingModel)(nil)
+)
+
 // Provider implements core.Provider and embed.Provider for local embedding
 // using the Cybertron library.
 type Provider struct {
@@ -19,7 +25,7 @@ type Provider struct {
 // New creates a new native embedding provider.
 // modelDir is the base directory where models are stored.
 // modelName is the model identifier (e.g. "sentence-transformers/all-MiniLM-L6-v2").
-func New(modelDir, modelName string, opts ...Option) (core.Provider, error) {
+func New(modelDir, modelName string) (core.Provider, error) {
 	if modelDir == "" {
 		return nil, errors.New("native: modelDir is required")
 	}
@@ -30,27 +36,7 @@ func New(modelDir, modelName string, opts ...Option) (core.Provider, error) {
 		modelDir:  modelDir,
 		modelName: modelName,
 	}
-	for _, o := range opts {
-		o(p)
-	}
 	return p, nil
-}
-
-// Option configures the native provider.
-type Option func(*Provider)
-
-// WithModelDir sets the models directory.
-func WithModelDir(dir string) Option {
-	return func(p *Provider) {
-		p.modelDir = dir
-	}
-}
-
-// WithModelName sets the model name.
-func WithModelName(name string) Option {
-	return func(p *Provider) {
-		p.modelName = name
-	}
 }
 
 // Name returns the provider name.
@@ -71,7 +57,7 @@ func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
 
 // LanguageModel returns an error because the native provider only supports embeddings.
 func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.LanguageModel, error) {
-	return nil, fmt.Errorf("native provider only supports embedding, not chat completion")
+	return nil, fmt.Errorf("native: provider only supports embedding, not chat completion")
 }
 
 // EmbeddingModel creates a new native embedding model for the given model ID.
