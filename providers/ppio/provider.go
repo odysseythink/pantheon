@@ -10,7 +10,7 @@ import (
 	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
-const defaultBaseURL = "https://api.ppinfra.com/v3/openai/"
+const defaultBaseURL = "https://api.ppinfra.com/v3/openai"
 
 type Provider struct {
 	client *openaicompat.Client
