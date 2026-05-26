@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
 func TestNew(t *testing.T) {
@@ -78,28 +76,19 @@ func TestProviderOptions_ProviderName(t *testing.T) {
 }
 
 func TestProvider_Models(t *testing.T) {
-	apiKey := "test-api-key"
-
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v2/providers" {
+		if r.URL.Path != "/models" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		_ = json.NewEncoder(w).Encode([]map[string]any{
-			{
-				"id": "litellm",
-				"models": []map[string]string{
-					{"id": "model-1", "name": "Model 1"},
-				},
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]string{
+				{"id": "model-1", "name": "Model 1"},
 			},
 		})
 	}))
 	defer srv.Close()
 
-	origURL := catwalk.GetBaseURL()
-	catwalk.SetBaseURL(srv.URL)
-	defer catwalk.SetBaseURL(origURL)
-
-	p, err := New(apiKey, WithBaseURL("http://localhost:1234"))
+	p, err := New("test-key", WithBaseURL(srv.URL))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
