@@ -11,7 +11,7 @@ import (
 
 func fallbackToProvider(ctx context.Context, providerName, apiKey, baseURL string) ([]core.Model, error) {
 	switch providerName {
-	case "openai", "deepseek", "ollama", "openrouter", "qwen", "wenxin", "zhipu", "minimax", "kimi":
+	case "openai", "deepseek", "ollama", "openrouter", "qwen", "wenxin", "zhipu", "minimax", "kimi", "mistral", "litellm", "lmstudio", "localai", "genericopenai", "lemonade":
 		return listOpenAIModels(ctx, apiKey, baseURL)
 	case "anthropic":
 		return listAnthropicModels(ctx, apiKey, baseURL)
