@@ -7,16 +7,19 @@ import (
 
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/extensions/embed"
+	"github.com/odysseythink/pantheon/extensions/rerank"
 )
 
 var (
-	_ core.Provider       = (*Provider)(nil)
-	_ embed.Provider      = (*Provider)(nil)
+	_ core.Provider        = (*Provider)(nil)
+	_ embed.Provider       = (*Provider)(nil)
 	_ embed.EmbeddingModel = (*EmbeddingModel)(nil)
+	_ rerank.Provider      = (*Provider)(nil)
+	_ rerank.RerankModel   = (*RerankModel)(nil)
 )
 
-// Provider implements core.Provider and embed.Provider for local embedding
-// using the Cybertron library.
+// Provider implements core.Provider, embed.Provider, and rerank.Provider for
+// local embedding and reranking using the Cybertron library.
 type Provider struct {
 	modelDir  string
 	modelName string
@@ -55,7 +58,8 @@ func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
 	}, nil
 }
 
-// LanguageModel returns an error because the native provider only supports embeddings.
+// LanguageModel returns an error because the native provider does not support
+// chat completion.
 func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.LanguageModel, error) {
 	return nil, fmt.Errorf("native: provider only supports embedding, not chat completion")
 }
@@ -63,6 +67,14 @@ func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.Lang
 // EmbeddingModel creates a new native embedding model for the given model ID.
 func (p *Provider) EmbeddingModel(ctx context.Context, modelID string) (embed.EmbeddingModel, error) {
 	return &EmbeddingModel{
+		provider: p,
+		modelID:  modelID,
+	}, nil
+}
+
+// RerankModel creates a new native rerank model for the given model ID.
+func (p *Provider) RerankModel(ctx context.Context, modelID string) (rerank.RerankModel, error) {
+	return &RerankModel{
 		provider: p,
 		modelID:  modelID,
 	}, nil
