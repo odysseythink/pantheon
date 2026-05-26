@@ -2,30 +2,33 @@ package lmstudio
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
 func TestNew(t *testing.T) {
-	_, err := New("test-key")
+	_, err := New("sk-test")
 	if err == nil {
 		t.Fatal("expected error for missing base URL")
 	}
 }
 
 func TestNew_WithBaseURL(t *testing.T) {
-	p, err := New("test-key", WithBaseURL("https://custom.example.com"))
+	p, err := New("sk-test", WithBaseURL("https://custom.example.com"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if p.Name() != "lmstudio" {
-		t.Errorf("unexpected name: %s", p.Name())
+	prov := p.(*Provider)
+	if prov.client.BaseURL != "https://custom.example.com" {
+		t.Errorf("unexpected base URL: %s", prov.client.BaseURL)
 	}
 }
 
 func TestNew_WithHTTPClient(t *testing.T) {
 	customClient := &http.Client{}
-	p, err := New("test-key", WithBaseURL("https://custom.example.com"), WithHTTPClient(customClient))
+	p, err := New("sk-test", WithBaseURL("https://custom.example.com"), WithHTTPClient(customClient))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -36,25 +39,32 @@ func TestNew_WithHTTPClient(t *testing.T) {
 }
 
 func TestProvider_LanguageModel(t *testing.T) {
-	p, _ := New("test-key", WithBaseURL("https://custom.example.com"))
-	model, err := p.LanguageModel(context.Background(), "gpt-4")
+	p, _ := New("sk-test", WithBaseURL("https://custom.example.com"))
+	model, err := p.LanguageModel(context.Background(), "llama-3")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if model.Provider() != "lmstudio" {
 		t.Errorf("unexpected provider: %s", model.Provider())
 	}
+	if model.Model() != "llama-3" {
+		t.Errorf("unexpected model: %s", model.Model())
+	}
 }
 
 func TestProvider_EmbeddingModel(t *testing.T) {
-	p, _ := New("test-key", WithBaseURL("https://custom.example.com"))
+	p, _ := New("sk-test", WithBaseURL("https://custom.example.com"))
 	prov := p.(*Provider)
-	embedModel, err := prov.EmbeddingModel(context.Background(), "text-embedding-ada-002")
+	model, err := prov.EmbeddingModel(context.Background(), "nomic-embed")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if embedModel == nil {
-		t.Fatal("expected embedding model, got nil")
+	em := model.(*EmbeddingModel)
+	if em.Provider() != "lmstudio" {
+		t.Errorf("unexpected provider: %s", em.Provider())
+	}
+	if em.Model() != "nomic-embed" {
+		t.Errorf("unexpected model: %s", em.Model())
 	}
 }
 
@@ -62,5 +72,32 @@ func TestProviderOptions_ProviderName(t *testing.T) {
 	opts := ProviderOptions{}
 	if opts.ProviderName() != "lmstudio" {
 		t.Errorf("unexpected provider name: %s", opts.ProviderName())
+	}
+}
+
+func TestProvider_Models(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]string{
+				{"id": "model-1", "name": "Model 1"},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	p, err := New("test-key", WithBaseURL(srv.URL))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	models, err := p.Models(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(models) != 1 || models[0].ID != "model-1" {
+		t.Fatalf("unexpected models: %+v", models)
 	}
 }
