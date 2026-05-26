@@ -203,17 +203,29 @@ func TestTruncate(t *testing.T) {
 }
 
 func TestSigmoid(t *testing.T) {
-	// Sigmoid(0) = 0.5
-	if got := sigmoid(0); got != 0.5 {
-		t.Errorf("sigmoid(0) = %f, want 0.5", got)
+	tests := []struct {
+		name string
+		x    float64
+		want float64
+		min  float64
+		max  float64
+	}{
+		{"zero", 0, 0.5, 0.5, 0.5},
+		{"positive", 10, 0, 0.9999, 1.0},
+		{"negative", -10, 0, 0, 0.0001},
+		{"small_positive", 1, 0, 0.73, 0.74},
+		{"small_negative", -1, 0, 0.26, 0.27},
 	}
-	// Large positive → 1
-	if got := sigmoid(10); got < 0.9999 {
-		t.Errorf("sigmoid(10) = %f, want ~1", got)
-	}
-	// Large negative → 0
-	if got := sigmoid(-10); got > 0.0001 {
-		t.Errorf("sigmoid(-10) = %f, want ~0", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sigmoid(tt.x)
+			if tt.want != 0 && got != tt.want {
+				t.Errorf("sigmoid(%f) = %f, want %f", tt.x, got, tt.want)
+			}
+			if got < tt.min || got > tt.max {
+				t.Errorf("sigmoid(%f) = %f, want in [%f, %f]", tt.x, got, tt.min, tt.max)
+			}
+		})
 	}
 }
 
