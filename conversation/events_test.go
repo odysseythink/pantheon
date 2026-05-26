@@ -1,6 +1,7 @@
 package conversation
 
 import (
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -38,16 +39,17 @@ func TestConversation_Events(t *testing.T) {
 
 func TestConversation_EventConcurrency(t *testing.T) {
 	c := New()
-	var count int
+	var count atomic.Int32
 	c.OnMessage(func(chat Chat, conv *Conversation) {
-		count++
+		count.Add(1)
 	})
 
 	// Register another handler while emitting
 	go c.OnMessage(func(chat Chat, conv *Conversation) {
-		count++
+		count.Add(1)
 	})
 
 	c.emitMessage(Chat{Content: "test"})
 	// Should not panic; exact count is non-deterministic due to goroutine timing
+	require.GreaterOrEqual(t, count.Load(), int32(1))
 }

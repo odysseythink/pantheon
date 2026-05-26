@@ -77,10 +77,9 @@ func TestConversation_DirectMessage_Terminate(t *testing.T) {
 	require.NoError(t, err)
 
 	chats := c.Chats()
-	require.Len(t, chats, 3)
+	require.Len(t, chats, 2)
 	require.Equal(t, "Hi", chats[0].Content)
 	require.Equal(t, "Hello", chats[1].Content)
-	require.Equal(t, "TERMINATE", chats[2].Content)
 }
 
 func TestConversation_DirectMessage_MaxRounds(t *testing.T) {
@@ -113,8 +112,33 @@ func TestConversation_Continue(t *testing.T) {
 	err = c.Continue(context.Background(), "Please continue")
 	require.NoError(t, err)
 
+	// Find the feedback message in history
+	var found bool
+	for _, chat := range c.Chats() {
+		if chat.Content == "Please continue" {
+			found = true
+			break
+		}
+	}
+	require.True(t, found, "feedback should be in history")
+}
+
+func TestConversation_Continue_EmptyFeedback(t *testing.T) {
+	model := &mockModel{responses: []string{"Hello", "reply"}}
+
+	c := New(WithMaxRounds(10))
+	c.RegisterParticipant(&Participant{Name: "user", Model: model, Interrupt: InterruptAlways})
+	c.RegisterParticipant(&Participant{Name: "bot", Model: model})
+
+	err := c.Start(context.Background(), "user", "bot", "Hi")
+	require.NoError(t, err)
+
+	err = c.Continue(context.Background(), "")
+	require.NoError(t, err)
+
+	// Hi, Hello, interrupt, reply (TERMINATE not stored)
 	chats := c.Chats()
-	require.Equal(t, "Please continue", chats[len(chats)-3].Content)
+	require.Equal(t, "reply", chats[len(chats)-1].Content)
 }
 
 func TestConversation_Retry(t *testing.T) {
@@ -131,4 +155,35 @@ func TestConversation_Retry(t *testing.T) {
 	err := c.Retry(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, ChatStateSuccess, c.Chats()[len(c.Chats())-1].State)
+}
+
+func TestConversation_Start_ValidatesParticipants(t *testing.T) {
+	c := New()
+	c.RegisterParticipant(&Participant{Name: "alice", Model: &mockModel{}})
+
+	err := c.Start(context.Background(), "alice", "nobody", "Hi")
+	require.ErrorIs(t, err, ErrParticipantNotFound)
+	require.Empty(t, c.Chats())
+}
+
+func TestConversation_ChannelFlow(t *testing.T) {
+	selector := &mockModel{responses: []string{"bob", "TERMINATE"}}
+	botModel := &mockModel{responses: []string{"Hello", "TERMINATE"}}
+
+	c := New(WithMaxRounds(10))
+	c.RegisterParticipant(&Participant{Name: "alice", Model: botModel})
+	c.RegisterParticipant(&Participant{Name: "bob", Model: botModel})
+	c.RegisterChannel(&Channel{
+		Name:    "general",
+		Members: []string{"alice", "bob"},
+		Model:   selector,
+	})
+
+	err := c.Start(context.Background(), "alice", "general", "Hi everyone")
+	require.NoError(t, err)
+
+	chats := c.Chats()
+	require.Len(t, chats, 2) // alice->general, bob->general (Hello)
+	require.Equal(t, "Hi everyone", chats[0].Content)
+	require.Equal(t, "Hello", chats[1].Content)
 }

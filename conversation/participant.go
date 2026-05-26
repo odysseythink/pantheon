@@ -12,7 +12,6 @@ type Participant struct {
 	Model     core.LanguageModel
 	Agent     *agent.Agent
 	Interrupt InterruptMode
-	MaxRounds int
 }
 
 // InterruptMode controls whether a participant interrupts the flow.

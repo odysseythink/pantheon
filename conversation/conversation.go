@@ -179,6 +179,13 @@ func (c *Conversation) getHistory(from, to string) []Chat {
 
 // Start begins a new conversation.
 func (c *Conversation) Start(ctx context.Context, from, to, content string) error {
+	if _, err := c.getParticipant(from); err != nil && !c.isChannel(from) {
+		return err
+	}
+	if _, err := c.getParticipant(to); err != nil && !c.isChannel(to) {
+		return err
+	}
+
 	msg := Chat{
 		From:    from,
 		To:      to,
@@ -196,6 +203,10 @@ func (c *Conversation) Start(ctx context.Context, from, to, content string) erro
 func (c *Conversation) runLoop(ctx context.Context, start Route) error {
 	route := start
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
 		if c.hasReachedMaxRounds(route.From, route.To) {
 			c.terminate(route.To)
 			return nil
@@ -289,6 +300,10 @@ func (c *Conversation) reply(ctx context.Context, route Route) (string, error) {
 		content = resp.Message.Text()
 	} else {
 		return "", fmt.Errorf("participant %q has no model or agent", route.From)
+	}
+
+	if content == "TERMINATE" || content == "INTERRUPT" {
+		return content, nil
 	}
 
 	c.newMessage(route, content)

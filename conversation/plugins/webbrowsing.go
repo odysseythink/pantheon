@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/odysseythink/pantheon/conversation"
 	"github.com/odysseythink/pantheon/core"
@@ -18,12 +20,20 @@ type WebBrowsingConfig struct {
 	BrowserlessToken string
 	SummarizerModel  core.LanguageModel
 	HTTPClient       *http.Client
+	SearchEndpoint   string
+	ScrapeEndpoint   string
 }
 
 // NewWebBrowsing creates a web browsing plugin.
 func NewWebBrowsing(cfg WebBrowsingConfig) conversation.Plugin {
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = http.DefaultClient
+	}
+	if cfg.SearchEndpoint == "" {
+		cfg.SearchEndpoint = "https://google.serper.dev/search"
+	}
+	if cfg.ScrapeEndpoint == "" {
+		cfg.ScrapeEndpoint = "https://chrome.browserless.io/content"
 	}
 	return &webBrowsingPlugin{cfg: cfg}
 }
@@ -45,8 +55,11 @@ func (p *webBrowsingPlugin) Search(ctx context.Context, query string) (string, e
 	if p.cfg.SerperAPIKey == "" {
 		return "", fmt.Errorf("serper API key not configured")
 	}
-	payload, _ := json.Marshal(map[string]string{"q": query})
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://google.serper.dev/search", bytes.NewReader(payload))
+	payload, err := json.Marshal(map[string]string{"q": query})
+	if err != nil {
+		return "", fmt.Errorf("marshal search payload: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", p.cfg.SearchEndpoint, bytes.NewReader(payload))
 	if err != nil {
 		return "", err
 	}
@@ -58,7 +71,10 @@ func (p *webBrowsingPlugin) Search(ctx context.Context, query string) (string, e
 		return "", err
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read search response: %w", err)
+	}
 	return string(body), nil
 }
 
@@ -67,8 +83,11 @@ func (p *webBrowsingPlugin) Scrape(ctx context.Context, url string) (string, err
 	if p.cfg.BrowserlessToken == "" {
 		return "", fmt.Errorf("browserless token not configured")
 	}
-	payload, _ := json.Marshal(map[string]string{"url": url})
-	endpoint := fmt.Sprintf("https://chrome.browserless.io/content?token=%s", p.cfg.BrowserlessToken)
+	payload, err := json.Marshal(map[string]string{"url": url})
+	if err != nil {
+		return "", fmt.Errorf("marshal scrape payload: %w", err)
+	}
+	endpoint := fmt.Sprintf("%s?token=%s", strings.TrimSuffix(p.cfg.ScrapeEndpoint, "/"), p.cfg.BrowserlessToken)
 	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(payload))
 	if err != nil {
 		return "", err
@@ -83,10 +102,13 @@ func (p *webBrowsingPlugin) Scrape(ctx context.Context, url string) (string, err
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		return fmt.Sprintf("HTTP %d: %s", resp.StatusCode, resp.Status), nil
+		return "", fmt.Errorf("scrape returned HTTP %d: %s", resp.StatusCode, resp.Status)
 	}
 
-	html, _ := io.ReadAll(resp.Body)
+	html, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read scrape response: %w", err)
+	}
 	converter := htmltomarkdown.NewConverter("", true, nil)
 	md, err := converter.ConvertString(string(html))
 	if err != nil {

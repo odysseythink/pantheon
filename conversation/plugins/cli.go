@@ -102,6 +102,9 @@ func (p *cliPlugin) simulateStream(content string) {
 
 func (p *cliPlugin) askForFeedback(route conversation.Route) string {
 	fmt.Fprintf(p.cfg.Output, "Provide feedback to %s as %s (or 'exit'): ", route.To, route.From)
-	line, _ := p.cfg.Input.ReadString('\n')
+	line, err := p.cfg.Input.ReadString('\n')
+	if err != nil {
+		return ""
+	}
 	return strings.TrimSpace(line)
 }

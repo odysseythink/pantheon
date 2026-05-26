@@ -34,8 +34,8 @@ func (p *fileHistoryPlugin) Setup(conv *conversation.Conversation) error {
 		return fmt.Errorf("create history dir: %w", err)
 	}
 
+	filename := filepath.Join(p.cfg.Dir, fmt.Sprintf("chat-history-%s.json", time.Now().Format("20060102-150405")))
 	conv.OnMessage(func(chat conversation.Chat, c *conversation.Conversation) {
-		filename := filepath.Join(p.cfg.Dir, fmt.Sprintf("chat-history-%s.json", time.Now().Format("20060102-150405")))
 		data, err := json.MarshalIndent(c.Chats(), "", "  ")
 		if err != nil {
 			return
