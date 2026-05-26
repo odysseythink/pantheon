@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/extensions/embed"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
@@ -60,4 +61,22 @@ func (m *LanguageModel) GenerateObject(ctx context.Context, req *core.ObjectRequ
 		return nil, err
 	}
 	return openaicompat.ExtractObjectResponse(resp, m.model)
+}
+
+// EmbeddingModel implements embed.EmbeddingModel for the OpenRouter provider.
+type EmbeddingModel struct {
+	provider *Provider
+	client   *openaicompat.Client
+	model    string
+}
+
+// Provider returns the provider name.
+func (m *EmbeddingModel) Provider() string { return m.provider.Name() }
+
+// Model returns the model ID.
+func (m *EmbeddingModel) Model() string { return m.model }
+
+// Embed generates embeddings for the given texts.
+func (m *EmbeddingModel) Embed(ctx context.Context, texts []string) (*embed.EmbeddingResponse, error) {
+	return m.client.CreateEmbeddings(ctx, m.model, texts)
 }

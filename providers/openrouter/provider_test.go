@@ -55,6 +55,22 @@ func TestProvider_LanguageModel(t *testing.T) {
 	}
 }
 
+func TestProvider_EmbeddingModel(t *testing.T) {
+	p, _ := New("sk-test")
+	prov := p.(*Provider)
+	model, err := prov.EmbeddingModel(context.Background(), "openai/text-embedding-3-small")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	em := model.(*EmbeddingModel)
+	if em.Provider() != "openrouter" {
+		t.Errorf("unexpected provider: %s", em.Provider())
+	}
+	if em.Model() != "openai/text-embedding-3-small" {
+		t.Errorf("unexpected model: %s", em.Model())
+	}
+}
+
 func TestProviderOptions_ProviderName(t *testing.T) {
 	opts := ProviderOptions{}
 	if opts.ProviderName() != "openrouter" {
