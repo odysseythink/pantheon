@@ -94,6 +94,9 @@ func (m *RerankModel) truncate(tokens []string) []string {
 		return append(tokens[:maxLen-1], sep)
 	}
 	docMaxLen := maxLen - queryLen - 1
+	if docMaxLen <= 0 {
+		return tokens[:queryLen]
+	}
 	end := queryLen + docMaxLen
 	if end >= len(tokens) {
 		end = len(tokens) - 1

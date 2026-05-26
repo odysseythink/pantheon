@@ -11,15 +11,15 @@ import (
 )
 
 var (
-	_ core.Provider       = (*Provider)(nil)
-	_ embed.Provider      = (*Provider)(nil)
+	_ core.Provider        = (*Provider)(nil)
+	_ embed.Provider       = (*Provider)(nil)
 	_ embed.EmbeddingModel = (*EmbeddingModel)(nil)
-	_ rerank.Provider     = (*Provider)(nil)
-	_ rerank.RerankModel  = (*RerankModel)(nil)
+	_ rerank.Provider      = (*Provider)(nil)
+	_ rerank.RerankModel   = (*RerankModel)(nil)
 )
 
-// Provider implements core.Provider and embed.Provider for local embedding
-// using the Cybertron library.
+// Provider implements core.Provider, embed.Provider, and rerank.Provider for
+// local embedding and reranking using the Cybertron library.
 type Provider struct {
 	modelDir  string
 	modelName string
@@ -58,7 +58,8 @@ func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
 	}, nil
 }
 
-// LanguageModel returns an error because the native provider only supports embeddings.
+// LanguageModel returns an error because the native provider does not support
+// chat completion.
 func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.LanguageModel, error) {
 	return nil, fmt.Errorf("native: provider only supports embedding, not chat completion")
 }
