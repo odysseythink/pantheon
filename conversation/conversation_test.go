@@ -97,3 +97,38 @@ func TestConversation_DirectMessage_MaxRounds(t *testing.T) {
 	chats := c.Chats()
 	require.Len(t, chats, 2)
 }
+
+func TestConversation_Continue(t *testing.T) {
+	model := &mockModel{responses: []string{"Hello", "INTERRUPT"}}
+
+	c := New(WithMaxRounds(10))
+	c.RegisterParticipant(&Participant{Name: "user", Model: model, Interrupt: InterruptAlways})
+	c.RegisterParticipant(&Participant{Name: "bot", Model: model})
+
+	err := c.Start(context.Background(), "user", "bot", "Hi")
+	require.NoError(t, err)
+
+	require.Equal(t, ChatStateInterrupt, c.Chats()[len(c.Chats())-1].State)
+
+	err = c.Continue(context.Background(), "Please continue")
+	require.NoError(t, err)
+
+	chats := c.Chats()
+	require.Equal(t, "Please continue", chats[len(chats)-3].Content)
+}
+
+func TestConversation_Retry(t *testing.T) {
+	failModel := &mockModel{responses: []string{"reply"}}
+	c := New()
+	c.RegisterParticipant(&Participant{Name: "a", Model: failModel})
+	c.RegisterParticipant(&Participant{Name: "b", Model: failModel})
+
+	// Manually inject an error chat
+	c.mu.Lock()
+	c.history = append(c.history, Chat{From: "a", To: "b", State: ChatStateError})
+	c.mu.Unlock()
+
+	err := c.Retry(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, ChatStateSuccess, c.Chats()[len(c.Chats())-1].State)
+}

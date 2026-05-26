@@ -3,6 +3,7 @@ package conversation
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 	"sync"
 
@@ -294,7 +295,122 @@ func (c *Conversation) reply(ctx context.Context, route Route) (string, error) {
 	return content, nil
 }
 
-// selectNext is a stub for Task 6; it will be replaced by the real implementation.
+// Continue resumes the conversation from the last interruption.
+func (c *Conversation) Continue(ctx context.Context, feedback string) error {
+	c.mu.Lock()
+	if len(c.history) == 0 || c.history[len(c.history)-1].State != ChatStateInterrupt {
+		c.mu.Unlock()
+		return ErrNoChatToContinue
+	}
+	last := c.history[len(c.history)-1]
+	c.mu.Unlock()
+
+	if c.hasReachedMaxRounds(last.From, last.To) {
+		return ErrMaxRoundsReached
+	}
+
+	if feedback != "" {
+		c.newMessage(Route{From: last.From, To: last.To}, feedback)
+		return c.runLoop(ctx, Route{From: last.To, To: last.From})
+	}
+	return c.runLoop(ctx, Route{From: last.From, To: last.To})
+}
+
+// Retry retries the last failed chat turn.
+func (c *Conversation) Retry(ctx context.Context) error {
+	c.mu.Lock()
+	if len(c.history) == 0 || c.history[len(c.history)-1].State != ChatStateError {
+		c.mu.Unlock()
+		return ErrNoChatToRetry
+	}
+	last := c.history[len(c.history)-1]
+	c.mu.Unlock()
+
+	return c.runLoop(ctx, Route{From: last.From, To: last.To})
+}
+
 func (c *Conversation) selectNext(ctx context.Context, channelName string) (string, error) {
-	return "", nil
+	ch, err := c.getChannel(channelName)
+	if err != nil {
+		return "", err
+	}
+	if len(ch.Members) == 0 {
+		return "", ErrEmptyGroup
+	}
+
+	// Filter members that haven't reached max rounds
+	var available []string
+	for _, m := range ch.Members {
+		if !c.hasReachedMaxRounds(channelName, m) {
+			available = append(available, m)
+		}
+	}
+
+	// Exclude the last speaker in this channel
+	c.mu.RLock()
+	var lastSpeaker string
+	for i := len(c.history) - 1; i >= 0; i-- {
+		if c.history[i].To == channelName && c.history[i].State == ChatStateSuccess {
+			lastSpeaker = c.history[i].From
+			break
+		}
+	}
+	c.mu.RUnlock()
+
+	if lastSpeaker != "" {
+		filtered := available[:0]
+		for _, a := range available {
+			if a != lastSpeaker {
+				filtered = append(filtered, a)
+			}
+		}
+		available = filtered
+	}
+
+	if len(available) == 0 {
+		return "", nil
+	}
+
+	// Use channel model to select next speaker
+	if ch.Model != nil {
+		prompt := c.buildSelectorPrompt(ch, available)
+		req := &core.Request{
+			SystemPrompt: ch.Role,
+			Messages:     []core.Message{core.NewTextMessage(core.MESSAGE_ROLE_USER, prompt)},
+		}
+		resp, err := ch.Model.Generate(ctx, req)
+		if err != nil {
+			return "", err
+		}
+		name := strings.TrimPrefix(strings.TrimSpace(resp.Message.Text()), "@")
+		for _, a := range available {
+			if a == name {
+				return name, nil
+			}
+		}
+	}
+
+	// Fallback: random selection
+	idx := rand.Intn(len(available))
+	return available[idx], nil
+}
+
+func (c *Conversation) buildSelectorPrompt(ch *Channel, available []string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "You are in a role play game. The following roles are available:\n")
+	for _, name := range available {
+		p, _ := c.getParticipant(name)
+		role := name
+		if p != nil && p.Role != "" {
+			role = fmt.Sprintf("@%s: %s", name, p.Role)
+		}
+		fmt.Fprintf(&b, "%s\n", role)
+	}
+	fmt.Fprintf(&b, "\nRead the following conversation.\n\nCHAT HISTORY\n")
+	history := c.getHistory("", ch.Name)
+	for _, h := range history {
+		fmt.Fprintf(&b, "@%s: %s\n", h.From, h.Content)
+	}
+	fmt.Fprintf(&b, "\nThen select the next role that is going to speak next.\nOnly return the role name.")
+	return b.String()
 }
