@@ -8,13 +8,13 @@ type Plugin interface {
 
 // Use installs one or more plugins.
 func (c *Conversation) Use(plugins ...Plugin) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	for _, p := range plugins {
 		if err := p.Setup(c); err != nil {
 			return err
 		}
+		c.mu.Lock()
 		c.plugins = append(c.plugins, p)
+		c.mu.Unlock()
 	}
 	return nil
 }
