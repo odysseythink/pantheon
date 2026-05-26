@@ -183,6 +183,12 @@ func ToCoreResponse(resp *ChatCompletionResponse, model string) (*core.Response,
 	if text, ok := choice.Message.Content.(string); ok && text != "" {
 		msg.Content = append(msg.Content, core.TextPart{Text: text})
 	}
+	if choice.Message.ReasoningContent != "" {
+		msg.Content = append(msg.Content, core.ReasoningPart{Text: choice.Message.ReasoningContent})
+		if text, ok := choice.Message.Content.(string); !ok || text == "" {
+			msg.Content = append(msg.Content, core.TextPart{Text: choice.Message.ReasoningContent})
+		}
+	}
 	for _, tc := range choice.Message.ToolCalls {
 		msg.Content = append(msg.Content, core.ToolCallPart{
 			ID:        tc.ID,

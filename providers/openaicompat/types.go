@@ -19,11 +19,12 @@ type ChatCompletionRequest struct {
 
 // Message is a single message in the OpenAI chat format.
 type Message struct {
-	Role       string           `json:"role"`
-	Content    any              `json:"content"`
-	ToolCalls  []types.ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID string           `json:"tool_call_id,omitempty"`
-	Name       string           `json:"name,omitempty"`
+	Role             string           `json:"role"`
+	Content          any              `json:"content"`
+	ReasoningContent string           `json:"reasoning_content,omitempty"`
+	ToolCalls        []types.ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID       string           `json:"tool_call_id,omitempty"`
+	Name             string           `json:"name,omitempty"`
 }
 
 // ContentParter is a content part in a multimodal user message.
