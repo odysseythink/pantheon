@@ -88,6 +88,21 @@ func TestProvider_LanguageModel(t *testing.T) {
 	}
 }
 
+func TestProvider_EmbeddingModel(t *testing.T) {
+	p, err := New("key", "resource", "deployment")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	prov := p.(*Provider)
+	embedModel, err := prov.EmbeddingModel(context.Background(), "text-embedding-ada-002")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if embedModel == nil {
+		t.Fatal("expected embedding model, got nil")
+	}
+}
+
 func TestProviderOptions_ProviderName(t *testing.T) {
 	opts := ProviderOptions{}
 	if opts.ProviderName() != "azure" {
