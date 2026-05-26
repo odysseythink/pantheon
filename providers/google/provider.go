@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/extensions/embed"
 	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
@@ -50,6 +51,11 @@ func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
 // LanguageModel creates a new Google language model for the given model ID.
 func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.LanguageModel, error) {
 	return &LanguageModel{provider: p, client: p.client, model: modelID}, nil
+}
+
+// EmbeddingModel creates a new Google embedding model for the given model ID.
+func (p *Provider) EmbeddingModel(ctx context.Context, modelID string) (embed.EmbeddingModel, error) {
+	return &EmbeddingModel{provider: p, client: p.client, model: modelID}, nil
 }
 
 // ProviderOptions holds Google-specific request options.

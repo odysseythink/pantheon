@@ -2,8 +2,10 @@ package google
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/extensions/embed"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
 )
 
@@ -28,6 +30,35 @@ func (m *LanguageModel) Generate(ctx context.Context, req *core.Request) (*core.
 // Stream sends a streaming generate content request.
 func (m *LanguageModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
 	return m.client.chatCompletionStream(ctx, m.model, req), nil
+}
+
+// EmbeddingModel implements embed.EmbeddingModel for the Google provider.
+type EmbeddingModel struct {
+	provider *Provider
+	client   *client
+	model    string
+}
+
+// Embed generates embeddings for the given texts by calling Gemini embedContent for each.
+func (m *EmbeddingModel) Embed(ctx context.Context, texts []string) (*embed.EmbeddingResponse, error) {
+	var embeddings [][]float32
+	var totalTokens int
+	for _, text := range texts {
+		emb, err := m.client.embedContent(ctx, m.model, text)
+		if err != nil {
+			return nil, fmt.Errorf("google embedContent: %w", err)
+		}
+		embeddings = append(embeddings, emb)
+		// Gemini does not return token usage for embedding; approximate.
+		totalTokens += len(text) / 4
+	}
+	return &embed.EmbeddingResponse{
+		Embeddings: embeddings,
+		Usage: core.Usage{
+			PromptTokens: totalTokens,
+			TotalTokens:  totalTokens,
+		},
+	}, nil
 }
 
 // GenerateObject generates a structured object from the model.

@@ -69,6 +69,48 @@ func TestProviderOptions_ProviderName(t *testing.T) {
 	}
 }
 
+func TestProvider_EmbeddingModel(t *testing.T) {
+	p, _ := New("api-key")
+	prov := p.(*Provider)
+	model, err := prov.EmbeddingModel(context.Background(), "gemini-embedding-001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if model == nil {
+		t.Fatal("expected non-nil embedding model")
+	}
+}
+
+func TestEmbeddingModel_Embed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models/gemini-embedding-001:embedContent" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(embedContentResponse{
+			Embedding: struct {
+				Values []float64 `json:"values"`
+			}{
+				Values: []float64{0.1, 0.2, 0.3},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	p, _ := New("test-key", WithBaseURL(srv.URL))
+	prov := p.(*Provider)
+	embedModel, _ := prov.EmbeddingModel(context.Background(), "gemini-embedding-001")
+	resp, err := embedModel.Embed(context.Background(), []string{"hello"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Embeddings) != 1 {
+		t.Fatalf("expected 1 embedding, got %d", len(resp.Embeddings))
+	}
+	if len(resp.Embeddings[0]) != 3 {
+		t.Fatalf("expected 3 dims, got %d", len(resp.Embeddings[0]))
+	}
+}
+
 func TestProvider_Models(t *testing.T) {
 	apiKey := os.Getenv("GOOGLE_API_KEY")
 	if apiKey == "" {
