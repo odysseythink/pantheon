@@ -7,12 +7,15 @@ import (
 
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/extensions/embed"
+	"github.com/odysseythink/pantheon/extensions/rerank"
 )
 
 var (
 	_ core.Provider       = (*Provider)(nil)
 	_ embed.Provider      = (*Provider)(nil)
 	_ embed.EmbeddingModel = (*EmbeddingModel)(nil)
+	_ rerank.Provider     = (*Provider)(nil)
+	_ rerank.RerankModel  = (*RerankModel)(nil)
 )
 
 // Provider implements core.Provider and embed.Provider for local embedding
@@ -63,6 +66,14 @@ func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.Lang
 // EmbeddingModel creates a new native embedding model for the given model ID.
 func (p *Provider) EmbeddingModel(ctx context.Context, modelID string) (embed.EmbeddingModel, error) {
 	return &EmbeddingModel{
+		provider: p,
+		modelID:  modelID,
+	}, nil
+}
+
+// RerankModel creates a new native rerank model for the given model ID.
+func (p *Provider) RerankModel(ctx context.Context, modelID string) (rerank.RerankModel, error) {
+	return &RerankModel{
 		provider: p,
 		modelID:  modelID,
 	}, nil
