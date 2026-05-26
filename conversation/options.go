@@ -9,3 +9,10 @@ func WithMaxRounds(n int) Option {
 		c.maxRounds = n
 	}
 }
+
+// WithHistory sets the initial chat history.
+func WithHistory(history []Chat) Option {
+	return func(c *Conversation) {
+		c.history = append([]Chat(nil), history...)
+	}
+}

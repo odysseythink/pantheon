@@ -187,3 +187,41 @@ func TestConversation_ChannelFlow(t *testing.T) {
 	require.Equal(t, "Hi everyone", chats[0].Content)
 	require.Equal(t, "Hello", chats[1].Content)
 }
+
+func TestConversation_WithHistory(t *testing.T) {
+	c := New(WithHistory([]Chat{
+		{From: "alice", To: "bob", Content: "Hi", State: ChatStateSuccess},
+		{From: "bob", To: "alice", Content: "Hello", State: ChatStateSuccess},
+	}))
+
+	chats := c.Chats()
+	require.Len(t, chats, 2)
+	require.Equal(t, "Hi", chats[0].Content)
+	require.Equal(t, "Hello", chats[1].Content)
+
+	// Mutating the original slice should not affect the copy
+	c.history[0].Content = "mutated"
+	require.Equal(t, "Hi", chats[0].Content)
+}
+
+func TestConversation_ChannelMaxRounds(t *testing.T) {
+	selector := &mockModel{responses: []string{"bob"}}
+	botModel := &mockModel{responses: []string{"r1", "r2", "r3"}}
+
+	c := New(WithMaxRounds(100))
+	c.RegisterParticipant(&Participant{Name: "alice", Model: botModel})
+	c.RegisterParticipant(&Participant{Name: "bob", Model: botModel})
+	c.RegisterChannel(&Channel{
+		Name:      "general",
+		Members:   []string{"alice", "bob"},
+		MaxRounds: 2,
+		Model:     selector,
+	})
+
+	err := c.Start(context.Background(), "alice", "general", "Hi")
+	require.NoError(t, err)
+
+	// 2 rounds = alice->general, bob->general (terminated before alice replies again)
+	chats := c.Chats()
+	require.Len(t, chats, 2)
+}

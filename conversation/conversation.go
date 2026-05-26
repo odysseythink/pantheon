@@ -154,6 +154,19 @@ func (c *Conversation) hasReachedMaxRounds(from, to string) bool {
 	return count >= c.maxRounds
 }
 
+// channelRounds counts successful messages sent to a channel.
+func (c *Conversation) channelRounds(name string) int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	count := 0
+	for _, chat := range c.history {
+		if chat.State == ChatStateSuccess && chat.To == name {
+			count++
+		}
+	}
+	return count
+}
+
 func (c *Conversation) getHistory(from, to string) []Chat {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -213,6 +226,16 @@ func (c *Conversation) runLoop(ctx context.Context, start Route) error {
 		}
 
 		if c.isChannel(route.From) {
+			ch, _ := c.getChannel(route.From)
+			limit := c.maxRounds
+			if ch != nil && ch.MaxRounds > 0 {
+				limit = ch.MaxRounds
+			}
+			if c.channelRounds(route.From) >= limit {
+				c.terminate(route.From)
+				return nil
+			}
+
 			next, err := c.selectNext(ctx, route.From)
 			if err != nil {
 				c.newError(route, err)
