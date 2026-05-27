@@ -79,6 +79,8 @@ func (m Message) Text() string {
 					texts = append(texts, tp.Text)
 				}
 			}
+		case ToolResultErrorPart:
+			texts = append(texts, pt.Error)
 		case SourcePart:
 			// Source parts are metadata, not text content.
 		}
@@ -239,6 +241,18 @@ func (p ToolResultPart) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{"type": "tool_result", "tool_call_id": p.ToolCallID, "name": p.Name, "content": p.Content, "is_error": p.IsError})
 }
 
+// ToolResultErrorPart represents a structured error output from a tool execution.
+type ToolResultErrorPart struct {
+	Error string `json:"error"`
+}
+
+func (ToolResultErrorPart) contentPart() {}
+
+// MarshalJSON serializes ToolResultErrorPart to JSON.
+func (p ToolResultErrorPart) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{"type": "tool_result_error", "error": p.Error})
+}
+
 func unmarshalContentPart(raw []byte) (ContentParter, error) {
 	var typ struct {
 		Type string `json:"type"`
@@ -285,6 +299,12 @@ func unmarshalContentPart(raw []byte) (ContentParter, error) {
 		return p, nil
 	case "tool_result":
 		var p ToolResultPart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case "tool_result_error":
+		var p ToolResultErrorPart
 		if err := json.Unmarshal(raw, &p); err != nil {
 			return nil, err
 		}

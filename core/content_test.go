@@ -177,6 +177,7 @@ func TestContentPart_Interface(t *testing.T) {
 	DocumentPart{}.contentPart()
 	ToolCallPart{}.contentPart()
 	ToolResultPart{}.contentPart()
+	ToolResultErrorPart{}.contentPart()
 }
 
 func TestToolResultPartRoundTrip(t *testing.T) {
@@ -242,5 +243,48 @@ func TestUnmarshalContentPart_InvalidTypeJSON(t *testing.T) {
 	var msg Message
 	if err := json.Unmarshal(data, &msg); err == nil {
 		t.Fatal("expected error for invalid content element JSON")
+	}
+}
+
+func TestToolResultErrorPartRoundTrip(t *testing.T) {
+	part := ToolResultErrorPart{Error: "connection timeout"}
+	data, err := json.Marshal(part)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var back ToolResultErrorPart
+	if err := json.Unmarshal(data, &back); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if back.Error != part.Error {
+		t.Errorf("Error = %q, want %q", back.Error, part.Error)
+	}
+}
+
+func TestToolResultErrorPartUnmarshal(t *testing.T) {
+	raw := []byte(`{"type":"tool_result_error","error":"tool failed"}`)
+	part, err := unmarshalContentPart(raw)
+	if err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	te, ok := part.(ToolResultErrorPart)
+	if !ok {
+		t.Fatalf("expected ToolResultErrorPart, got %T", part)
+	}
+	if te.Error != "tool failed" {
+		t.Errorf("Error = %q, want %q", te.Error, "tool failed")
+	}
+}
+
+func TestMessageText_WithToolResultErrorPart(t *testing.T) {
+	m := Message{
+		Role: MESSAGE_ROLE_TOOL,
+		Content: []ContentParter{
+			ToolResultErrorPart{Error: "something went wrong"},
+		},
+	}
+	if got := m.Text(); got != "something went wrong" {
+		t.Errorf("Text() = %q, want %q", got, "something went wrong")
 	}
 }
