@@ -1332,6 +1332,43 @@ func TestRun_StepResultContainsToolResults(t *testing.T) {
 	}
 }
 
+func TestWithProviderDefinedTools_RegistersTools(t *testing.T) {
+	m := &mockModel{}
+	a := New(m, WithProviderDefinedTools(core.ToolDefinition{
+		Name:         "web_search",
+		ProviderTool: &core.ProviderDefinedTool{ID: "openai.web_search_preview", Name: "web_search"},
+	}))
+	if len(a.providerTools) != 1 {
+		t.Fatalf("expected 1 provider tool, got %d", len(a.providerTools))
+	}
+	if a.providerTools[0].Name != "web_search" {
+		t.Errorf("name: got %q, want web_search", a.providerTools[0].Name)
+	}
+}
+
+func TestRun_MergesProviderTools(t *testing.T) {
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+	}}
+	a := New(m, WithProviderDefinedTools(core.ToolDefinition{
+		Name:         "agent_tool",
+		ProviderTool: &core.ProviderDefinedTool{ID: "openai.web_search_preview", Name: "agent_tool"},
+	}))
+
+	req := &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+		Tools: []core.ToolDefinition{{
+			Name:        "agent_tool",
+			Description: "overridden",
+			Parameters:  &core.Schema{Type: "object"},
+		}},
+	}
+	_, err := a.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestRun_StepResultMessagesSnapshot(t *testing.T) {
 	m := &mockModel{
 		responses: []core.Message{

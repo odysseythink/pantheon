@@ -48,6 +48,9 @@ type Agent struct {
 	responseFormat   *core.ResponseFormat
 	providerOptions  core.ProviderOptions
 
+	// Provider-native tools (executed server-side by the provider)
+	providerTools []core.ToolDefinition
+
 	// Retry
 	maxRetries       *int
 }
@@ -85,6 +88,21 @@ func firstNonNil[T any](vals ...*T) *T {
 		}
 	}
 	return nil
+}
+
+func mergeTools(reqTools, agentTools []core.ToolDefinition) []core.ToolDefinition {
+	merged := make([]core.ToolDefinition, 0, len(reqTools)+len(agentTools))
+	seen := make(map[string]bool)
+	for _, t := range reqTools {
+		seen[t.Name] = true
+		merged = append(merged, t)
+	}
+	for _, t := range agentTools {
+		if !seen[t.Name] {
+			merged = append(merged, t)
+		}
+	}
+	return merged
 }
 
 func mergeGenerationParams(a *Agent, req *core.Request, prep PrepareStepResult) core.Request {
@@ -169,6 +187,7 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		stepMessages := messages
 		stepSystemPrompt := req.SystemPrompt
 		stepTools := req.Tools
+		stepTools = mergeTools(stepTools, a.providerTools)
 		stepToolChoice := req.ToolChoice
 		disableAllTools := false
 

@@ -160,6 +160,15 @@ func WithProviderOptions(opts core.ProviderOptions) Option {
 	}
 }
 
+// WithProviderDefinedTools registers provider-native tools with the agent.
+// These tools are executed server-side by the provider and are merged with
+// per-request tools on each Run/RunStream call.
+func WithProviderDefinedTools(tools ...core.ToolDefinition) Option {
+	return func(a *Agent) {
+		a.providerTools = append(a.providerTools, tools...)
+	}
+}
+
 func WithMaxRetries(v int) Option {
 	return func(a *Agent) { a.maxRetries = &v }
 }

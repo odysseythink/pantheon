@@ -77,6 +77,7 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 			stepMessages := messages
 			stepSystemPrompt := req.SystemPrompt
 			stepTools := req.Tools
+			stepTools = mergeTools(stepTools, a.providerTools)
 			stepToolChoice := req.ToolChoice
 			disableAllTools := false
 			prepared := PrepareStepResult{}
