@@ -75,6 +75,54 @@ type Result struct {
 	Warnings []core.CallWarning
 }
 
+func firstNonNil[T any](vals ...*T) *T {
+	for _, v := range vals {
+		if v != nil {
+			return v
+		}
+	}
+	return nil
+}
+
+func mergeGenerationParams(a *Agent, req *core.Request, prep PrepareStepResult) core.Request {
+	merged := core.Request{
+		Messages:     req.Messages,
+		SystemPrompt: req.SystemPrompt,
+		Tools:        req.Tools,
+		ToolChoice:   req.ToolChoice,
+	}
+
+	merged.Temperature = firstNonNil(prep.Temperature, req.Temperature, a.temperature)
+	merged.TopP = firstNonNil(prep.TopP, req.TopP, a.topP)
+	merged.TopK = firstNonNil(prep.TopK, req.TopK, a.topK)
+	merged.MaxTokens = firstNonNil(prep.MaxTokens, req.MaxTokens, a.maxTokens)
+	merged.FrequencyPenalty = firstNonNil(prep.FrequencyPenalty, req.FrequencyPenalty, a.frequencyPenalty)
+	merged.PresencePenalty = firstNonNil(prep.PresencePenalty, req.PresencePenalty, a.presencePenalty)
+
+	if prep.StopSequences != nil {
+		merged.StopSequences = prep.StopSequences
+	} else if req.StopSequences != nil {
+		merged.StopSequences = req.StopSequences
+	} else {
+		merged.StopSequences = a.stopSequences
+	}
+
+	merged.ProviderOptions = make(core.ProviderOptions)
+	for k, v := range a.providerOptions {
+		merged.ProviderOptions[k] = v
+	}
+	for k, v := range req.ProviderOptions {
+		merged.ProviderOptions[k] = v
+	}
+	for k, v := range prep.ProviderOptions {
+		merged.ProviderOptions[k] = v
+	}
+
+	merged.ResponseFormat = firstNonNil(prep.ResponseFormat, req.ResponseFormat, a.responseFormat)
+
+	return merged
+}
+
 // Run executes the agent loop until completion or max steps.
 func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 	messages := append([]core.Message(nil), req.Messages...)
@@ -100,8 +148,10 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		stepToolChoice := req.ToolChoice
 		disableAllTools := false
 
+		prepared := PrepareStepResult{}
 		if a.prepareStep != nil {
-			prepared, err := a.prepareStep(ctx, PrepareStepOptions{
+			var err error
+			prepared, err = a.prepareStep(ctx, PrepareStepOptions{
 				Step:     step,
 				Model:    stepModel,
 				Messages: stepMessages,
@@ -138,6 +188,8 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 			}
 		}
 
+		baseReq := mergeGenerationParams(a, req, prepared)
+
 		// Build lookups for provider-executed and locally-executed provider tools.
 		providerTools := make(map[string]bool)
 		executableTools := make(map[string]*core.ExecutableProviderTool)
@@ -155,6 +207,16 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 			SystemPrompt: stepSystemPrompt,
 			Tools:        stepTools,
 			ToolChoice:   stepToolChoice,
+
+			Temperature:      baseReq.Temperature,
+			TopP:             baseReq.TopP,
+			TopK:             baseReq.TopK,
+			MaxTokens:        baseReq.MaxTokens,
+			FrequencyPenalty: baseReq.FrequencyPenalty,
+			PresencePenalty:  baseReq.PresencePenalty,
+			StopSequences:    baseReq.StopSequences,
+			ResponseFormat:   baseReq.ResponseFormat,
+			ProviderOptions:  baseReq.ProviderOptions,
 		})
 		if err != nil {
 			return nil, err

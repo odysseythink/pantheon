@@ -1088,3 +1088,73 @@ func TestPrepareStep_WithGenerationParams(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+
+type captureRequestModel struct {
+	mockModel
+	requests []*core.Request
+}
+
+func (m *captureRequestModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	m.requests = append(m.requests, req)
+	return m.mockModel.Generate(ctx, req)
+}
+
+func intPtr(v int) *int     { return &v }
+func floatPtr(v float64) *float64 { return &v }
+
+func TestRun_AgentDefaultsUsed(t *testing.T) {
+	model := &captureRequestModel{}
+	agent := New(
+		model,
+		WithTemperature(0.5),
+		WithMaxTokens(1024),
+	)
+
+	req := &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}
+
+	_, err := agent.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(model.requests) == 0 {
+		t.Fatal("expected at least one request captured")
+	}
+	captured := model.requests[0]
+	if captured.Temperature == nil || *captured.Temperature != 0.5 {
+		t.Errorf("expected Temperature=0.5, got %v", captured.Temperature)
+	}
+	if captured.MaxTokens == nil || *captured.MaxTokens != 1024 {
+		t.Errorf("expected MaxTokens=1024, got %v", captured.MaxTokens)
+	}
+}
+
+func TestRun_RequestOverridesAgentDefaults(t *testing.T) {
+	model := &captureRequestModel{}
+	agent := New(
+		model,
+		WithTemperature(0.5),
+		WithMaxTokens(1024),
+	)
+
+	req := &core.Request{
+		Messages:    []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+		Temperature: floatPtr(0.9),
+	}
+
+	_, err := agent.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	captured := model.requests[0]
+	if captured.Temperature == nil || *captured.Temperature != 0.9 {
+		t.Errorf("expected Temperature=0.9 (from req), got %v", captured.Temperature)
+	}
+	if captured.MaxTokens == nil || *captured.MaxTokens != 1024 {
+		t.Errorf("expected MaxTokens=1024 (from agent default), got %v", captured.MaxTokens)
+	}
+}
