@@ -22,6 +22,7 @@ const (
 	StreamEventTypeUsage          StreamEventType = "usage"
 	StreamEventTypeWarning        StreamEventType = "warning"
 	StreamEventTypeError          StreamEventType = "error"
+	StreamEventTypeStepResult     StreamEventType = "step_result"
 )
 
 // StreamEvent represents a single event in the agent stream.
@@ -35,6 +36,7 @@ type StreamEvent struct {
 	Step           int
 	Usage          *core.Usage
 	Warnings       []core.CallWarning
+	StepResult     *StepResult
 }
 
 // StreamResponse is the agent's streaming output.
