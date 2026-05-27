@@ -1106,3 +1106,81 @@ func TestRunStreamWithSource(t *testing.T) {
 		t.Errorf("source URL: got %q, want https://example.com", source.URL)
 	}
 }
+
+func TestRunStream_YieldsStepResultEvents(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Hello"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var stepResults []StepResult
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeStepResult {
+			stepResults = append(stepResults, *event.StepResult)
+		}
+	}
+
+	if len(stepResults) != 1 {
+		t.Fatalf("StepResult events: got %d, want 1", len(stepResults))
+	}
+	if stepResults[0].StepNumber != 1 {
+		t.Errorf("StepNumber: got %d, want 1", stepResults[0].StepNumber)
+	}
+	if stepResults[0].Response.FinishReason != "stop" {
+		t.Errorf("FinishReason: got %q, want stop", stepResults[0].Response.FinishReason)
+	}
+}
+
+func TestRunStream_StepResultWithToolCall(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "get_weather", Arguments: `{"city":"NYC"}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+	a.RegisterTool("get_weather", func(ctx context.Context, args string) (string, error) {
+		return "sunny", nil
+	})
+
+	var stepResults []StepResult
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeStepResult {
+			stepResults = append(stepResults, *event.StepResult)
+		}
+	}
+
+	if len(stepResults) != 2 {
+		t.Fatalf("StepResult events: got %d, want 2", len(stepResults))
+	}
+
+	step1 := stepResults[0]
+	if len(step1.ToolResults) != 1 {
+		t.Errorf("Step1 ToolResults: got %d, want 1", len(step1.ToolResults))
+	}
+	if step1.ToolResults[0].Name != "get_weather" {
+		t.Errorf("Step1 ToolResult Name: got %q, want get_weather", step1.ToolResults[0].Name)
+	}
+
+	step2 := stepResults[1]
+	if len(step2.ToolResults) != 0 {
+		t.Errorf("Step2 ToolResults: got %d, want 0", len(step2.ToolResults))
+	}
+}
