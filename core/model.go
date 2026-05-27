@@ -11,6 +11,7 @@ type Request struct {
 	MaxTokens       *int
 	Temperature     *float64
 	TopP            *float64
+	TopK            *int
 	FrequencyPenalty *float64
 	PresencePenalty  *float64
 	StopSequences   []string
@@ -96,8 +97,11 @@ type ObjectRequest struct {
 	Mode            ObjectMode
 	MaxTokens       *int
 	Temperature     *float64
+	TopP            *float64
+	TopK            *int
 	FrequencyPenalty *float64
 	PresencePenalty  *float64
+	StopSequences   []string
 	ProviderOptions ProviderOptions
 }
 
