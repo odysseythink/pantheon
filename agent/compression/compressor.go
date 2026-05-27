@@ -210,6 +210,8 @@ func renderTranscript(msgs []core.Message) string {
 				out += "[tool_call: " + part.Name + "]"
 			case core.ToolResultPart:
 				out += "[tool_result]"
+			case core.ToolResultErrorPart:
+				out += "[tool_result_error: " + part.Error + "]"
 			}
 		}
 		out += "\n"
@@ -252,6 +254,8 @@ func contentToString(parts []core.ContentParter) string {
 			texts = append(texts, "[image]")
 		case core.ReasoningPart:
 			texts = append(texts, fmt.Sprintf("[reasoning: %s]", p.Text))
+		case core.ToolResultErrorPart:
+			texts = append(texts, fmt.Sprintf("[tool_result_error: %s]", p.Error))
 		default:
 			texts = append(texts, fmt.Sprintf("[%T]", part))
 		}

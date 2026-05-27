@@ -402,10 +402,11 @@ func TestRenderTranscript(t *testing.T) {
 		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}},
 		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.ToolCallPart{ID: "1", Name: "search", Arguments: "{}"}}},
 		{Role: core.MESSAGE_ROLE_TOOL, Content: []core.ContentParter{core.ToolResultPart{ToolCallID: "1", Name: "search", Content: []core.ContentParter{core.TextPart{Text: "result"}}}}},
+		{Role: core.MESSAGE_ROLE_TOOL, Content: []core.ContentParter{core.ToolResultErrorPart{Error: "failed"}}},
 	}
 	out := renderTranscript(msgs)
 	lines := strings.Split(strings.TrimSpace(out), "\n")
-	if len(lines) != 3 {
+	if len(lines) != 4 {
 		t.Fatalf("expected 3 lines, got %d: %q", len(lines), out)
 	}
 	if !strings.Contains(lines[0], "1. user: hello") {
@@ -416,6 +417,9 @@ func TestRenderTranscript(t *testing.T) {
 	}
 	if !strings.Contains(lines[2], "3. tool: [tool_result]") {
 		t.Errorf("line 2 unexpected: %q", lines[2])
+	}
+	if !strings.Contains(lines[3], "4. tool: [tool_result_error: failed]") {
+		t.Errorf("line 3 unexpected: %q", lines[3])
 	}
 }
 
@@ -445,6 +449,7 @@ func TestContentToString(t *testing.T) {
 		core.ToolResultPart{ToolCallID: "c1", Name: "search", Content: []core.ContentParter{core.TextPart{Text: "found"}}},
 		core.ImagePart{URL: "http://example.com/img.png"},
 		core.ReasoningPart{Text: "thinking..."},
+		core.ToolResultErrorPart{Error: "failed"},
 	}
 	got := contentToString(parts)
 	wantParts := []string{
@@ -453,6 +458,7 @@ func TestContentToString(t *testing.T) {
 		"[tool_result c1]",
 		"[image]",
 		"[reasoning: thinking...]",
+		"[tool_result_error: failed]",
 	}
 	for _, w := range wantParts {
 		if !strings.Contains(got, w) {
