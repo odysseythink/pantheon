@@ -44,6 +44,7 @@ type StreamResponse = iter.Seq2[*StreamEvent, error]
 // It retries only if the initial Stream call fails; mid-stream errors are not retried.
 func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse {
 	return func(yield func(*StreamEvent, error) bool) {
+		a.ensureRetryModel()
 		messages := append([]core.Message(nil), req.Messages...)
 		var lastHadToolCalls bool
 
