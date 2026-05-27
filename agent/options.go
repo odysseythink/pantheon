@@ -3,6 +3,7 @@ package agent
 import (
 	"github.com/odysseythink/pantheon/agent/compression"
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/extensions/retry"
 	"github.com/odysseythink/pantheon/tool"
 )
 
@@ -171,4 +172,11 @@ func WithProviderDefinedTools(tools ...core.ToolDefinition) Option {
 
 func WithMaxRetries(v int) Option {
 	return func(a *Agent) { a.maxRetries = &v }
+}
+
+// WithOnRetry sets a callback invoked before each retry attempt.
+func WithOnRetry(fn retry.OnRetryFunc) Option {
+	return func(a *Agent) {
+		a.onRetry = fn
+	}
 }

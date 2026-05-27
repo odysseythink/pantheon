@@ -52,7 +52,8 @@ type Agent struct {
 	providerTools []core.ToolDefinition
 
 	// Retry
-	maxRetries       *int
+	maxRetries *int
+	onRetry    retry.OnRetryFunc
 }
 
 // New creates a new Agent.
@@ -160,6 +161,7 @@ func (a *Agent) ensureRetryModel() {
 		MaxRetries: *a.maxRetries,
 		BaseDelay:  500 * time.Millisecond,
 		Multiplier: 2.0,
+		OnRetry:    a.onRetry,
 	}
 }
 
