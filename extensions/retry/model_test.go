@@ -49,6 +49,9 @@ func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest)
 	return &core.ObjectResponse{Object: map[string]any{"result": "ok"}}, nil
 }
 
+func (m *mockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (m *mockModel) Provider() string { return "mock" }
 func (m *mockModel) Model() string    { return "mock-model" }
 
@@ -65,6 +68,9 @@ func (a *authModel) Stream(ctx context.Context, req *core.Request) (core.StreamR
 func (a *authModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	a.calls++
 	return nil, &core.ProviderError{Status: 401, Message: "unauthorized"}
+}
+func (a *authModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
 }
 func (a *authModel) Provider() string { return "auth-mock" }
 func (a *authModel) Model() string    { return "auth-mock" }

@@ -12,11 +12,12 @@ import (
 
 // Agent orchestrates a LanguageModel with tool execution.
 type Agent struct {
-	model        core.LanguageModel
-	maxSteps     int
-	toolRegistry map[string]ToolFunc
-	registry     *tool.Registry
-	compressor   *compression.Compressor
+	model          core.LanguageModel
+	maxSteps       int
+	stopConditions []StopCondition
+	toolRegistry   map[string]ToolFunc
+	registry       *tool.Registry
+	compressor     *compression.Compressor
 }
 
 // New creates a new Agent.
@@ -49,6 +50,14 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 	var totalUsage core.Usage
 	var lastHadToolCalls bool
 
+	// Build a lookup of provider-executed tools (server-side, skip local execution).
+	providerTools := make(map[string]bool)
+	for _, t := range req.Tools {
+		if t.ProviderTool != nil {
+			providerTools[t.Name] = true
+		}
+	}
+
 	for step := 0; step < a.maxSteps; step++ {
 		lastHadToolCalls = false
 		if a.compressor != nil {
@@ -71,6 +80,13 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		totalUsage.CompletionTokens += resp.Usage.CompletionTokens
 		totalUsage.TotalTokens += resp.Usage.TotalTokens
 
+		// Evaluate custom stop conditions before executing tools.
+		// This allows early termination based on response content.
+		if a.shouldStop(step, resp, messages) {
+			messages = append(messages, resp.Message)
+			break
+		}
+
 		messages = append(messages, resp.Message)
 
 		toolCalls := extractToolCalls(resp.Message.Content)
@@ -80,6 +96,10 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 
 		lastHadToolCalls = true
 		for _, tc := range toolCalls {
+			// Provider-executed tools are handled server-side; skip local execution.
+			if providerTools[tc.Name] {
+				continue
+			}
 			result, isError := a.executeTool(ctx, tc)
 			messages = append(messages, core.Message{
 				Role: core.MESSAGE_ROLE_TOOL,
@@ -101,6 +121,17 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		Messages: messages,
 		Usage:    totalUsage,
 	}, nil
+}
+
+// shouldStop evaluates all registered stop conditions.
+// If any condition returns true, the agent should stop before tool execution.
+func (a *Agent) shouldStop(step int, resp *core.Response, messages []core.Message) bool {
+	for _, c := range a.stopConditions {
+		if c(step, resp, messages) {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *Agent) executeTool(ctx context.Context, tc core.ToolCallPart) (string, bool) {

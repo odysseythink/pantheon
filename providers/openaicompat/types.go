@@ -6,7 +6,7 @@ import "github.com/odysseythink/pantheon/types"
 type ChatCompletionRequest struct {
 	Model          string         `json:"model"`
 	Messages       []Message      `json:"messages"`
-	Tools          []Tool         `json:"tools,omitempty"`
+	Tools          []any          `json:"tools,omitempty"`
 	ToolChoice     any            `json:"tool_choice,omitempty"`
 	MaxTokens           *int           `json:"max_tokens,omitempty"`
 	MaxCompletionTokens *int           `json:"max_completion_tokens,omitempty"`

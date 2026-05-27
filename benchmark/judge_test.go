@@ -15,6 +15,9 @@ import (
 
 type judgeStub struct{ reply string }
 
+func (j *judgeStub) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (j *judgeStub) Provider() string { return "judge" }
 func (j *judgeStub) Model() string    { return "" }
 

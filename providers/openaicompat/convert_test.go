@@ -196,11 +196,44 @@ func TestToOpenAITools(t *testing.T) {
 	if len(out) != 1 {
 		t.Fatalf("expected 1 tool, got %d", len(out))
 	}
-	if out[0].Type != "function" || out[0].Function.Name != "get_weather" {
-		t.Errorf("unexpected tool: %+v", out[0])
+	tool, ok := out[0].(Tool)
+	if !ok {
+		t.Fatalf("expected Tool, got %T", out[0])
+	}
+	if tool.Type != "function" || tool.Function.Name != "get_weather" {
+		t.Errorf("unexpected tool: %+v", tool)
 	}
 	if len(ToOpenAITools(nil)) != 0 {
 		t.Errorf("expected empty slice for nil input")
+	}
+}
+
+func TestToOpenAITools_ProviderTool(t *testing.T) {
+	tools := []core.ToolDefinition{
+		{Name: "web_search", ProviderTool: map[string]string{"type": "web_search"}},
+		{Name: "get_weather", Description: "Get weather", Parameters: &core.Schema{Type: "object"}},
+	}
+	out := ToOpenAITools(tools)
+	if len(out) != 2 {
+		t.Fatalf("expected 2 tools, got %d", len(out))
+	}
+
+	// First tool should be the provider-native one
+	m, ok := out[0].(map[string]string)
+	if !ok {
+		t.Fatalf("expected map for provider tool, got %T", out[0])
+	}
+	if m["type"] != "web_search" {
+		t.Errorf("unexpected provider tool: %+v", m)
+	}
+
+	// Second tool should be a function tool
+	tool, ok := out[1].(Tool)
+	if !ok {
+		t.Fatalf("expected Tool, got %T", out[1])
+	}
+	if tool.Type != "function" {
+		t.Errorf("expected function type, got %q", tool.Type)
 	}
 }
 

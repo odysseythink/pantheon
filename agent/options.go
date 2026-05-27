@@ -35,3 +35,12 @@ func WithRegistry(reg *tool.Registry) Option {
 		a.registry = reg
 	}
 }
+
+// WithStopConditions sets custom stop conditions for the agent.
+// When any condition returns true, the agent stops before executing tools.
+// If no conditions are provided, the default behavior (maxSteps) is used.
+func WithStopConditions(conditions ...StopCondition) Option {
+	return func(a *Agent) {
+		a.stopConditions = conditions
+	}
+}

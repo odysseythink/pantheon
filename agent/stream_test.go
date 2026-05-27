@@ -40,7 +40,9 @@ func (m *mockStreamModel) Stream(ctx context.Context, req *core.Request) (core.S
 func (m *mockStreamModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
 }
-
+func (m *mockStreamModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (m *mockStreamModel) Provider() string { return "mock" }
 func (m *mockStreamModel) Model() string    { return "mock" }
 
@@ -232,6 +234,9 @@ func (m *errorStreamModel) Stream(ctx context.Context, req *core.Request) (core.
 func (m *errorStreamModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
 }
+func (m *errorStreamModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (m *errorStreamModel) Provider() string { return "error" }
 func (m *errorStreamModel) Model() string    { return "error-model" }
 
@@ -271,6 +276,9 @@ func (m *midErrorStreamModel) Stream(ctx context.Context, req *core.Request) (co
 }
 func (m *midErrorStreamModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
+}
+func (m *midErrorStreamModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
 }
 func (m *midErrorStreamModel) Provider() string { return "mid-error" }
 func (m *midErrorStreamModel) Model() string    { return "mid-error-model" }

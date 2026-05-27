@@ -188,3 +188,8 @@ func defaultMaxTokens(n *int) int {
 	}
 	return 4096
 }
+
+// StreamObject generates a structured object via streaming.
+func (m *LanguageModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}

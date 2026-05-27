@@ -53,3 +53,6 @@ var ErrUnsupportedFeature = errors.New("unsupported feature")
 // ErrIncompleteStream is returned when a streaming response ends without
 // a finish_reason from the provider, indicating the stream was truncated.
 var ErrIncompleteStream = errors.New("stream ended without finish reason")
+
+// ErrNotImplemented is returned when a provider does not yet implement a method.
+var ErrNotImplemented = errors.New("not implemented")

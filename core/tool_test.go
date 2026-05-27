@@ -3,6 +3,7 @@ package core
 import (
 	"reflect"
 	"testing"
+	"time"
 )
 
 type testPerson struct {
@@ -14,6 +15,11 @@ type testPersonWithOptions struct {
 	Name    string `json:"name,omitempty"`
 	Age     int    `json:"age,omitempty"`
 	Ignored string `json:"-"`
+}
+
+type testPersonWithSnakeCase struct {
+	UserName string
+	Email    string
 }
 
 func TestGenerateSchema(t *testing.T) {
@@ -144,5 +150,107 @@ func TestGenerateSchema_PrivateField(t *testing.T) {
 	}
 	if _, ok := schema.Properties["name"]; !ok {
 		t.Error("public field should appear in schema")
+	}
+}
+
+func TestGenerateSchema_SnakeCase(t *testing.T) {
+	schema := GenerateSchema(reflect.TypeOf(testPersonWithSnakeCase{}))
+	if _, ok := schema.Properties["user_name"]; !ok {
+		t.Errorf("expected snake_case property 'user_name', got %+v", schema.Properties)
+	}
+	if _, ok := schema.Properties["email"]; !ok {
+		t.Errorf("expected snake_case property 'email', got %+v", schema.Properties)
+	}
+}
+
+func TestGenerateSchema_OmitRequired(t *testing.T) {
+	schema := GenerateSchema(reflect.TypeOf(testPersonWithOptions{}))
+	for _, req := range schema.Required {
+		if req == "name" || req == "age" {
+			t.Errorf("omitempty fields should not be required, got %q in required", req)
+		}
+	}
+}
+
+func TestGenerateSchema_DescriptionTag(t *testing.T) {
+	type withDesc struct {
+		Name string `json:"name" description:"The person's full name"`
+	}
+	schema := GenerateSchema(reflect.TypeOf(withDesc{}))
+	if schema.Properties["name"].Description != "The person's full name" {
+		t.Errorf("expected description, got %q", schema.Properties["name"].Description)
+	}
+}
+
+func TestGenerateSchema_EnumTag(t *testing.T) {
+	type withEnum struct {
+		Color string `json:"color" enum:"red,green,blue"`
+	}
+	schema := GenerateSchema(reflect.TypeOf(withEnum{}))
+	want := []string{"red", "green", "blue"}
+	if len(schema.Properties["color"].Enum) != len(want) {
+		t.Fatalf("expected enum %v, got %v", want, schema.Properties["color"].Enum)
+	}
+	for i, v := range want {
+		if schema.Properties["color"].Enum[i] != v {
+			t.Errorf("enum[%d]: got %q, want %q", i, schema.Properties["color"].Enum[i], v)
+		}
+	}
+}
+
+func TestGenerateSchema_Time(t *testing.T) {
+	type withTime struct {
+		CreatedAt time.Time `json:"created_at"`
+	}
+	schema := GenerateSchema(reflect.TypeOf(withTime{}))
+	prop := schema.Properties["created_at"]
+	if prop.Type != "string" || prop.Format != "date-time" {
+		t.Errorf("expected string/date-time for time.Time, got %q/%q", prop.Type, prop.Format)
+	}
+}
+
+func TestGenerateSchema_MapStringKey(t *testing.T) {
+	type withMap struct {
+		Data map[string]int `json:"data"`
+	}
+	schema := GenerateSchema(reflect.TypeOf(withMap{}))
+	prop := schema.Properties["data"]
+	if prop.Type != "object" {
+		t.Errorf("expected object for map[string]int, got %q", prop.Type)
+	}
+	if prop.AdditionalProperties == nil {
+		t.Error("expected AdditionalProperties for map[string]int")
+	}
+	addProp, ok := prop.AdditionalProperties.(*Schema)
+	if !ok || addProp.Type != "integer" {
+		t.Errorf("expected integer additionalProperties, got %+v", prop.AdditionalProperties)
+	}
+}
+
+func TestGenerateSchema_CircularReference(t *testing.T) {
+	type Node struct {
+		Value int    `json:"value"`
+		Next  *Node  `json:"next,omitempty"`
+	}
+	schema := GenerateSchema(reflect.TypeOf(Node{}))
+	if schema.Properties["next"].Type != "object" {
+		t.Errorf("expected object for circular ref, got %q", schema.Properties["next"].Type)
+	}
+}
+
+func TestGenerateSchemaFrom(t *testing.T) {
+	schema := GenerateSchemaFrom[testPerson]()
+	if schema.Type != "object" {
+		t.Errorf("expected object, got %q", schema.Type)
+	}
+	if schema.Properties["name"].Type != "string" {
+		t.Errorf("expected string for name, got %q", schema.Properties["name"].Type)
+	}
+}
+
+func TestGenerateSchema_Nil(t *testing.T) {
+	schema := GenerateSchema(nil)
+	if schema.Type != "object" {
+		t.Errorf("expected object for nil type, got %q", schema.Type)
 	}
 }

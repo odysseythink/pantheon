@@ -22,6 +22,9 @@ func (s *stubModel) Model() string    { return "stub" }
 func (s *stubModel) GenerateObject(_ context.Context, _ *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
 }
+func (s *stubModel) StreamObject(_ context.Context, _ *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 
 func (s *stubModel) Generate(_ context.Context, _ *core.Request) (*core.Response, error) {
 	s.calls++

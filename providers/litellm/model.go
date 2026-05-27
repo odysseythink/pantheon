@@ -80,3 +80,8 @@ func (m *EmbeddingModel) Model() string { return m.model }
 func (m *EmbeddingModel) Embed(ctx context.Context, texts []string) (*embed.EmbeddingResponse, error) {
 	return m.client.CreateEmbeddings(ctx, m.model, texts)
 }
+
+// StreamObject generates a structured object via streaming.
+func (m *LanguageModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return m.client.StreamObject(ctx, m.model, req), nil
+}

@@ -14,6 +14,7 @@ type LanguageModel interface {
 	Generate(ctx context.Context, req *Request) (*Response, error)
 	Stream(ctx context.Context, req *Request) (StreamResponse, error)
 	GenerateObject(ctx context.Context, req *ObjectRequest) (*ObjectResponse, error)
+	StreamObject(ctx context.Context, req *ObjectRequest) (ObjectStreamResponse, error)
 	Provider() string
 	Model() string
 }

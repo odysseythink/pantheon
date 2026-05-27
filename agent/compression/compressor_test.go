@@ -34,6 +34,11 @@ func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest)
 	return nil, nil
 }
 
+// StreamObject implements core.LanguageModel.
+func (m *mockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+
 func (m *mockModel) Provider() string { return "mock" }
 func (m *mockModel) Model() string    { return "mock-model" }
 
@@ -51,7 +56,9 @@ func (e *errorModel) Stream(ctx context.Context, req *core.Request) (core.Stream
 func (e *errorModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
 }
-
+func (e *errorModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (e *errorModel) Provider() string { return "error" }
 func (e *errorModel) Model() string    { return "error-model" }
 

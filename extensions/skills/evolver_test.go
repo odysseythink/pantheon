@@ -108,6 +108,9 @@ type mockProvider struct {
 
 func (m *mockProvider) Provider() string { return m.name }
 func (m *mockProvider) Model() string    { return "test-model" }
+func (m *mockProvider) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (m *mockProvider) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
 	m.callCount++
 	if m.err != nil {

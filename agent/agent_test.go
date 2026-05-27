@@ -33,6 +33,11 @@ func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest)
 	return nil, errors.New("not implemented")
 }
 
+// StreamObject implements core.LanguageModel.
+func (m *mockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+
 func (m *mockModel) Provider() string { return "mock" }
 func (m *mockModel) Model() string    { return "mock" }
 
@@ -178,6 +183,9 @@ func (m *errorModel) Stream(ctx context.Context, req *core.Request) (core.Stream
 func (m *errorModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, errors.New("not implemented")
 }
+func (m *errorModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (m *errorModel) Provider() string { return "error" }
 func (m *errorModel) Model() string    { return "error-model" }
 
@@ -215,6 +223,9 @@ func (m *compressorMockModel) Stream(ctx context.Context, req *core.Request) (co
 }
 func (m *compressorMockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, errors.New("not implemented")
+}
+func (m *compressorMockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
 }
 func (m *compressorMockModel) Provider() string { return "mock-compressor" }
 func (m *compressorMockModel) Model() string    { return "mock" }

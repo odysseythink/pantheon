@@ -77,3 +77,8 @@ func extractObjectResponse(resp *core.Response, model string) (*core.ObjectRespo
 		Model:        model,
 	}, nil
 }
+
+// StreamObject generates a structured object via streaming.
+func (m *LanguageModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}

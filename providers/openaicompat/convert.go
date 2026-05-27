@@ -157,9 +157,14 @@ func joinTexts(texts []string) string {
 }
 
 // ToOpenAITools converts core tool definitions to OpenAI format.
-func ToOpenAITools(tools []core.ToolDefinition) []Tool {
-	var out []Tool
+// If a tool has ProviderTool set, it is passed through as-is (provider-native).
+func ToOpenAITools(tools []core.ToolDefinition) []any {
+	var out []any
 	for _, t := range tools {
+		if t.ProviderTool != nil {
+			out = append(out, t.ProviderTool)
+			continue
+		}
 		out = append(out, Tool{
 			Type: "function",
 			Function: Function{
