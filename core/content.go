@@ -350,18 +350,19 @@ type SourcePart struct {
 	Title      string     `json:"title,omitempty"`
 }
 
-func (SourcePart) contentPart() {}
-
-// MarshalJSON serializes SourcePart to JSON.
+// MarshalJSON serializes SourcePart to JSON with omitempty for optional fields.
 func (p SourcePart) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{
-		"type":        "source",
-		"source_type": p.SourceType,
-		"id":          p.ID,
-		"url":         p.URL,
-		"title":       p.Title,
+	type alias SourcePart // prevent recursion
+	return json.Marshal(struct {
+		Type string `json:"type"`
+		*alias
+	}{
+		Type:  "source",
+		alias: (*alias)(&p),
 	})
 }
+
+func (SourcePart) contentPart() {}
 
 // NewToolResultContent creates a ToolResultPart wrapped as a full message.
 func NewToolResultContent(toolCallID, name, result string) Message {

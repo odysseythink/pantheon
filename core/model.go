@@ -136,6 +136,7 @@ type ObjectStreamPart struct {
 	FinishReason string
 	Usage        *Usage
 	Warnings     []CallWarning
+	Model        string
 }
 
 // ObjectStreamPartType identifies the kind of an ObjectStreamPart.

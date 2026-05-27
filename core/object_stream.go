@@ -90,6 +90,7 @@ func (s *StreamObjectResult[T]) Object() (*ObjectResult[T], error) {
 	var rawText string
 	var usage Usage
 	var finishReason string
+	var model string
 	var warnings []CallWarning
 	var hasObject bool
 	var lastErr error
@@ -114,6 +115,7 @@ func (s *StreamObjectResult[T]) Object() (*ObjectResult[T], error) {
 				usage = *part.Usage
 			}
 			finishReason = part.FinishReason
+			model = part.Model
 			if len(part.Warnings) > 0 {
 				warnings = append(warnings, part.Warnings...)
 			}
@@ -132,6 +134,7 @@ func (s *StreamObjectResult[T]) Object() (*ObjectResult[T], error) {
 		RawText:      rawText,
 		Usage:        usage,
 		FinishReason: finishReason,
+		Model:        model,
 		Warnings:     warnings,
 	}, nil
 }
