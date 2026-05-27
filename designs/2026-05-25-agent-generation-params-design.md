@@ -59,7 +59,7 @@ func WithMaxRetries(v int) AgentOption
 
 设计要点：
 - 所有标量参数使用**指针 + 值选项**：`WithTemperature(0.5)` 内部转为 `&0.5`，未设置时保持 `nil`
-- `stopSequences` 使用切片（空切片 vs nil 切片行为一致：都不覆盖）
+- `stopSequences` 使用切片：`nil` 表示"不覆盖"，空切片 `[]string{}` 表示"清空 stop sequences"
 - `providerOptions` 使用 `core.ProviderOptions`（底层是 `map[string]any`），Agent 级别作为基础，传入的 `req.ProviderOptions` 在其上做覆盖合并
 - `maxRetries` 默认 `2`，`WithMaxRetries(0)` 可显式禁用重试
 
@@ -108,7 +108,7 @@ func (a *Agent) ensureRetryModel() {
 }
 ```
 
-检测策略：通过接口断言判断 model 是否已实现了重试相关接口。如果用户已显式包装了 `retry.Model`，Agent 不再重复包装。
+检测策略：通过类型断言 `*retry.Model` 判断 model 是否已被重试装饰器包装。如果用户已显式包装了 `retry.Model`，Agent 不再重复包装。
 
 默认行为：未设置 `WithMaxRetries` 时，`maxRetries` 为 `nil`，不自动包装；设置 `WithMaxRetries(2)`（或默认值生效时），自动包装。
 
