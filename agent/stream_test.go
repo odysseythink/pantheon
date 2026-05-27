@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/odysseythink/pantheon/core"
 )
@@ -1189,5 +1190,32 @@ func TestRunStream_StepResultWithToolCall(t *testing.T) {
 	step2 := stepResults[1]
 	if len(step2.ToolResults) != 0 {
 		t.Errorf("Step2 ToolResults: got %d, want 0", len(step2.ToolResults))
+	}
+}
+
+func TestRunStream_WithOnRetry(t *testing.T) {
+	var called bool
+	onRetry := func(int, error, time.Duration) { called = true }
+
+	inner := &failingModel{}
+	a := New(inner,
+		WithMaxRetries(1),
+		WithOnRetry(onRetry),
+	)
+
+	for _, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			// Expected: stream init fails after retries exhausted
+			break
+		}
+	}
+
+	if !called {
+		t.Error("expected OnRetry to be called on stream init failure")
+	}
+	if inner.calls != 2 {
+		t.Errorf("inner calls: got %d, want 2", inner.calls)
 	}
 }
