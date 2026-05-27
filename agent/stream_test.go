@@ -535,8 +535,8 @@ func TestRunStreamYieldStopAtStepFinish(t *testing.T) {
 			break
 		}
 	}
-	if count != 3 { // StepStart + TextDelta + StepFinish
-		t.Errorf("count: got %d, want 3", count)
+	if count != 4 { // StepStart + TextDelta + StepResult + StepFinish
+		t.Errorf("count: got %d, want 4", count)
 	}
 }
 
@@ -569,8 +569,8 @@ func TestRunStreamYieldStopAtStepFinishAfterTool(t *testing.T) {
 			break
 		}
 	}
-	if count != 4 { // StepStart + ToolCall + ToolResult + StepFinish
-		t.Errorf("count: got %d, want 4", count)
+	if count != 5 { // StepStart + ToolCall + ToolResult + StepResult + StepFinish
+		t.Errorf("count: got %d, want 5", count)
 	}
 }
 
