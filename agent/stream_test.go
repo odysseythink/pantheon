@@ -231,6 +231,13 @@ func TestRunStreamToolNotFound(t *testing.T) {
 	if !toolResult.IsError {
 		t.Error("expected tool result to be an error when tool not found")
 	}
+	errorPart, ok := toolResult.Content[0].(core.ToolResultErrorPart)
+	if !ok {
+		t.Fatalf("expected ToolResultErrorPart, got %T", toolResult.Content[0])
+	}
+	if !strings.Contains(errorPart.Error, "not found") {
+		t.Errorf("error text: got %q, want to contain 'not found'", errorPart.Error)
+	}
 }
 
 type errorStreamModel struct{}

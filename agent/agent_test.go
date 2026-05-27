@@ -147,9 +147,12 @@ func TestRunToolNotFound(t *testing.T) {
 	if !tr.IsError {
 		t.Error("expected tool result to be an error when tool not found")
 	}
-	text, _ := tr.Content[0].(core.TextPart)
-	if !strings.Contains(text.Text, "not found") {
-		t.Errorf("error text: got %q, want to contain 'not found'", text.Text)
+	errorPart, ok := tr.Content[0].(core.ToolResultErrorPart)
+	if !ok {
+		t.Fatalf("expected ToolResultErrorPart, got %T", tr.Content[0])
+	}
+	if !strings.Contains(errorPart.Error, "not found") {
+		t.Errorf("error text: got %q, want to contain 'not found'", errorPart.Error)
 	}
 }
 
@@ -325,9 +328,12 @@ func TestRunToolExecutionError(t *testing.T) {
 	if !tr.IsError {
 		t.Error("expected tool result to be an error")
 	}
-	tp, _ := tr.Content[0].(core.TextPart)
-	if !strings.Contains(tp.Text, "tool failed") {
-		t.Errorf("error text: got %q", tp.Text)
+	errorPart, ok := tr.Content[0].(core.ToolResultErrorPart)
+	if !ok {
+		t.Fatalf("expected ToolResultErrorPart, got %T", tr.Content[0])
+	}
+	if !strings.Contains(errorPart.Error, "tool failed") {
+		t.Errorf("error text: got %q", errorPart.Error)
 	}
 }
 

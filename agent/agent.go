@@ -346,10 +346,16 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		var stopTurn bool
 		var stepToolResults []core.ToolResultPart
 		for _, r := range results {
+			var resultContent core.ContentParter
+			if r.isError {
+				resultContent = core.ToolResultErrorPart{Error: r.result}
+			} else {
+				resultContent = core.TextPart{Text: r.result}
+			}
 			toolResult := core.ToolResultPart{
 				ToolCallID: r.toolCallID,
 				Name:       r.name,
-				Content:    []core.ContentParter{core.TextPart{Text: r.result}},
+				Content:    []core.ContentParter{resultContent},
 				IsError:    r.isError,
 				StopTurn:   r.stopTurn,
 			}
