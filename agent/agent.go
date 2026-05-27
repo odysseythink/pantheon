@@ -75,6 +75,7 @@ type Result struct {
 	Messages []core.Message
 	Usage    core.Usage
 	Warnings []core.CallWarning
+	Steps    []StepResult
 }
 
 func firstNonNil[T any](vals ...*T) *T {

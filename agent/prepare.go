@@ -11,6 +11,7 @@ type PrepareStepOptions struct {
 	Step     int
 	Model    core.LanguageModel
 	Messages []core.Message
+	Steps    []StepResult
 }
 
 // PrepareStepResult contains the result of preparing a step.
