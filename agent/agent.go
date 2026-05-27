@@ -179,6 +179,7 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 				Step:     step,
 				Model:    stepModel,
 				Messages: stepMessages,
+				Steps:    steps,
 			})
 			if err != nil {
 				return nil, fmt.Errorf("prepare step %d: %w", step, err)
