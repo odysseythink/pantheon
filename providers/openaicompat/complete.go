@@ -39,12 +39,13 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Req
 	if c.ChatCompletionPath != "" {
 		path = c.ChatCompletionPath
 	}
-	if c.Headers == nil {
-		c.Headers = map[string]string{}
+	headers := make(map[string]string, len(c.Headers)+2)
+	for k, v := range c.Headers {
+		headers[k] = v
 	}
-	c.Headers["Content-Type"] = "application/json"
+	headers["Content-Type"] = "application/json"
 	if c.APIKey != "" {
-		c.Headers["Authorization"] = "Bearer " + c.APIKey
+		headers["Authorization"] = "Bearer " + c.APIKey
 	}
 	resp, err := core.HttpClientCall[ChatCompletionResponse](
 		ctx,
@@ -52,7 +53,7 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Req
 		c.BaseURL+path,
 		nil,
 		openaiReq,
-		c.Headers,
+		headers,
 	)
 	if err != nil {
 		return nil, err
@@ -91,12 +92,13 @@ func toOpenAIResponseFormat(rf *core.ResponseFormat) any {
 	case core.ResponseFormatTypeJSON:
 		return map[string]string{"type": "json_object"}
 	case core.ResponseFormatTypeJSONSchema:
-		addAdditionalPropertiesFalse(rf.JSONSchema)
+		schemaCopy := deepCopySchema(rf.JSONSchema)
+		addAdditionalPropertiesFalse(schemaCopy)
 		return map[string]any{
 			"type": "json_schema",
 			"json_schema": map[string]any{
 				"name":   "response",
-				"schema": rf.JSONSchema,
+				"schema": schemaCopy,
 				"strict": true,
 			},
 		}

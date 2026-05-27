@@ -90,11 +90,6 @@ func TestToOpenAIResponseFormat_JSONSchema_InjectsAdditionalProperties(t *testin
 		t.Fatalf("expected json_schema map, got %T", m["json_schema"])
 	}
 
-	// The schema should have been modified in-place
-	if schema.AdditionalProperties != false {
-		t.Error("expected schema to have additionalProperties=false after toOpenAIResponseFormat")
-	}
-
 	// Verify it serializes correctly
 	data, err := json.Marshal(jsonSchema["schema"])
 	if err != nil {
