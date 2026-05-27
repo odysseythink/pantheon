@@ -8,13 +8,21 @@ type ChatCompletionRequest struct {
 	Messages       []Message      `json:"messages"`
 	Tools          []Tool         `json:"tools,omitempty"`
 	ToolChoice     any            `json:"tool_choice,omitempty"`
-	MaxTokens      *int           `json:"max_tokens,omitempty"`
-	Temperature    *float64       `json:"temperature,omitempty"`
-	TopP           *float64       `json:"top_p,omitempty"`
-	Stop           []string       `json:"stop,omitempty"`
+	MaxTokens           *int           `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int           `json:"max_completion_tokens,omitempty"`
+	Temperature         *float64       `json:"temperature,omitempty"`
+	TopP                *float64       `json:"top_p,omitempty"`
+	FrequencyPenalty    *float64       `json:"frequency_penalty,omitempty"`
+	PresencePenalty     *float64       `json:"presence_penalty,omitempty"`
+	Stop                []string       `json:"stop,omitempty"`
 	ResponseFormat any            `json:"response_format,omitempty"`
 	Stream         bool           `json:"stream,omitempty"`
 	StreamOptions  *StreamOptions `json:"stream_options,omitempty"`
+	// Provider-specific OpenAI fields
+	Store           bool              `json:"store,omitempty"`
+	Metadata        map[string]string `json:"metadata,omitempty"`
+	ReasoningEffort string            `json:"reasoning_effort,omitempty"`
+	User            string            `json:"user,omitempty"`
 }
 
 // Message is a single message in the OpenAI chat format.

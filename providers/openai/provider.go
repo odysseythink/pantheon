@@ -26,6 +26,16 @@ func New(apiKey string, opts ...Option) (core.Provider, error) {
 	for _, o := range opts {
 		o(p)
 	}
+	p.client.Hooks.PrepareRequest = func(req *openaicompat.ChatCompletionRequest, model string, coreReq *core.Request) {
+		if po, ok := coreReq.ProviderOptions.Get("openai"); ok {
+			if opts, ok := po.(*ProviderOptions); ok {
+				req.Store = opts.Store
+				req.Metadata = opts.Metadata
+				req.ReasoningEffort = opts.ReasoningEffort
+				req.User = opts.User
+			}
+		}
+	}
 	return p, nil
 }
 

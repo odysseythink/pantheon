@@ -33,12 +33,13 @@ const (
 
 // Schema describes the shape of a JSON value.
 type Schema struct {
-	Type        string            `json:"type,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Properties  map[string]*Schema `json:"properties,omitempty"`
-	Required    []string          `json:"required,omitempty"`
-	Items       *Schema           `json:"items,omitempty"`
-	Enum        []string          `json:"enum,omitempty"`
+	Type                 string            `json:"type,omitempty"`
+	Description          string            `json:"description,omitempty"`
+	Properties           map[string]*Schema `json:"properties,omitempty"`
+	Required             []string          `json:"required,omitempty"`
+	Items                *Schema           `json:"items,omitempty"`
+	Enum                 []string          `json:"enum,omitempty"`
+	AdditionalProperties any               `json:"additionalProperties,omitempty"`
 }
 
 // GenerateSchema builds a JSON Schema from a Go reflect.Type.

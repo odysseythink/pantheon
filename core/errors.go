@@ -49,3 +49,7 @@ var ErrNoObjectGenerated = errors.New("no object generated")
 var ErrModelNotFound = errors.New("model not found")
 // ErrUnsupportedFeature is returned when the provider does not support the requested capability.
 var ErrUnsupportedFeature = errors.New("unsupported feature")
+
+// ErrIncompleteStream is returned when a streaming response ends without
+// a finish_reason from the provider, indicating the stream was truncated.
+var ErrIncompleteStream = errors.New("stream ended without finish reason")

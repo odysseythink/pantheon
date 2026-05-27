@@ -13,13 +13,15 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Req
 		return nil, err
 	}
 	openaiReq := ChatCompletionRequest{
-		Model:       model,
-		Messages:    messages,
-		Stream:      false,
-		MaxTokens:   req.MaxTokens,
-		Temperature: req.Temperature,
-		TopP:        req.TopP,
-		Stop:        req.StopSequences,
+		Model:            model,
+		Messages:         messages,
+		Stream:           false,
+		MaxTokens:        req.MaxTokens,
+		Temperature:      req.Temperature,
+		TopP:             req.TopP,
+		FrequencyPenalty: req.FrequencyPenalty,
+		PresencePenalty:  req.PresencePenalty,
+		Stop:             req.StopSequences,
 	}
 	if len(req.Tools) > 0 {
 		openaiReq.Tools = ToOpenAITools(req.Tools)
@@ -27,6 +29,10 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Req
 	}
 	if req.ResponseFormat != nil {
 		openaiReq.ResponseFormat = toOpenAIResponseFormat(req.ResponseFormat)
+	}
+	adaptRequestForReasoning(&openaiReq, model)
+	if c.Hooks.PrepareRequest != nil {
+		c.Hooks.PrepareRequest(&openaiReq, model, req)
 	}
 
 	path := "/v1/chat/completions"
@@ -52,7 +58,17 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Req
 		return nil, err
 	}
 
-	return ToCoreResponse(&resp, model)
+	coreResp, err := ToCoreResponse(&resp, model)
+	if err != nil {
+		return nil, err
+	}
+	if c.Hooks.MapFinishReason != nil {
+		coreResp.FinishReason = c.Hooks.MapFinishReason(coreResp.FinishReason)
+	}
+	if c.Hooks.PostProcessResponse != nil {
+		c.Hooks.PostProcessResponse(coreResp, &resp)
+	}
+	return coreResp, nil
 }
 
 func toOpenAIToolChoice(tc core.ToolChoice) any {
@@ -75,6 +91,7 @@ func toOpenAIResponseFormat(rf *core.ResponseFormat) any {
 	case core.ResponseFormatTypeJSON:
 		return map[string]string{"type": "json_object"}
 	case core.ResponseFormatTypeJSONSchema:
+		addAdditionalPropertiesFalse(rf.JSONSchema)
 		return map[string]any{
 			"type": "json_schema",
 			"json_schema": map[string]any{

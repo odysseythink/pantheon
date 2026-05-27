@@ -11,6 +11,8 @@ type Request struct {
 	MaxTokens       *int
 	Temperature     *float64
 	TopP            *float64
+	FrequencyPenalty *float64
+	PresencePenalty  *float64
 	StopSequences   []string
 	ResponseFormat  *ResponseFormat
 	ProviderOptions ProviderOptions
@@ -89,6 +91,8 @@ type ObjectRequest struct {
 	Mode            ObjectMode
 	MaxTokens       *int
 	Temperature     *float64
+	FrequencyPenalty *float64
+	PresencePenalty  *float64
 	ProviderOptions ProviderOptions
 }
 
@@ -109,6 +113,7 @@ const (
 // ObjectResponse is the result of a structured object generation call.
 type ObjectResponse struct {
 	Object       map[string]any
+	RawText      string
 	FinishReason string
 	Usage        Usage
 	Model        string

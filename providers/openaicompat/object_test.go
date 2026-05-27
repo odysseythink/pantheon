@@ -32,6 +32,9 @@ func TestExtractObjectResponse_FromText(t *testing.T) {
 	if objResp.Model != "gpt-4" {
 		t.Errorf("unexpected model: %s", objResp.Model)
 	}
+	if objResp.RawText != `{"name":"test","value":42}` {
+		t.Errorf("unexpected raw text: %s", objResp.RawText)
+	}
 }
 
 func TestExtractObjectResponse_FromToolCall(t *testing.T) {
@@ -55,6 +58,9 @@ func TestExtractObjectResponse_FromToolCall(t *testing.T) {
 	}
 	if objResp.Object["result"] != true {
 		t.Errorf("unexpected result: %+v", objResp.Object)
+	}
+	if objResp.RawText != `{"result":true}` {
+		t.Errorf("unexpected raw text: %s", objResp.RawText)
 	}
 }
 

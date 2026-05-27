@@ -22,18 +22,24 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 			return
 		}
 		openaiReq := ChatCompletionRequest{
-			Model:         model,
-			Messages:      messages,
-			Stream:        true,
-			MaxTokens:     req.MaxTokens,
-			Temperature:   req.Temperature,
-			TopP:          req.TopP,
-			Stop:          req.StopSequences,
-			StreamOptions: &StreamOptions{IncludeUsage: true},
+			Model:            model,
+			Messages:         messages,
+			Stream:           true,
+			MaxTokens:        req.MaxTokens,
+			Temperature:      req.Temperature,
+			TopP:             req.TopP,
+			FrequencyPenalty: req.FrequencyPenalty,
+			PresencePenalty:  req.PresencePenalty,
+			Stop:             req.StopSequences,
+			StreamOptions:    &StreamOptions{IncludeUsage: true},
 		}
 		if len(req.Tools) > 0 {
 			openaiReq.Tools = ToOpenAITools(req.Tools)
 			openaiReq.ToolChoice = toOpenAIToolChoice(req.ToolChoice)
+		}
+		adaptRequestForReasoning(&openaiReq, model)
+		if c.Hooks.PrepareRequest != nil {
+			c.Hooks.PrepareRequest(&openaiReq, model, req)
 		}
 
 		path := "/v1/chat/completions"
@@ -80,6 +86,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 		scanner := bufio.NewScanner(resp.Body)
 		scanner.Buffer(make([]byte, 4096), 1024*1024)
 		var toolCalls map[int]*core.ToolCallPart
+		var finishReasonSeen bool
 
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -106,6 +113,9 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 							TotalTokens:      chunk.Usage.TotalTokens,
 						},
 					}
+					if c.Hooks.PostProcessStreamPart != nil {
+						c.Hooks.PostProcessStreamPart(sp, &chunk)
+					}
 					if !yield(sp, nil) {
 						return
 					}
@@ -116,6 +126,9 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 			delta := chunk.Choices[0].Delta
 			if text, ok := delta.Content.(string); ok && text != "" {
 				sp := &core.StreamPart{Type: core.StreamPartTypeTextDelta, TextDelta: text}
+				if c.Hooks.PostProcessStreamPart != nil {
+					c.Hooks.PostProcessStreamPart(sp, &chunk)
+				}
 				if !yield(sp, nil) {
 					return
 				}
@@ -137,14 +150,21 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 				}
 			}
 			if chunk.Choices[0].FinishReason != nil {
+				finishReasonSeen = true
 				fr := *chunk.Choices[0].FinishReason
 				for _, tc := range toolCalls {
 					sp := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: tc}
+					if c.Hooks.PostProcessStreamPart != nil {
+						c.Hooks.PostProcessStreamPart(sp, &chunk)
+					}
 					if !yield(sp, nil) {
 						return
 					}
 				}
 				sp := &core.StreamPart{Type: core.StreamPartTypeFinish, FinishReason: fr}
+				if c.Hooks.PostProcessStreamPart != nil {
+					c.Hooks.PostProcessStreamPart(sp, &chunk)
+				}
 				if !yield(sp, nil) {
 					return
 				}
@@ -152,6 +172,10 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 		}
 		if err := scanner.Err(); err != nil {
 			yield(nil, err)
+			return
+		}
+		if !finishReasonSeen {
+			yield(nil, core.ErrIncompleteStream)
 		}
 	}
 }

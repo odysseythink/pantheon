@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"os"
 	
+	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/openaicompat"
 	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
@@ -62,6 +64,58 @@ func TestProviderOptions_ProviderName(t *testing.T) {
 	opts := ProviderOptions{Store: true}
 	if opts.ProviderName() != "openai" {
 		t.Errorf("unexpected provider name: %s", opts.ProviderName())
+	}
+}
+
+func TestProviderOptions_PrepareRequest(t *testing.T) {
+	p, _ := New("sk-test")
+	prov := p.(*Provider)
+
+	req := &openaicompat.ChatCompletionRequest{Model: "gpt-4"}
+	coreReq := &core.Request{
+		ProviderOptions: core.ProviderOptions{
+			"openai": &ProviderOptions{
+				Store:           true,
+				Metadata:        map[string]string{"key": "val"},
+				ReasoningEffort: "high",
+				User:            "alice",
+			},
+		},
+	}
+
+	if prov.client.Hooks.PrepareRequest == nil {
+		t.Fatal("expected PrepareRequest to be set")
+	}
+	prov.client.Hooks.PrepareRequest(req, "gpt-4", coreReq)
+
+	if !req.Store {
+		t.Error("expected Store to be true")
+	}
+	if req.Metadata["key"] != "val" {
+		t.Errorf("unexpected metadata: %+v", req.Metadata)
+	}
+	if req.ReasoningEffort != "high" {
+		t.Errorf("unexpected reasoning_effort: %s", req.ReasoningEffort)
+	}
+	if req.User != "alice" {
+		t.Errorf("unexpected user: %s", req.User)
+	}
+}
+
+func TestProviderOptions_PrepareRequest_WrongProvider(t *testing.T) {
+	p, _ := New("sk-test")
+	prov := p.(*Provider)
+
+	req := &openaicompat.ChatCompletionRequest{Model: "gpt-4"}
+	coreReq := &core.Request{
+		ProviderOptions: core.ProviderOptions{
+			"anthropic": &struct{ core.ProviderOptionsDataer }{},
+		},
+	}
+
+	prov.client.Hooks.PrepareRequest(req, "gpt-4", coreReq)
+	if req.Store {
+		t.Error("expected Store to remain false when provider options are for a different provider")
 	}
 }
 
