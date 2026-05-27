@@ -158,10 +158,11 @@ func TestContentToString(t *testing.T) {
 	parts := []core.ContentParter{
 		core.TextPart{Text: "Hello"},
 		core.TextPart{Text: "World"},
+		core.ToolResultErrorPart{Error: "Error"},
 	}
 	got := contentToString(parts)
-	if got != "Hello\nWorld" {
-		t.Errorf("got %q, want %q", got, "Hello\nWorld")
+	if got != "Hello\nWorld\nError" {
+		t.Errorf("got %q, want %q", got, "Hello\nWorld\nError")
 	}
 }
 

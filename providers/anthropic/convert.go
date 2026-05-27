@@ -63,6 +63,9 @@ func contentToString(parts []core.ContentParter) string {
 		if p, ok := part.(core.TextPart); ok {
 			texts = append(texts, p.Text)
 		}
+		if p, ok := part.(core.ToolResultErrorPart); ok {
+			texts = append(texts, p.Error)
+		}
 	}
 	result := ""
 	for i, t := range texts {

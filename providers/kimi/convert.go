@@ -202,6 +202,8 @@ func contentToString(parts []core.ContentParter) string {
 			if s := contentToString(p.Content); s != "" {
 				texts = append(texts, s)
 			}
+		case core.ToolResultErrorPart:
+			texts = append(texts, p.Error)
 		}
 	}
 	return joinTexts(texts)

@@ -218,6 +218,17 @@ func TestContentToString_MultipleTextParts(t *testing.T) {
 	}
 }
 
+func TestContentToString_ToolResultErrorPart(t *testing.T) {
+	parts := []core.ContentParter{
+		core.ToolResultErrorPart{Error: "connection failed"},
+	}
+	got := contentToString(parts)
+	want := "connection failed"
+	if got != want {
+		t.Errorf("expected %q, got %q", want, got)
+	}
+}
+
 func TestToAnthropicTools_NormalConversion(t *testing.T) {
 	tools := []core.ToolDefinition{
 		{

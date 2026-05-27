@@ -97,6 +97,8 @@ func contentToString(parts []core.ContentParter) string {
 			if s := contentToString(p.Content); s != "" {
 				texts = append(texts, s)
 			}
+		case core.ToolResultErrorPart:
+			texts = append(texts, p.Error)
 		}
 	}
 	return joinTexts(texts)
@@ -109,6 +111,8 @@ func contentToOpenAI(parts []core.ContentParter) (any, error) {
 			return p.Text, nil
 		case core.ToolResultPart:
 			return contentToString(p.Content), nil
+		case core.ToolResultErrorPart:
+			return p.Error, nil
 		}
 	}
 	var out []ContentParter
@@ -116,6 +120,8 @@ func contentToOpenAI(parts []core.ContentParter) (any, error) {
 		switch p := part.(type) {
 		case core.TextPart:
 			out = append(out, ContentParter{Type: "text", Text: p.Text})
+		case core.ToolResultErrorPart:
+			out = append(out, ContentParter{Type: "text", Text: p.Error})
 		case core.ImagePart:
 			out = append(out, ContentParter{
 				Type: "image_url",

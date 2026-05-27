@@ -198,6 +198,11 @@ func TestContentToString(t *testing.T) {
 			parts: []core.ContentParter{core.ImagePart{Data: []byte("img")}, core.TextPart{Text: "hi"}},
 			want:  "hi",
 		},
+		{
+			name:  "tool result error",
+			parts: []core.ContentParter{core.ToolResultErrorPart{Error: "fail"}},
+			want:  "fail",
+		},
 	}
 
 	for _, tt := range tests {
