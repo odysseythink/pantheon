@@ -81,7 +81,10 @@ func TestGenerate(t *testing.T) {
 
 func TestGenerateWithTool(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req anthropic.MessagesRequest
+		var req struct {
+			Tools      []json.RawMessage     `json:"tools,omitempty"`
+			ToolChoice *anthropic.ToolChoice `json:"tool_choice,omitempty"`
+		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
@@ -147,12 +150,22 @@ func TestGenerateValidatesRegion(t *testing.T) {
 
 func TestGenerateObject(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req anthropic.MessagesRequest
+		var req struct {
+			Tools []json.RawMessage `json:"tools,omitempty"`
+		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Fatalf("decode request: %v", err)
 		}
-		if len(req.Tools) != 1 || req.Tools[0].Name != "generate_object" {
-			t.Errorf("expected generate_object tool, got %+v", req.Tools)
+		if len(req.Tools) != 1 {
+			t.Errorf("expected 1 tool, got %d", len(req.Tools))
+		} else {
+			var tool anthropic.Tool
+			if err := json.Unmarshal(req.Tools[0], &tool); err != nil {
+				t.Fatalf("unmarshal tool: %v", err)
+			}
+			if tool.Name != "generate_object" {
+				t.Errorf("expected generate_object tool, got %+v", tool)
+			}
 		}
 
 		resp := anthropic.MessagesResponse{
