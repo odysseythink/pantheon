@@ -22,6 +22,15 @@ type PrepareStepResult struct {
 	Tools           []core.ToolDefinition
 	ToolChoice      *core.ToolChoice
 	DisableAllTools bool
+	Temperature      *float64
+	TopP             *float64
+	TopK             *int
+	MaxTokens        *int
+	FrequencyPenalty *float64
+	PresencePenalty  *float64
+	StopSequences    []string
+	ResponseFormat   *core.ResponseFormat
+	ProviderOptions  core.ProviderOptions
 }
 
 // PrepareStepFunc is called before each step to allow dynamic modification

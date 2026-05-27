@@ -11,6 +11,7 @@ import (
 
 	"github.com/odysseythink/pantheon/agent/compression"
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/tool"
 )
 
 type mockModel struct {
@@ -1054,5 +1055,36 @@ func TestWithProviderOptions(t *testing.T) {
 	a := New(nil, WithProviderOptions(opts))
 	if a.providerOptions["key"].ProviderName() != "val" {
 		t.Fatalf("expected providerOptions[key].ProviderName()=val, got %v", a.providerOptions["key"].ProviderName())
+	}
+}
+
+func TestPrepareStep_WithGenerationParams(t *testing.T) {
+	model := &mockModel{}
+	registry := tool.NewRegistry()
+
+	prepare := func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
+		temp := 0.1
+		maxTok := 100
+		return PrepareStepResult{
+			Model:       model,
+			Messages:    opts.Messages,
+			Temperature: &temp,
+			MaxTokens:   &maxTok,
+		}, nil
+	}
+
+	agent := New(
+		model,
+		WithRegistry(registry),
+		WithPrepareStep(prepare),
+	)
+
+	req := &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}
+
+	_, err := agent.Run(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
