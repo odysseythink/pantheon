@@ -152,6 +152,7 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 	var totalUsage core.Usage
 	var warnings []core.CallWarning
 	var lastHadToolCalls bool
+	var steps []StepResult
 
 	for step := 0; step < a.maxSteps; step++ {
 		lastHadToolCalls = false
@@ -254,6 +255,11 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		// This allows early termination based on response content.
 		if a.shouldStop(step, resp, messages) {
 			messages = append(messages, resp.Message)
+			steps = append(steps, StepResult{
+				StepNumber: step + 1,
+				Response:   *resp,
+				Messages:   append([]core.Message(nil), messages...),
+			})
 			break
 		}
 
@@ -261,6 +267,11 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 
 		toolCalls := extractToolCalls(resp.Message.Content)
 		if len(toolCalls) == 0 || disableAllTools {
+			steps = append(steps, StepResult{
+				StepNumber: step + 1,
+				Response:   *resp,
+				Messages:   append([]core.Message(nil), messages...),
+			})
 			break
 		}
 
@@ -313,21 +324,30 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		}
 
 		var stopTurn bool
+		var stepToolResults []core.ToolResultPart
 		for _, r := range results {
+			toolResult := core.ToolResultPart{
+				ToolCallID: r.toolCallID,
+				Name:       r.name,
+				Content:    []core.ContentParter{core.TextPart{Text: r.result}},
+				IsError:    r.isError,
+				StopTurn:   r.stopTurn,
+			}
+			stepToolResults = append(stepToolResults, toolResult)
 			messages = append(messages, core.Message{
-				Role: core.MESSAGE_ROLE_TOOL,
-				Content: []core.ContentParter{core.ToolResultPart{
-					ToolCallID: r.toolCallID,
-					Name:       r.name,
-					Content:    []core.ContentParter{core.TextPart{Text: r.result}},
-					IsError:    r.isError,
-					StopTurn:   r.stopTurn,
-				}},
+				Role:    core.MESSAGE_ROLE_TOOL,
+				Content: []core.ContentParter{toolResult},
 			})
 			if r.stopTurn {
 				stopTurn = true
 			}
 		}
+		steps = append(steps, StepResult{
+			StepNumber:  step + 1,
+			Response:    *resp,
+			ToolResults: stepToolResults,
+			Messages:    append([]core.Message(nil), messages...),
+		})
 		if stopTurn {
 			lastHadToolCalls = false
 			break
@@ -342,6 +362,7 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		Messages: messages,
 		Usage:    totalUsage,
 		Warnings: warnings,
+		Steps:    steps,
 	}, nil
 }
 
