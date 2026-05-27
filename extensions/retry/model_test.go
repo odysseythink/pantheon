@@ -248,3 +248,85 @@ func TestRetryRespectsContextCancellation(t *testing.T) {
 		t.Errorf("expected at least 1 call, got %d", inner.calls)
 	}
 }
+
+
+type retryCall struct {
+	attempt int
+	err     error
+	delay   time.Duration
+}
+
+func TestModel_OnRetry(t *testing.T) {
+	var calls []retryCall
+	onRetry := func(attempt int, err error, delay time.Duration) {
+		calls = append(calls, retryCall{attempt: attempt, err: err, delay: delay})
+	}
+
+	inner := &mockModel{failNextN: 3}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 2,
+		BaseDelay:  10 * time.Millisecond,
+		Multiplier: 2.0,
+		OnRetry:    onRetry,
+	}
+
+	_, err := m.Generate(context.Background(), &core.Request{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	if len(calls) != 2 {
+		t.Fatalf("expected 2 OnRetry calls, got %d", len(calls))
+	}
+	if calls[0].attempt != 1 {
+		t.Errorf("first call attempt = %d, want 1", calls[0].attempt)
+	}
+	if calls[1].attempt != 2 {
+		t.Errorf("second call attempt = %d, want 2", calls[1].attempt)
+	}
+	if calls[0].err == nil {
+		t.Error("expected non-nil error in first callback")
+	}
+	// delay should be >= 75% of base (jitter floor: 10ms * 0.75 = 7.5ms)
+	if calls[0].delay < 7*time.Millisecond {
+		t.Errorf("first delay too short: %v", calls[0].delay)
+	}
+	// delay should be <= 125% of base (jitter ceiling: 10ms * 1.25 = 12.5ms)
+	if calls[0].delay > 13*time.Millisecond {
+		t.Errorf("first delay too long: %v", calls[0].delay)
+	}
+}
+
+func TestModel_OnRetry_NotCalledOnNonRetryable(t *testing.T) {
+	var called bool
+	inner := &authModel{}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 2,
+		BaseDelay:  1 * time.Millisecond,
+		OnRetry:    func(int, error, time.Duration) { called = true },
+	}
+	_, err := m.Generate(context.Background(), &core.Request{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if called {
+		t.Error("OnRetry should not be called for non-retryable errors")
+	}
+}
+
+func TestModel_OnRetry_NilSafe(t *testing.T) {
+	inner := &mockModel{failNextN: 2}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 1,
+		BaseDelay:  1 * time.Millisecond,
+		OnRetry:    nil,
+	}
+	_, err := m.Generate(context.Background(), &core.Request{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	// No panic = pass
+}
