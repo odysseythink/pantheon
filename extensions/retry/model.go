@@ -49,6 +49,12 @@ func (m *Model) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*c
 	})
 }
 
+// StreamObject retries only if the initial StreamObject call fails. Mid-stream errors are not retried.
+func (m *Model) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return retry(m, ctx, func() (core.ObjectStreamResponse, error) {
+		return m.Inner.StreamObject(ctx, req)
+	})
+}
 
 const maxDelay = 5 * time.Minute
 

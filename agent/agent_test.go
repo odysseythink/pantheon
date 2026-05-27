@@ -11,6 +11,7 @@ import (
 
 	"github.com/odysseythink/pantheon/agent/compression"
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/extensions/retry"
 	"github.com/odysseythink/pantheon/tool"
 )
 
@@ -1194,5 +1195,61 @@ func TestStream_PropagatesGenerationParams(t *testing.T) {
 	}
 	if captured.MaxTokens == nil || *captured.MaxTokens != 512 {
 		t.Errorf("expected MaxTokens=512, got %v", captured.MaxTokens)
+	}
+}
+
+func TestMaxRetries_WrapsModel(t *testing.T) {
+	model := &mockModel{}
+	agent := New(
+		model,
+		WithMaxRetries(3),
+	)
+
+	req := &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}
+	_, _ = agent.Run(context.Background(), req)
+
+	if _, ok := agent.model.(*retry.Model); !ok {
+		t.Errorf("expected model to be *retry.Model, got %T", agent.model)
+	}
+}
+
+func TestMaxRetries_NoDoubleWrap(t *testing.T) {
+	inner := &mockModel{}
+	wrapped := &retry.Model{Inner: inner, MaxRetries: 5}
+	agent := New(
+		wrapped,
+		WithMaxRetries(3),
+	)
+
+	req := &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}
+	_, _ = agent.Run(context.Background(), req)
+
+	retryModel, ok := agent.model.(*retry.Model)
+	if !ok {
+		t.Fatalf("expected model to be *retry.Model, got %T", agent.model)
+	}
+	if retryModel.MaxRetries != 5 {
+		t.Errorf("expected MaxRetries=5 (original), got %d", retryModel.MaxRetries)
+	}
+}
+
+func TestMaxRetries_ZeroDisables(t *testing.T) {
+	model := &mockModel{}
+	agent := New(
+		model,
+		WithMaxRetries(0),
+	)
+
+	req := &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}
+	_, _ = agent.Run(context.Background(), req)
+
+	if _, ok := agent.model.(*retry.Model); ok {
+		t.Errorf("expected model NOT to be wrapped when MaxRetries=0")
 	}
 }

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/odysseythink/pantheon/agent/compression"
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/extensions/retry"
 	"github.com/odysseythink/pantheon/tool"
 )
 
@@ -123,8 +125,28 @@ func mergeGenerationParams(a *Agent, req *core.Request, prep PrepareStepResult) 
 	return merged
 }
 
+func (a *Agent) ensureRetryModel() {
+	if a.maxRetries == nil || *a.maxRetries <= 0 {
+		return
+	}
+	if a.model == nil {
+		return
+	}
+	// Avoid double-wrapping if already a retry.Model
+	if _, ok := a.model.(*retry.Model); ok {
+		return
+	}
+	a.model = &retry.Model{
+		Inner:      a.model,
+		MaxRetries: *a.maxRetries,
+		BaseDelay:  500 * time.Millisecond,
+		Multiplier: 2.0,
+	}
+}
+
 // Run executes the agent loop until completion or max steps.
 func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
+	a.ensureRetryModel()
 	messages := append([]core.Message(nil), req.Messages...)
 	var totalUsage core.Usage
 	var warnings []core.CallWarning
