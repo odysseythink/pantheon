@@ -39,7 +39,10 @@ func (m *mockModel) Generate(ctx context.Context, req *core.Request) (*core.Resp
 }
 
 func (m *mockModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
-	return nil, errors.New("stream not implemented")
+	return func(yield func(*core.StreamPart, error) bool) {
+		yield(&core.StreamPart{Type: core.StreamPartTypeTextDelta, TextDelta: "ok"}, nil)
+		yield(&core.StreamPart{Type: core.StreamPartTypeFinish}, nil)
+	}, nil
 }
 
 func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
@@ -1100,6 +1103,11 @@ func (m *captureRequestModel) Generate(ctx context.Context, req *core.Request) (
 	return m.mockModel.Generate(ctx, req)
 }
 
+func (m *captureRequestModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	m.requests = append(m.requests, req)
+	return m.mockModel.Stream(ctx, req)
+}
+
 func intPtr(v int) *int     { return &v }
 func floatPtr(v float64) *float64 { return &v }
 
@@ -1156,5 +1164,35 @@ func TestRun_RequestOverridesAgentDefaults(t *testing.T) {
 	}
 	if captured.MaxTokens == nil || *captured.MaxTokens != 1024 {
 		t.Errorf("expected MaxTokens=1024 (from agent default), got %v", captured.MaxTokens)
+	}
+}
+
+func TestStream_PropagatesGenerationParams(t *testing.T) {
+	model := &captureRequestModel{}
+	agent := New(
+		model,
+		WithTemperature(0.7),
+		WithMaxTokens(512),
+	)
+
+	req := &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}
+
+	events := agent.RunStream(context.Background(), req)
+
+	// Drain the stream so that Stream is actually called
+	for range events {
+	}
+
+	if len(model.requests) == 0 {
+		t.Fatal("expected at least one request captured")
+	}
+	captured := model.requests[0]
+	if captured.Temperature == nil || *captured.Temperature != 0.7 {
+		t.Errorf("expected Temperature=0.7, got %v", captured.Temperature)
+	}
+	if captured.MaxTokens == nil || *captured.MaxTokens != 512 {
+		t.Errorf("expected MaxTokens=512, got %v", captured.MaxTokens)
 	}
 }

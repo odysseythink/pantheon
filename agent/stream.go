@@ -75,9 +75,11 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 			stepTools := req.Tools
 			stepToolChoice := req.ToolChoice
 			disableAllTools := false
+			prepared := PrepareStepResult{}
 
 			if a.prepareStep != nil {
-				prepared, err := a.prepareStep(ctx, PrepareStepOptions{
+				var err error
+				prepared, err = a.prepareStep(ctx, PrepareStepOptions{
 					Step:     step,
 					Model:    stepModel,
 					Messages: stepMessages,
@@ -115,6 +117,8 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 				}
 			}
 
+			baseReq := mergeGenerationParams(a, req, prepared)
+
 			// Build lookups for provider-executed and locally-executed provider tools.
 			providerTools := make(map[string]bool)
 			executableTools := make(map[string]*core.ExecutableProviderTool)
@@ -132,6 +136,16 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 				SystemPrompt: stepSystemPrompt,
 				Tools:        stepTools,
 				ToolChoice:   stepToolChoice,
+
+				Temperature:      baseReq.Temperature,
+				TopP:             baseReq.TopP,
+				TopK:             baseReq.TopK,
+				MaxTokens:        baseReq.MaxTokens,
+				FrequencyPenalty: baseReq.FrequencyPenalty,
+				PresencePenalty:  baseReq.PresencePenalty,
+				StopSequences:    baseReq.StopSequences,
+				ResponseFormat:   baseReq.ResponseFormat,
+				ProviderOptions:  baseReq.ProviderOptions,
 			})
 			if err != nil {
 				a.invokeError(yield, err)
