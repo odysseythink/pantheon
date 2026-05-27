@@ -75,9 +75,22 @@ func contentToString(parts []core.ContentParter) string {
 }
 
 // ToAnthropicTools converts core tool definitions to Anthropic format.
-func ToAnthropicTools(tools []core.ToolDefinition) []Tool {
-	var out []Tool
+func ToAnthropicTools(tools []core.ToolDefinition) []any {
+	var out []any
 	for _, t := range tools {
+		if pdt, ok := core.IsProviderDefinedTool(t.ProviderTool); ok {
+			switch pdt.ID {
+			case "anthropic.web_search":
+				out = append(out, map[string]any{"type": "web_search_20250305"})
+			default:
+				out = append(out, t.ProviderTool)
+			}
+			continue
+		}
+		if t.ProviderTool != nil {
+			out = append(out, t.ProviderTool)
+			continue
+		}
 		out = append(out, Tool{
 			Name:        t.Name,
 			Description: t.Description,

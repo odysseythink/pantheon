@@ -232,12 +232,16 @@ func TestToAnthropicTools_NormalConversion(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("expected 1 tool, got %d", len(got))
 	}
-	if got[0].Name != "get_weather" || got[0].Description != "Get weather" {
-		t.Errorf("unexpected tool: %+v", got[0])
+	tool, ok := got[0].(Tool)
+	if !ok {
+		t.Fatalf("expected Tool, got %T", got[0])
 	}
-	schema, ok := got[0].InputSchema.(*core.Schema)
+	if tool.Name != "get_weather" || tool.Description != "Get weather" {
+		t.Errorf("unexpected tool: %+v", tool)
+	}
+	schema, ok := tool.InputSchema.(*core.Schema)
 	if !ok || schema.Type != "object" {
-		t.Errorf("unexpected input schema: %+v", got[0].InputSchema)
+		t.Errorf("unexpected input schema: %+v", tool.InputSchema)
 	}
 }
 
@@ -250,6 +254,41 @@ func TestToAnthropicTools_EmptyList(t *testing.T) {
 	got = ToAnthropicTools([]core.ToolDefinition{})
 	if len(got) != 0 {
 		t.Errorf("expected 0 tools, got %d", len(got))
+	}
+}
+
+func TestToAnthropicTools_ProviderDefinedTool(t *testing.T) {
+	tools := []core.ToolDefinition{
+		{
+			Name: "web_search",
+			ProviderTool: &core.ProviderDefinedTool{
+				ID:   "anthropic.web_search",
+				Name: "web_search",
+			},
+		},
+		{
+			Name:        "get_weather",
+			Description: "Get weather",
+			Parameters:  &core.Schema{Type: "object"},
+		},
+	}
+	out := ToAnthropicTools(tools)
+	if len(out) != 2 {
+		t.Fatalf("expected 2 tools, got %d", len(out))
+	}
+	m, ok := out[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map for provider tool, got %T", out[0])
+	}
+	if m["type"] != "web_search_20250305" {
+		t.Errorf("unexpected provider tool: %+v", m)
+	}
+	tool, ok := out[1].(Tool)
+	if !ok {
+		t.Fatalf("expected Tool, got %T", out[1])
+	}
+	if tool.Name != "get_weather" {
+		t.Errorf("unexpected tool name: %q", tool.Name)
 	}
 }
 

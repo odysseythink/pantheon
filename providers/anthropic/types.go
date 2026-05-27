@@ -9,7 +9,7 @@ type MessagesRequest struct {
 	Temperature   *float64        `json:"temperature,omitempty"`
 	TopP          *float64        `json:"top_p,omitempty"`
 	StopSequences []string        `json:"stop_sequences,omitempty"`
-	Tools         []Tool          `json:"tools,omitempty"`
+	Tools         []any           `json:"tools,omitempty"` // was []Tool
 	ToolChoice    *ToolChoice     `json:"tool_choice,omitempty"`
 	Stream        bool            `json:"stream,omitempty"`
 	Thinking      *ThinkingConfig `json:"thinking,omitempty"`
