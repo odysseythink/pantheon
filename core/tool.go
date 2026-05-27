@@ -31,6 +31,29 @@ type ExecutableProviderTool struct {
 	Run        func(ctx context.Context, call ToolCall) (ToolResponse, error)
 }
 
+// ProviderDefinedTool represents a tool that is defined and executed by the provider.
+type ProviderDefinedTool struct {
+	ID   string
+	Name string
+	Args map[string]any
+}
+
+// IsProviderDefinedTool unwraps a value into a ProviderDefinedTool pointer.
+// It accepts both ProviderDefinedTool value and *ProviderDefinedTool.
+func IsProviderDefinedTool(v any) (*ProviderDefinedTool, bool) {
+	if v == nil {
+		return nil, false
+	}
+	switch t := v.(type) {
+	case ProviderDefinedTool:
+		return &t, true
+	case *ProviderDefinedTool:
+		return t, true
+	default:
+		return nil, false
+	}
+}
+
 // ToolDefinition describes a tool available to the model.
 type ToolDefinition struct {
 	Name        string

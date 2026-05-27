@@ -254,3 +254,37 @@ func TestGenerateSchema_Nil(t *testing.T) {
 		t.Errorf("expected object for nil type, got %q", schema.Type)
 	}
 }
+
+
+func TestIsProviderDefinedTool_Value(t *testing.T) {
+	v := ProviderDefinedTool{ID: "openai.web_search_preview", Name: "web_search"}
+	pdt, ok := IsProviderDefinedTool(v)
+	if !ok {
+		t.Fatal("expected ok for value")
+	}
+	if pdt.ID != "openai.web_search_preview" {
+		t.Errorf("id: got %q, want openai.web_search_preview", pdt.ID)
+	}
+}
+
+func TestIsProviderDefinedTool_Pointer(t *testing.T) {
+	v := &ProviderDefinedTool{ID: "anthropic.web_search", Name: "web_search"}
+	pdt, ok := IsProviderDefinedTool(v)
+	if !ok {
+		t.Fatal("expected ok for pointer")
+	}
+	if pdt.ID != "anthropic.web_search" {
+		t.Errorf("id: got %q, want anthropic.web_search", pdt.ID)
+	}
+}
+
+func TestIsProviderDefinedTool_Nil(t *testing.T) {
+	_, ok := IsProviderDefinedTool(nil)
+	if ok {
+		t.Error("expected not ok for nil")
+	}
+	_, ok = IsProviderDefinedTool("not a provider tool")
+	if ok {
+		t.Error("expected not ok for unrelated type")
+	}
+}
