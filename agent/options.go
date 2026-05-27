@@ -2,6 +2,7 @@ package agent
 
 import (
 	"github.com/odysseythink/pantheon/agent/compression"
+	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/tool"
 )
 
@@ -114,4 +115,51 @@ func WithRepairToolCall(fn RepairToolCallFunc) Option {
 	return func(a *Agent) {
 		a.repairToolCall = fn
 	}
+}
+
+func WithTemperature(v float64) Option {
+	return func(a *Agent) { a.temperature = &v }
+}
+
+func WithTopP(v float64) Option {
+	return func(a *Agent) { a.topP = &v }
+}
+
+func WithTopK(v int) Option {
+	return func(a *Agent) { a.topK = &v }
+}
+
+func WithMaxTokens(v int) Option {
+	return func(a *Agent) { a.maxTokens = &v }
+}
+
+func WithFrequencyPenalty(v float64) Option {
+	return func(a *Agent) { a.frequencyPenalty = &v }
+}
+
+func WithPresencePenalty(v float64) Option {
+	return func(a *Agent) { a.presencePenalty = &v }
+}
+
+func WithStopSequences(seqs ...string) Option {
+	return func(a *Agent) { a.stopSequences = seqs }
+}
+
+func WithResponseFormat(v *core.ResponseFormat) Option {
+	return func(a *Agent) { a.responseFormat = v }
+}
+
+func WithProviderOptions(opts core.ProviderOptions) Option {
+	return func(a *Agent) {
+		if a.providerOptions == nil {
+			a.providerOptions = make(core.ProviderOptions)
+		}
+		for k, v := range opts {
+			a.providerOptions[k] = v
+		}
+	}
+}
+
+func WithMaxRetries(v int) Option {
+	return func(a *Agent) { a.maxRetries = &v }
 }

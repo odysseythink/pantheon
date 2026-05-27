@@ -986,3 +986,73 @@ func TestRunWithRepairToolCall_MissingRequiredField(t *testing.T) {
 		t.Error("expected repair to be triggered for missing required field")
 	}
 }
+
+type mockProviderOption struct {
+	name string
+}
+
+func (m mockProviderOption) ProviderName() string { return m.name }
+
+func TestWithTemperature(t *testing.T) {
+	a := New(nil, WithTemperature(0.5))
+	if a.temperature == nil || *a.temperature != 0.5 {
+		t.Fatalf("expected temperature=0.5, got %v", a.temperature)
+	}
+}
+
+func TestWithTopP(t *testing.T) {
+	a := New(nil, WithTopP(0.9))
+	if a.topP == nil || *a.topP != 0.9 {
+		t.Fatalf("expected topP=0.9, got %v", a.topP)
+	}
+}
+
+func TestWithTopK(t *testing.T) {
+	a := New(nil, WithTopK(40))
+	if a.topK == nil || *a.topK != 40 {
+		t.Fatalf("expected topK=40, got %v", a.topK)
+	}
+}
+
+func TestWithMaxTokens(t *testing.T) {
+	a := New(nil, WithMaxTokens(1024))
+	if a.maxTokens == nil || *a.maxTokens != 1024 {
+		t.Fatalf("expected maxTokens=1024, got %v", a.maxTokens)
+	}
+}
+
+func TestWithFrequencyPenalty(t *testing.T) {
+	a := New(nil, WithFrequencyPenalty(0.5))
+	if a.frequencyPenalty == nil || *a.frequencyPenalty != 0.5 {
+		t.Fatalf("expected frequencyPenalty=0.5, got %v", a.frequencyPenalty)
+	}
+}
+
+func TestWithPresencePenalty(t *testing.T) {
+	a := New(nil, WithPresencePenalty(0.3))
+	if a.presencePenalty == nil || *a.presencePenalty != 0.3 {
+		t.Fatalf("expected presencePenalty=0.3, got %v", a.presencePenalty)
+	}
+}
+
+func TestWithMaxRetries(t *testing.T) {
+	a := New(nil, WithMaxRetries(3))
+	if a.maxRetries == nil || *a.maxRetries != 3 {
+		t.Fatalf("expected maxRetries=3, got %v", a.maxRetries)
+	}
+}
+
+func TestWithStopSequences(t *testing.T) {
+	a := New(nil, WithStopSequences("stop1", "stop2"))
+	if len(a.stopSequences) != 2 || a.stopSequences[0] != "stop1" || a.stopSequences[1] != "stop2" {
+		t.Fatalf("expected stopSequences=[stop1 stop2], got %v", a.stopSequences)
+	}
+}
+
+func TestWithProviderOptions(t *testing.T) {
+	opts := core.ProviderOptions{"key": mockProviderOption{name: "val"}}
+	a := New(nil, WithProviderOptions(opts))
+	if a.providerOptions["key"].ProviderName() != "val" {
+		t.Fatalf("expected providerOptions[key].ProviderName()=val, got %v", a.providerOptions["key"].ProviderName())
+	}
+}

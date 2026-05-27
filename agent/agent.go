@@ -34,6 +34,20 @@ type Agent struct {
 
 	// tool call repair
 	repairToolCall RepairToolCallFunc
+
+	// Generation parameters
+	temperature      *float64
+	topP             *float64
+	topK             *int
+	maxTokens        *int
+	frequencyPenalty *float64
+	presencePenalty  *float64
+	stopSequences    []string
+	responseFormat   *core.ResponseFormat
+	providerOptions  core.ProviderOptions
+
+	// Retry
+	maxRetries       *int
 }
 
 // New creates a new Agent.
