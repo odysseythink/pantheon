@@ -58,6 +58,28 @@ func (m *mockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (
 func (m *mockModel) Provider() string { return "mock" }
 func (m *mockModel) Model() string    { return "mock" }
 
+// failingModel always returns a retryable error.
+type failingModel struct {
+	calls int
+}
+
+func (m *failingModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	m.calls++
+	return nil, &core.ProviderError{Status: 500, Message: "server error"}
+}
+func (m *failingModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	m.calls++
+	return nil, &core.ProviderError{Status: 500, Message: "server error"}
+}
+func (m *failingModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return nil, errors.New("not implemented")
+}
+func (m *failingModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *failingModel) Provider() string { return "failing" }
+func (m *failingModel) Model() string    { return "failing-model" }
+
 func TestRunNoTools(t *testing.T) {
 	m := &mockModel{}
 	a := New(m)
@@ -1412,5 +1434,43 @@ func TestRun_StepResultMessagesSnapshot(t *testing.T) {
 	result.Messages = append(result.Messages, core.Message{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "extra"}}})
 	if len(step2.Messages) != 4 {
 		t.Errorf("Step2 Messages should remain 4 after result.Messages modified, got %d", len(step2.Messages))
+	}
+}
+
+func TestRun_WithOnRetry(t *testing.T) {
+	var calls []struct {
+		attempt int
+		err     error
+		delay   time.Duration
+	}
+	onRetry := func(attempt int, err error, delay time.Duration) {
+		calls = append(calls, struct {
+			attempt int
+			err     error
+			delay   time.Duration
+		}{attempt: attempt, err: err, delay: delay})
+	}
+
+	inner := &failingModel{}
+	a := New(inner,
+		WithMaxRetries(1),
+		WithOnRetry(onRetry),
+	)
+
+	_, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	if len(calls) != 1 {
+		t.Fatalf("expected 1 OnRetry call, got %d", len(calls))
+	}
+	if calls[0].attempt != 1 {
+		t.Errorf("attempt = %d, want 1", calls[0].attempt)
+	}
+	if inner.calls != 2 { // initial + 1 retry
+		t.Errorf("inner calls: got %d, want 2", inner.calls)
 	}
 }
