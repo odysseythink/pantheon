@@ -94,9 +94,22 @@ func contentToString(parts []core.ContentParter) string {
 	return result
 }
 
-func toGeminiTools(tools []core.ToolDefinition) []Tool {
-	var out []Tool
+func toGeminiTools(tools []core.ToolDefinition) []any {
+	var out []any
 	for _, t := range tools {
+		if pdt, ok := core.IsProviderDefinedTool(t.ProviderTool); ok {
+			switch pdt.ID {
+			case "google.google_search":
+				out = append(out, map[string]any{"googleSearch": struct{}{}})
+			default:
+				out = append(out, t.ProviderTool)
+			}
+			continue
+		}
+		if t.ProviderTool != nil {
+			out = append(out, t.ProviderTool)
+			continue
+		}
 		out = append(out, Tool{
 			FunctionDeclarations: []FunctionDeclaration{{
 				Name:        t.Name,

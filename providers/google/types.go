@@ -4,7 +4,7 @@ import "github.com/odysseythink/pantheon/core"
 
 type GenerateContentRequest struct {
 	Contents          []Content         `json:"contents"`
-	Tools             []Tool            `json:"tools,omitempty"`
+	Tools             []any             `json:"tools,omitempty"`
 	ToolConfig        *ToolConfig       `json:"toolConfig,omitempty"`
 	SystemInstruction *Content          `json:"systemInstruction,omitempty"`
 	GenerationConfig  *GenerationConfig `json:"generationConfig,omitempty"`

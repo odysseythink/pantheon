@@ -215,15 +215,15 @@ func TestToGeminiTools(t *testing.T) {
 	tests := []struct {
 		name  string
 		tools []core.ToolDefinition
-		want  []Tool
+		want  []any
 	}{
 		{
 			name: "normal conversion",
 			tools: []core.ToolDefinition{
 				{Name: "get_weather", Description: "Get weather", Parameters: schema},
 			},
-			want: []Tool{
-				{FunctionDeclarations: []FunctionDeclaration{{Name: "get_weather", Description: "Get weather", Parameters: schema}}},
+			want: []any{
+				Tool{FunctionDeclarations: []FunctionDeclaration{{Name: "get_weather", Description: "Get weather", Parameters: schema}}},
 			},
 		},
 		{
@@ -240,6 +240,41 @@ func TestToGeminiTools(t *testing.T) {
 				t.Errorf("toGeminiTools() = %+v, want %+v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestToGeminiTools_ProviderDefinedTool(t *testing.T) {
+	tools := []core.ToolDefinition{
+		{
+			Name: "google_search",
+			ProviderTool: &core.ProviderDefinedTool{
+				ID:   "google.google_search",
+				Name: "google_search",
+			},
+		},
+		{
+			Name:        "get_weather",
+			Description: "Get weather",
+			Parameters:  &core.Schema{Type: "object"},
+		},
+	}
+	out := toGeminiTools(tools)
+	if len(out) != 2 {
+		t.Fatalf("expected 2 tools, got %d", len(out))
+	}
+	m, ok := out[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map for provider tool, got %T", out[0])
+	}
+	if _, ok := m["googleSearch"]; !ok {
+		t.Errorf("expected googleSearch key, got %+v", m)
+	}
+	tool, ok := out[1].(Tool)
+	if !ok {
+		t.Fatalf("expected Tool, got %T", out[1])
+	}
+	if tool.FunctionDeclarations[0].Name != "get_weather" {
+		t.Errorf("unexpected tool name: %q", tool.FunctionDeclarations[0].Name)
 	}
 }
 
