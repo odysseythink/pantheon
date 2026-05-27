@@ -28,6 +28,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 			MaxTokens:        req.MaxTokens,
 			Temperature:      req.Temperature,
 			TopP:             req.TopP,
+			TopK:             req.TopK,
 			FrequencyPenalty: req.FrequencyPenalty,
 			PresencePenalty:  req.PresencePenalty,
 			Stop:             req.StopSequences,

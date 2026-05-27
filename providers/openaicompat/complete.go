@@ -19,6 +19,7 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Req
 		MaxTokens:        req.MaxTokens,
 		Temperature:      req.Temperature,
 		TopP:             req.TopP,
+		TopK:             req.TopK,
 		FrequencyPenalty: req.FrequencyPenalty,
 		PresencePenalty:  req.PresencePenalty,
 		Stop:             req.StopSequences,
