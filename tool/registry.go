@@ -30,6 +30,7 @@ type Entry struct {
 	CheckFn        CheckFunc
 	RequiresEnv    []string
 	IsInteractive  bool // interactive tools cannot run in parallel
+	Parallel       bool // when true, this tool may run concurrently with other parallel tools
 	MaxResultChars int  // truncate results larger than this (0 = no limit)
 	Description    string
 	Emoji          string

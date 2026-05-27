@@ -16,9 +16,11 @@ const (
 	StreamEventTypeReasoningDelta StreamEventType = "reasoning_delta"
 	StreamEventTypeToolCall       StreamEventType = "tool_call"
 	StreamEventTypeToolResult     StreamEventType = "tool_result"
+	StreamEventTypeSource         StreamEventType = "source"
 	StreamEventTypeStepStart      StreamEventType = "step_start"
 	StreamEventTypeStepFinish     StreamEventType = "step_finish"
 	StreamEventTypeUsage          StreamEventType = "usage"
+	StreamEventTypeWarning        StreamEventType = "warning"
 	StreamEventTypeError          StreamEventType = "error"
 )
 
@@ -29,8 +31,10 @@ type StreamEvent struct {
 	ReasoningDelta string
 	ToolCall       *core.ToolCallPart
 	ToolResult     *core.ToolResultPart
+	Source         *core.SourcePart
 	Step           int
 	Usage          *core.Usage
+	Warnings       []core.CallWarning
 }
 
 // StreamResponse is the agent's streaming output.
@@ -43,16 +47,14 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 		messages := append([]core.Message(nil), req.Messages...)
 		var lastHadToolCalls bool
 
-		// Build a lookup of provider-executed tools (server-side, skip local execution).
-		providerTools := make(map[string]bool)
-		for _, t := range req.Tools {
-			if t.ProviderTool != nil {
-				providerTools[t.Name] = true
-			}
-		}
-
 		for step := 0; step < a.maxSteps; step++ {
 			lastHadToolCalls = false
+			if a.onStepStart != nil {
+				if err := a.onStepStart(step + 1); err != nil {
+					a.invokeError(yield, err)
+					return
+				}
+			}
 			if !yield(&StreamEvent{Type: StreamEventTypeStepStart, Step: step + 1}, nil) {
 				return
 			}
@@ -60,19 +62,79 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 			if a.compressor != nil {
 				compressed, err := a.compressor.Compress(ctx, messages)
 				if err != nil {
-					yield(&StreamEvent{Type: StreamEventTypeError}, fmt.Errorf("compress history: %w", err))
+					a.invokeError(yield, fmt.Errorf("compress history: %w", err))
 					return
 				}
 				messages = compressed
 			}
 
-			stream, err := a.model.Stream(ctx, &core.Request{
-				Messages:     messages,
-				SystemPrompt: req.SystemPrompt,
-				Tools:        req.Tools,
+			// Prepare step with dynamic configuration.
+			stepModel := a.model
+			stepMessages := messages
+			stepSystemPrompt := req.SystemPrompt
+			stepTools := req.Tools
+			stepToolChoice := req.ToolChoice
+			disableAllTools := false
+
+			if a.prepareStep != nil {
+				prepared, err := a.prepareStep(ctx, PrepareStepOptions{
+					Step:     step,
+					Model:    stepModel,
+					Messages: stepMessages,
+				})
+				if err != nil {
+					a.invokeError(yield, fmt.Errorf("prepare step %d: %w", step, err))
+					return
+				}
+				if prepared.Model != nil {
+					stepModel = prepared.Model
+				}
+				if prepared.SystemPrompt != nil {
+					stepSystemPrompt = *prepared.SystemPrompt
+					// Update messages in-place so the system prompt is part of history.
+					if len(messages) > 0 && messages[0].Role == core.MESSAGE_ROLE_SYSTEM {
+						messages[0] = core.NewTextMessage(core.MESSAGE_ROLE_SYSTEM, stepSystemPrompt)
+					} else {
+						messages = append([]core.Message{core.NewTextMessage(core.MESSAGE_ROLE_SYSTEM, stepSystemPrompt)}, messages...)
+					}
+				}
+				if prepared.Messages != nil {
+					stepMessages = prepared.Messages
+				} else {
+					stepMessages = messages
+				}
+				if prepared.Tools != nil {
+					stepTools = prepared.Tools
+				}
+				if prepared.ToolChoice != nil {
+					stepToolChoice = *prepared.ToolChoice
+				}
+				if prepared.DisableAllTools {
+					disableAllTools = true
+					stepTools = nil
+				}
+			}
+
+			// Build lookups for provider-executed and locally-executed provider tools.
+			providerTools := make(map[string]bool)
+			executableTools := make(map[string]*core.ExecutableProviderTool)
+			for _, t := range stepTools {
+				if t.ProviderTool != nil {
+					providerTools[t.Name] = true
+				}
+				if t.ExecutableTool != nil {
+					executableTools[t.Name] = t.ExecutableTool
+				}
+			}
+
+			stream, err := stepModel.Stream(ctx, &core.Request{
+				Messages:     stepMessages,
+				SystemPrompt: stepSystemPrompt,
+				Tools:        stepTools,
+				ToolChoice:   stepToolChoice,
 			})
 			if err != nil {
-				yield(&StreamEvent{Type: StreamEventTypeError}, err)
+				a.invokeError(yield, err)
 				return
 			}
 
@@ -83,24 +145,60 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 
 			for part, err := range stream {
 				if err != nil {
-					yield(&StreamEvent{Type: StreamEventTypeError}, err)
+					a.invokeError(yield, err)
 					return
+				}
+				if len(part.Warnings) > 0 {
+					if !yield(&StreamEvent{Type: StreamEventTypeWarning, Warnings: part.Warnings, Step: step + 1}, nil) {
+						return
+					}
 				}
 				switch part.Type {
 				case core.StreamPartTypeTextDelta:
 					assistantMsg.Content = append(assistantMsg.Content, core.TextPart{Text: part.TextDelta})
+					if a.onTextDelta != nil {
+						if err := a.onTextDelta(step+1, part.TextDelta); err != nil {
+							a.invokeError(yield, err)
+							return
+						}
+					}
 					if !yield(&StreamEvent{Type: StreamEventTypeTextDelta, TextDelta: part.TextDelta, Step: step + 1}, nil) {
 						return
 					}
 				case core.StreamPartTypeReasoningDelta:
 					assistantMsg.Content = append(assistantMsg.Content, core.ReasoningPart{Text: part.ReasoningDelta})
+					if a.onReasoningDelta != nil {
+						if err := a.onReasoningDelta(step+1, part.ReasoningDelta); err != nil {
+							a.invokeError(yield, err)
+							return
+						}
+					}
 					if !yield(&StreamEvent{Type: StreamEventTypeReasoningDelta, ReasoningDelta: part.ReasoningDelta, Step: step + 1}, nil) {
 						return
 					}
 				case core.StreamPartTypeToolCall:
 					assistantMsg.Content = append(assistantMsg.Content, *part.ToolCall)
+					if a.onToolCall != nil {
+						if err := a.onToolCall(step+1, part.ToolCall); err != nil {
+							a.invokeError(yield, err)
+							return
+						}
+					}
 					if !yield(&StreamEvent{Type: StreamEventTypeToolCall, ToolCall: part.ToolCall, Step: step + 1}, nil) {
 						return
+					}
+				case core.StreamPartTypeSource:
+					if part.Source != nil {
+						assistantMsg.Content = append(assistantMsg.Content, *part.Source)
+						if a.onSource != nil {
+							if err := a.onSource(step+1, part.Source); err != nil {
+								a.invokeError(yield, err)
+								return
+							}
+						}
+						if !yield(&StreamEvent{Type: StreamEventTypeSource, Source: part.Source, Step: step + 1}, nil) {
+							return
+						}
 					}
 				case core.StreamPartTypeUsage:
 					if part.Usage != nil {
@@ -122,6 +220,12 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 			}
 			if a.shouldStop(step, resp, messages) {
 				messages = append(messages, assistantMsg)
+				if a.onStepFinish != nil {
+					if err := a.onStepFinish(step+1, messages, usage); err != nil {
+						a.invokeError(yield, err)
+						return
+					}
+				}
 				if !yield(&StreamEvent{Type: StreamEventTypeStepFinish, Step: step + 1}, nil) {
 					return
 				}
@@ -131,7 +235,13 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 			messages = append(messages, assistantMsg)
 
 			toolCalls := extractToolCalls(assistantMsg.Content)
-			if len(toolCalls) == 0 {
+			if len(toolCalls) == 0 || disableAllTools {
+				if a.onStepFinish != nil {
+					if err := a.onStepFinish(step+1, messages, usage); err != nil {
+						a.invokeError(yield, err)
+						return
+					}
+				}
 				if !yield(&StreamEvent{Type: StreamEventTypeStepFinish, Step: step + 1}, nil) {
 					return
 				}
@@ -139,34 +249,115 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 			}
 
 			lastHadToolCalls = true
+
+			// Filter out provider-executed tools.
+			localCalls := make([]core.ToolCallPart, 0, len(toolCalls))
 			for _, tc := range toolCalls {
-				// Provider-executed tools are handled server-side; skip local execution.
-				if providerTools[tc.Name] {
-					continue
+				if !providerTools[tc.Name] {
+					localCalls = append(localCalls, tc)
 				}
-				result, isError := a.executeTool(ctx, tc)
+			}
+
+			// Build parallel map from stepTools.
+			parallelMap := make(map[string]bool)
+			for _, t := range stepTools {
+				parallelMap[t.Name] = t.Parallel
+			}
+
+			results, err := executeToolCalls(ctx, localCalls, parallelMap, func(ctx context.Context, tc core.ToolCallPart) (core.ToolResponse, error) {
+				// Attempt repair if arguments are invalid.
+				if a.repairToolCall != nil {
+					var schema *core.Schema
+					for _, t := range stepTools {
+						if t.Name == tc.Name {
+							schema = t.Parameters
+							break
+						}
+					}
+					if validationErr := validateToolArgs(tc.Arguments, schema); validationErr != nil {
+						repaired, repairErr := a.repairToolCall(ctx, RepairToolCallOptions{
+							OriginalCall:    tc,
+							ValidationError: validationErr,
+							AvailableTools:  stepTools,
+							SystemPrompt:    stepSystemPrompt,
+							Messages:        messages,
+						})
+						if repairErr == nil && repaired != nil {
+							tc = *repaired
+						}
+					}
+				}
+				if et, ok := executableTools[tc.Name]; ok {
+					return et.Run(ctx, core.ToolCall{ID: tc.ID, Name: tc.Name, Input: tc.Arguments})
+				}
+				return a.executeTool(ctx, tc)
+			})
+			if err != nil {
+				a.invokeError(yield, err)
+				return
+			}
+
+			var stopTurn bool
+			for _, r := range results {
 				toolResult := core.ToolResultPart{
-					ToolCallID: tc.ID,
-					Name:       tc.Name,
-					Content:    []core.ContentParter{core.TextPart{Text: result}},
-					IsError:    isError,
+					ToolCallID: r.toolCallID,
+					Name:       r.name,
+					Content:    []core.ContentParter{core.TextPart{Text: r.result}},
+					IsError:    r.isError,
+					StopTurn:   r.stopTurn,
 				}
 				messages = append(messages, core.Message{
 					Role:    core.MESSAGE_ROLE_TOOL,
 					Content: []core.ContentParter{toolResult},
 				})
+				if a.onToolResult != nil {
+					if err := a.onToolResult(step+1, &toolResult); err != nil {
+						a.invokeError(yield, err)
+						return
+					}
+				}
 				if !yield(&StreamEvent{Type: StreamEventTypeToolResult, ToolResult: &toolResult, Step: step + 1}, nil) {
 					return
 				}
+				if r.stopTurn {
+					stopTurn = true
+				}
+			}
+			if stopTurn {
+				lastHadToolCalls = false
+				if a.onStepFinish != nil {
+					if err := a.onStepFinish(step+1, messages, usage); err != nil {
+						a.invokeError(yield, err)
+						return
+					}
+				}
+				if !yield(&StreamEvent{Type: StreamEventTypeStepFinish, Step: step + 1}, nil) {
+					return
+				}
+				break
 			}
 
+			if a.onStepFinish != nil {
+				if err := a.onStepFinish(step+1, messages, usage); err != nil {
+					a.invokeError(yield, err)
+					return
+				}
+			}
 			if !yield(&StreamEvent{Type: StreamEventTypeStepFinish, Step: step + 1}, nil) {
 				return
 			}
 		}
 
 		if lastHadToolCalls {
-			yield(&StreamEvent{Type: StreamEventTypeError}, fmt.Errorf("agent reached max steps (%d) without completion", a.maxSteps))
+			a.invokeError(yield, fmt.Errorf("agent reached max steps (%d) without completion", a.maxSteps))
 		}
 	}
+}
+
+// invokeError yields an error event and invokes the OnError callback if set.
+func (a *Agent) invokeError(yield func(*StreamEvent, error) bool, err error) {
+	if a.onError != nil {
+		a.onError(err)
+	}
+	yield(&StreamEvent{Type: StreamEventTypeError}, err)
 }

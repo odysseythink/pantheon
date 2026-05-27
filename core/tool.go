@@ -1,12 +1,35 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
 	"time"
 	"unicode"
 )
+
+// ToolCall represents a single tool invocation.
+type ToolCall struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Input string `json:"input"` // JSON-encoded arguments
+}
+
+// ToolResponse is the result of executing a tool.
+type ToolResponse struct {
+	Content  string
+	IsError  bool
+	StopTurn bool
+}
+
+// ExecutableProviderTool pairs a provider-native tool definition with a
+// client-side execution function. The provider serializes the tool in its
+// native format, but the agent executes the Run function locally.
+type ExecutableProviderTool struct {
+	Definition any // provider-native representation (opaque)
+	Run        func(ctx context.Context, call ToolCall) (ToolResponse, error)
+}
 
 // ToolDefinition describes a tool available to the model.
 type ToolDefinition struct {
@@ -17,6 +40,12 @@ type ToolDefinition struct {
 	// executed server-side by the provider. The value is opaque to core
 	// and is serialized directly in the provider's native wire format.
 	ProviderTool any
+	// ExecutableTool, if non-nil, indicates a provider-native tool that
+	// uses the provider's wire format but is executed locally by the agent.
+	ExecutableTool *ExecutableProviderTool
+	// Parallel indicates whether this tool can be executed concurrently
+	// with other parallel tools within the same step.
+	Parallel bool
 }
 
 // ToolChoice controls whether and how the model may invoke tools.

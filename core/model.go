@@ -24,6 +24,7 @@ type Response struct {
 	FinishReason string
 	Usage        Usage
 	Model        string
+	Warnings     []CallWarning
 }
 
 // Usage reports token consumption for a model call.
@@ -45,8 +46,10 @@ type StreamPart struct {
 	TextDelta      string
 	ReasoningDelta string
 	ToolCall       *ToolCallPart
+	Source         *SourcePart
 	Usage          *Usage
 	FinishReason   string
+	Warnings       []CallWarning
 }
 
 // StreamPartType identifies the kind of a StreamPart.
@@ -59,6 +62,8 @@ const (
 	StreamPartTypeReasoningDelta StreamPartType = "reasoning_delta"
 	// StreamPartTypeToolCall indicates a tool call emitted by the model.
 	StreamPartTypeToolCall StreamPartType = "tool_call"
+	// StreamPartTypeSource indicates a source reference emitted by the model.
+	StreamPartTypeSource StreamPartType = "source"
 	// StreamPartTypeUsage reports token usage.
 	StreamPartTypeUsage StreamPartType = "usage"
 	// StreamPartTypeFinish signals the end of the stream with a finish reason.
@@ -117,6 +122,7 @@ type ObjectResponse struct {
 	FinishReason string
 	Usage        Usage
 	Model        string
+	Warnings     []CallWarning
 }
 
 // ObjectStreamResponse is an iterator of stream parts emitted during a streaming object generation call.
@@ -129,6 +135,7 @@ type ObjectStreamPart struct {
 	Object       map[string]any
 	FinishReason string
 	Usage        *Usage
+	Warnings     []CallWarning
 }
 
 // ObjectStreamPartType identifies the kind of an ObjectStreamPart.

@@ -18,6 +18,22 @@ type Agent struct {
 	toolRegistry   map[string]ToolFunc
 	registry       *tool.Registry
 	compressor     *compression.Compressor
+
+	// callbacks
+	onStepStart      OnStepStartFunc
+	onStepFinish     OnStepFinishFunc
+	onError          OnErrorFunc
+	onTextDelta      OnTextDeltaFunc
+	onReasoningDelta OnReasoningDeltaFunc
+	onToolCall       OnToolCallFunc
+	onToolResult     OnToolResultFunc
+	onSource         OnSourceFunc
+
+	// step preparation
+	prepareStep PrepareStepFunc
+
+	// tool call repair
+	repairToolCall RepairToolCallFunc
 }
 
 // New creates a new Agent.
@@ -42,21 +58,15 @@ func (a *Agent) RegisterTool(name string, fn ToolFunc) {
 type Result struct {
 	Messages []core.Message
 	Usage    core.Usage
+	Warnings []core.CallWarning
 }
 
 // Run executes the agent loop until completion or max steps.
 func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 	messages := append([]core.Message(nil), req.Messages...)
 	var totalUsage core.Usage
+	var warnings []core.CallWarning
 	var lastHadToolCalls bool
-
-	// Build a lookup of provider-executed tools (server-side, skip local execution).
-	providerTools := make(map[string]bool)
-	for _, t := range req.Tools {
-		if t.ProviderTool != nil {
-			providerTools[t.Name] = true
-		}
-	}
 
 	for step := 0; step < a.maxSteps; step++ {
 		lastHadToolCalls = false
@@ -67,10 +77,70 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 			}
 			messages = compressed
 		}
-		resp, err := a.model.Generate(ctx, &core.Request{
-			Messages:     messages,
-			SystemPrompt: req.SystemPrompt,
-			Tools:        req.Tools,
+
+		// Prepare step with dynamic configuration.
+		stepModel := a.model
+		stepMessages := messages
+		stepSystemPrompt := req.SystemPrompt
+		stepTools := req.Tools
+		stepToolChoice := req.ToolChoice
+		disableAllTools := false
+
+		if a.prepareStep != nil {
+			prepared, err := a.prepareStep(ctx, PrepareStepOptions{
+				Step:     step,
+				Model:    stepModel,
+				Messages: stepMessages,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("prepare step %d: %w", step, err)
+			}
+			if prepared.Model != nil {
+				stepModel = prepared.Model
+			}
+			if prepared.SystemPrompt != nil {
+				stepSystemPrompt = *prepared.SystemPrompt
+				// Update messages in-place so the system prompt is part of history.
+				if len(messages) > 0 && messages[0].Role == core.MESSAGE_ROLE_SYSTEM {
+					messages[0] = core.NewTextMessage(core.MESSAGE_ROLE_SYSTEM, stepSystemPrompt)
+				} else {
+					messages = append([]core.Message{core.NewTextMessage(core.MESSAGE_ROLE_SYSTEM, stepSystemPrompt)}, messages...)
+				}
+			}
+			if prepared.Messages != nil {
+				stepMessages = prepared.Messages
+			} else {
+				stepMessages = messages
+			}
+			if prepared.Tools != nil {
+				stepTools = prepared.Tools
+			}
+			if prepared.ToolChoice != nil {
+				stepToolChoice = *prepared.ToolChoice
+			}
+			if prepared.DisableAllTools {
+				disableAllTools = true
+				stepTools = nil
+			}
+		}
+
+		// Build lookups for provider-executed and locally-executed provider tools.
+		providerTools := make(map[string]bool)
+		executableTools := make(map[string]*core.ExecutableProviderTool)
+		for _, t := range stepTools {
+			if t.ProviderTool != nil {
+				providerTools[t.Name] = true
+			}
+			if t.ExecutableTool != nil {
+				executableTools[t.Name] = t.ExecutableTool
+			}
+		}
+
+		resp, err := stepModel.Generate(ctx, &core.Request{
+			Messages:     stepMessages,
+			SystemPrompt: stepSystemPrompt,
+			Tools:        stepTools,
+			ToolChoice:   stepToolChoice,
 		})
 		if err != nil {
 			return nil, err
@@ -79,6 +149,7 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		totalUsage.PromptTokens += resp.Usage.PromptTokens
 		totalUsage.CompletionTokens += resp.Usage.CompletionTokens
 		totalUsage.TotalTokens += resp.Usage.TotalTokens
+		warnings = append(warnings, resp.Warnings...)
 
 		// Evaluate custom stop conditions before executing tools.
 		// This allows early termination based on response content.
@@ -90,26 +161,77 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		messages = append(messages, resp.Message)
 
 		toolCalls := extractToolCalls(resp.Message.Content)
-		if len(toolCalls) == 0 {
+		if len(toolCalls) == 0 || disableAllTools {
 			break
 		}
 
 		lastHadToolCalls = true
+
+		// Filter out provider-executed tools.
+		localCalls := make([]core.ToolCallPart, 0, len(toolCalls))
 		for _, tc := range toolCalls {
-			// Provider-executed tools are handled server-side; skip local execution.
-			if providerTools[tc.Name] {
-				continue
+			if !providerTools[tc.Name] {
+				localCalls = append(localCalls, tc)
 			}
-			result, isError := a.executeTool(ctx, tc)
+		}
+
+		// Build parallel map from stepTools.
+		parallelMap := make(map[string]bool)
+		for _, t := range stepTools {
+			parallelMap[t.Name] = t.Parallel
+		}
+
+		results, err := executeToolCalls(ctx, localCalls, parallelMap, func(ctx context.Context, tc core.ToolCallPart) (core.ToolResponse, error) {
+			// Attempt repair if arguments are invalid.
+			if a.repairToolCall != nil {
+				var schema *core.Schema
+				for _, t := range stepTools {
+					if t.Name == tc.Name {
+						schema = t.Parameters
+						break
+					}
+				}
+				if validationErr := validateToolArgs(tc.Arguments, schema); validationErr != nil {
+					repaired, repairErr := a.repairToolCall(ctx, RepairToolCallOptions{
+						OriginalCall:    tc,
+						ValidationError: validationErr,
+						AvailableTools:  stepTools,
+						SystemPrompt:    stepSystemPrompt,
+						Messages:        messages,
+					})
+					if repairErr == nil && repaired != nil {
+						tc = *repaired
+					}
+				}
+			}
+			if et, ok := executableTools[tc.Name]; ok {
+				return et.Run(ctx, core.ToolCall{ID: tc.ID, Name: tc.Name, Input: tc.Arguments})
+			}
+			return a.executeTool(ctx, tc)
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		var stopTurn bool
+		for _, r := range results {
 			messages = append(messages, core.Message{
 				Role: core.MESSAGE_ROLE_TOOL,
 				Content: []core.ContentParter{core.ToolResultPart{
-					ToolCallID: tc.ID,
-					Name:       tc.Name,
-					Content:    []core.ContentParter{core.TextPart{Text: result}},
-					IsError:    isError,
+					ToolCallID: r.toolCallID,
+					Name:       r.name,
+					Content:    []core.ContentParter{core.TextPart{Text: r.result}},
+					IsError:    r.isError,
+					StopTurn:   r.stopTurn,
 				}},
 			})
+			if r.stopTurn {
+				stopTurn = true
+			}
+		}
+		if stopTurn {
+			lastHadToolCalls = false
+			break
 		}
 	}
 
@@ -120,6 +242,7 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 	return &Result{
 		Messages: messages,
 		Usage:    totalUsage,
+		Warnings: warnings,
 	}, nil
 }
 
@@ -134,20 +257,23 @@ func (a *Agent) shouldStop(step int, resp *core.Response, messages []core.Messag
 	return false
 }
 
-func (a *Agent) executeTool(ctx context.Context, tc core.ToolCallPart) (string, bool) {
+func (a *Agent) executeTool(ctx context.Context, tc core.ToolCallPart) (core.ToolResponse, error) {
 	if a.registry != nil {
 		result, err := a.registry.Dispatch(ctx, tc.Name, json.RawMessage(tc.Arguments))
-		return result, err != nil
+		if err != nil {
+			return core.ToolResponse{Content: err.Error(), IsError: true}, nil
+		}
+		return core.ToolResponse{Content: result}, nil
 	}
 	fn, ok := a.toolRegistry[tc.Name]
 	if !ok {
-		return fmt.Sprintf("tool %q not found", tc.Name), true
+		return core.ToolResponse{Content: fmt.Sprintf("tool %q not found", tc.Name), IsError: true}, nil
 	}
 	result, err := executeTool(ctx, tc.Name, tc.Arguments, fn)
 	if err != nil {
-		return err.Error(), true
+		return core.ToolResponse{Content: err.Error(), IsError: true}, nil
 	}
-	return result, false
+	return core.ToolResponse{Content: result}, nil
 }
 
 func extractToolCalls(parts []core.ContentParter) []core.ToolCallPart {

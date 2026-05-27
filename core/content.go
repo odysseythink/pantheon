@@ -79,6 +79,8 @@ func (m Message) Text() string {
 					texts = append(texts, tp.Text)
 				}
 			}
+		case SourcePart:
+			// Source parts are metadata, not text content.
 		}
 	}
 	return strings.Join(texts, "\n")
@@ -227,6 +229,7 @@ type ToolResultPart struct {
 	Name       string          `json:"name"`
 	Content    []ContentParter `json:"content"`
 	IsError    bool            `json:"is_error"`
+	StopTurn   bool            `json:"stop_turn,omitempty"`
 }
 
 func (ToolResultPart) contentPart() {}
@@ -286,6 +289,12 @@ func unmarshalContentPart(raw []byte) (ContentParter, error) {
 			return nil, err
 		}
 		return p, nil
+	case "source":
+		var p SourcePart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
 	default:
 		return nil, fmt.Errorf("unknown content part type: %q", typ.Type)
 	}
@@ -321,6 +330,37 @@ func NewTextMessage(role MessageRoleType, text string) Message {
 		Role:    role,
 		Content: NewTextContent(text),
 	}
+}
+
+// SourceType represents the type of source.
+type SourceType string
+
+const (
+	// SourceTypeURL represents a URL source.
+	SourceTypeURL SourceType = "url"
+	// SourceTypeDocument represents a document source.
+	SourceTypeDocument SourceType = "document"
+)
+
+// SourcePart represents a source reference used to generate the response.
+type SourcePart struct {
+	SourceType SourceType `json:"source_type"`
+	ID         string     `json:"id"`
+	URL        string     `json:"url,omitempty"`
+	Title      string     `json:"title,omitempty"`
+}
+
+func (SourcePart) contentPart() {}
+
+// MarshalJSON serializes SourcePart to JSON.
+func (p SourcePart) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"type":        "source",
+		"source_type": p.SourceType,
+		"id":          p.ID,
+		"url":         p.URL,
+		"title":       p.Title,
+	})
 }
 
 // NewToolResultContent creates a ToolResultPart wrapped as a full message.

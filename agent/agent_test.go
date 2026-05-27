@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/odysseythink/pantheon/agent/compression"
 	"github.com/odysseythink/pantheon/core"
@@ -14,6 +16,7 @@ import (
 type mockModel struct {
 	responses     []core.Message
 	finishReasons []string
+	warnings      [][]core.CallWarning
 	callIdx       int
 }
 
@@ -26,8 +29,12 @@ func (m *mockModel) Generate(ctx context.Context, req *core.Request) (*core.Resp
 	if m.callIdx < len(m.finishReasons) {
 		finishReason = m.finishReasons[m.callIdx]
 	}
+	var warnings []core.CallWarning
+	if m.callIdx < len(m.warnings) {
+		warnings = m.warnings[m.callIdx]
+	}
 	m.callIdx++
-	return &core.Response{Message: msg, FinishReason: finishReason}, nil
+	return &core.Response{Message: msg, FinishReason: finishReason, Warnings: warnings}, nil
 }
 
 func (m *mockModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
@@ -525,3 +532,457 @@ func (m *usageInjectingModel) StreamObject(ctx context.Context, req *core.Object
 
 func (m *usageInjectingModel) Provider() string { return m.inner.Provider() }
 func (m *usageInjectingModel) Model() string    { return m.inner.Model() }
+
+
+// --- PrepareStep integration tests ---
+
+func TestRunWithPrepareStep_SystemPrompt(t *testing.T) {
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+	}}
+
+	newSystem := "You are a helpful assistant"
+	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
+		return PrepareStepResult{SystemPrompt: &newSystem}, nil
+	}))
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages:     []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+		SystemPrompt: "Original prompt",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Messages) < 1 {
+		t.Fatal("expected messages")
+	}
+	// First message should be the updated system prompt.
+	if res.Messages[0].Role != core.MESSAGE_ROLE_SYSTEM {
+		t.Errorf("first message role: got %q, want system", res.Messages[0].Role)
+	}
+	if res.Messages[0].Text() != newSystem {
+		t.Errorf("system prompt: got %q, want %q", res.Messages[0].Text(), newSystem)
+	}
+}
+
+func TestRunWithPrepareStep_DisableTools(t *testing.T) {
+	// Model returns tool call, but PrepareStep disables all tools.
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.ToolCallPart{ID: "call_1", Name: "tool", Arguments: `{}`}}},
+	}}
+
+	called := false
+	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
+		called = true
+		return PrepareStepResult{DisableAllTools: true}, nil
+	}))
+	a.RegisterTool("tool", func(ctx context.Context, args string) (string, error) {
+		return "result", nil
+	})
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "tool", Parameters: &core.Schema{Type: "object"}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !called {
+		t.Error("expected PrepareStep to be called")
+	}
+	// No tool result message should be present because tools were disabled.
+	for _, msg := range res.Messages {
+		if msg.Role == core.MESSAGE_ROLE_TOOL {
+			t.Error("expected no tool result messages when tools are disabled")
+		}
+	}
+}
+
+func TestRunWithPrepareStep_Error(t *testing.T) {
+	m := &mockModel{}
+	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
+		return PrepareStepResult{}, errors.New("prepare failed")
+	}))
+
+	_, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	})
+	if err == nil {
+		t.Fatal("expected error from PrepareStep")
+	}
+	if !strings.Contains(err.Error(), "prepare failed") {
+		t.Errorf("error: got %q, want to contain 'prepare failed'", err.Error())
+	}
+}
+
+func TestRunStreamWithPrepareStep(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	newSystem := "stream system"
+	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
+		return PrepareStepResult{SystemPrompt: &newSystem}, nil
+	}))
+
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages:     []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+		SystemPrompt: "original",
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		_ = event
+	}
+}
+
+
+// --- CallWarning integration tests ---
+
+func TestRunWithWarnings(t *testing.T) {
+	m := &mockModel{
+		responses: []core.Message{
+			{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+		},
+		finishReasons: []string{"stop"},
+		warnings: [][]core.CallWarning{
+			{{Type: core.CallWarningTypeUnsupportedSetting, Setting: "temperature", Message: "ignored"}},
+		},
+	}
+
+	a := New(m)
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Warnings) != 1 {
+		t.Fatalf("warnings: got %d, want 1", len(res.Warnings))
+	}
+	if res.Warnings[0].Setting != "temperature" {
+		t.Errorf("warning setting: got %q, want temperature", res.Warnings[0].Setting)
+	}
+}
+
+
+// --- ExecutableProviderTool integration tests ---
+
+func TestRunWithExecutableProviderTool(t *testing.T) {
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.ToolCallPart{ID: "call_1", Name: "computer_use", Arguments: `{}`}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+	}}
+	m.finishReasons = []string{"tool_calls", "stop"}
+
+	executed := false
+	a := New(m)
+	a.RegisterTool("computer_use", func(ctx context.Context, args string) (string, error) {
+		// This should NOT be called because ExecutableTool takes precedence.
+		return "wrong", nil
+	})
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools: []core.ToolDefinition{{
+			Name: "computer_use",
+			ExecutableTool: &core.ExecutableProviderTool{
+				Definition: map[string]any{"type": "computer_use"},
+				Run: func(ctx context.Context, call core.ToolCall) (core.ToolResponse, error) {
+					executed = true
+					return core.ToolResponse{Content: "screenshot taken"}, nil
+				},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !executed {
+		t.Error("expected ExecutableProviderTool.Run to be called")
+	}
+	// Verify the result message contains the tool result.
+	var found bool
+	for _, msg := range res.Messages {
+		if msg.Role == core.MESSAGE_ROLE_TOOL {
+			for _, p := range msg.Content {
+				if tr, ok := p.(core.ToolResultPart); ok {
+					for _, inner := range tr.Content {
+						if tp, ok := inner.(core.TextPart); ok && tp.Text == "screenshot taken" {
+							found = true
+						}
+					}
+				}
+			}
+		}
+	}
+	if !found {
+		t.Error("expected tool result 'screenshot taken' in messages")
+	}
+}
+
+func TestRunWithExecutableProviderToolError(t *testing.T) {
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.ToolCallPart{ID: "call_1", Name: "fail_tool", Arguments: `{}`}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+	}}
+	m.finishReasons = []string{"tool_calls", "stop"}
+
+	a := New(m)
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools: []core.ToolDefinition{{
+			Name: "fail_tool",
+			ExecutableTool: &core.ExecutableProviderTool{
+				Run: func(ctx context.Context, call core.ToolCall) (core.ToolResponse, error) {
+					return core.ToolResponse{}, errors.New("tool failed")
+				},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var found bool
+	for _, msg := range res.Messages {
+		if msg.Role == core.MESSAGE_ROLE_TOOL {
+			for _, p := range msg.Content {
+				if tr, ok := p.(core.ToolResultPart); ok {
+					if tr.IsError {
+						found = true
+					}
+				}
+			}
+		}
+	}
+	if !found {
+		t.Error("expected tool result to be marked as error")
+	}
+}
+
+
+// --- Parallel tool execution integration tests ---
+
+func TestRunWithParallelTools(t *testing.T) {
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{
+			core.ToolCallPart{ID: "call_1", Name: "a", Arguments: `{}`},
+			core.ToolCallPart{ID: "call_2", Name: "b", Arguments: `{}`},
+		}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+	}}
+	m.finishReasons = []string{"tool_calls", "stop"}
+
+	var order []string
+	var mu sync.Mutex
+	a := New(m)
+	a.RegisterTool("a", func(ctx context.Context, args string) (string, error) {
+		mu.Lock()
+		order = append(order, "a-start")
+		mu.Unlock()
+		time.Sleep(20 * time.Millisecond)
+		mu.Lock()
+		order = append(order, "a-end")
+		mu.Unlock()
+		return "A", nil
+	})
+	a.RegisterTool("b", func(ctx context.Context, args string) (string, error) {
+		mu.Lock()
+		order = append(order, "b-start")
+		mu.Unlock()
+		time.Sleep(10 * time.Millisecond)
+		mu.Lock()
+		order = append(order, "b-end")
+		mu.Unlock()
+		return "B", nil
+	})
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools: []core.ToolDefinition{
+			{Name: "a", Parameters: &core.Schema{Type: "object"}, Parallel: true},
+			{Name: "b", Parameters: &core.Schema{Type: "object"}, Parallel: true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify both tools executed.
+	mu.Lock()
+	starts := 0
+	for _, o := range order {
+		if strings.HasSuffix(o, "-start") {
+			starts++
+		}
+	}
+	mu.Unlock()
+	if starts != 2 {
+		t.Errorf("tool starts: got %d, want 2 (order=%v)", starts, order)
+	}
+
+	// Verify results are present in messages.
+	var foundA, foundB bool
+	for _, msg := range res.Messages {
+		if msg.Role == core.MESSAGE_ROLE_TOOL {
+			for _, p := range msg.Content {
+				if tr, ok := p.(core.ToolResultPart); ok {
+					for _, inner := range tr.Content {
+						if tp, ok := inner.(core.TextPart); ok {
+							if tp.Text == "A" {
+								foundA = true
+							}
+							if tp.Text == "B" {
+								foundB = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	if !foundA || !foundB {
+		t.Errorf("results: foundA=%v foundB=%v", foundA, foundB)
+	}
+}
+
+
+// --- StopTurn integration tests ---
+
+func TestRunWithStopTurn(t *testing.T) {
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.ToolCallPart{ID: "call_1", Name: "confirm", Arguments: `{}`}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "should not reach"}}},
+	}}
+	m.finishReasons = []string{"tool_calls", "stop"}
+
+	a := New(m)
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools: []core.ToolDefinition{{
+			Name: "confirm",
+			ExecutableTool: &core.ExecutableProviderTool{
+				Run: func(ctx context.Context, call core.ToolCall) (core.ToolResponse, error) {
+					return core.ToolResponse{Content: "confirmed", StopTurn: true}, nil
+				},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should stop after the tool result, so only 3 messages: system, user, assistant tool call, tool result
+	// Wait, system is not in messages initially. Let's count.
+	// Initial: user
+	// After model: assistant (tool call)
+	// After tool: tool result
+	// No more steps because StopTurn=true
+	if m.callIdx != 1 {
+		t.Errorf("model calls: got %d, want 1", m.callIdx)
+	}
+	var foundStopTurn bool
+	for _, msg := range res.Messages {
+		if msg.Role == core.MESSAGE_ROLE_TOOL {
+			for _, p := range msg.Content {
+				if tr, ok := p.(core.ToolResultPart); ok && tr.StopTurn {
+					foundStopTurn = true
+				}
+			}
+		}
+	}
+	if !foundStopTurn {
+		t.Error("expected tool result with StopTurn=true")
+	}
+}
+
+
+// --- ToolCallRepair integration tests ---
+
+func TestRunWithRepairToolCall(t *testing.T) {
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.ToolCallPart{ID: "call_1", Name: "calc", Arguments: `{invalid`}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+	}}
+	m.finishReasons = []string{"tool_calls", "stop"}
+
+	repaired := false
+	a := New(m, WithRepairToolCall(func(ctx context.Context, opts RepairToolCallOptions) (*core.ToolCallPart, error) {
+		repaired = true
+		// Repair by providing valid JSON.
+		fixed := opts.OriginalCall
+		fixed.Arguments = `{"x":1}`
+		return &fixed, nil
+	}))
+	a.RegisterTool("calc", func(ctx context.Context, args string) (string, error) {
+		return "42", nil
+	})
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools: []core.ToolDefinition{{
+			Name:       "calc",
+			Parameters: &core.Schema{Type: "object", Required: []string{"x"}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repaired {
+		t.Error("expected repair to be triggered")
+	}
+	// Tool should have executed successfully after repair.
+	var found bool
+	for _, msg := range res.Messages {
+		if msg.Role == core.MESSAGE_ROLE_TOOL {
+			for _, p := range msg.Content {
+				if tr, ok := p.(core.ToolResultPart); ok {
+					for _, inner := range tr.Content {
+						if tp, ok := inner.(core.TextPart); ok && tp.Text == "42" {
+							found = true
+						}
+					}
+				}
+			}
+		}
+	}
+	if !found {
+		t.Error("expected tool result '42' after repair")
+	}
+}
+
+func TestRunWithRepairToolCall_MissingRequiredField(t *testing.T) {
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.ToolCallPart{ID: "call_1", Name: "calc", Arguments: `{}`}}},
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+	}}
+	m.finishReasons = []string{"tool_calls", "stop"}
+
+	repaired := false
+	a := New(m, WithRepairToolCall(func(ctx context.Context, opts RepairToolCallOptions) (*core.ToolCallPart, error) {
+		repaired = true
+		fixed := opts.OriginalCall
+		fixed.Arguments = `{"x":1}`
+		return &fixed, nil
+	}))
+	a.RegisterTool("calc", func(ctx context.Context, args string) (string, error) {
+		return "42", nil
+	})
+
+	_, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools: []core.ToolDefinition{{
+			Name:       "calc",
+			Parameters: &core.Schema{Type: "object", Required: []string{"x"}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !repaired {
+		t.Error("expected repair to be triggered for missing required field")
+	}
+}

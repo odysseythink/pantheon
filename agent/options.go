@@ -44,3 +44,74 @@ func WithStopConditions(conditions ...StopCondition) Option {
 		a.stopConditions = conditions
 	}
 }
+
+// WithOnStepStart sets a callback invoked when a step starts.
+func WithOnStepStart(fn OnStepStartFunc) Option {
+	return func(a *Agent) {
+		a.onStepStart = fn
+	}
+}
+
+// WithOnStepFinish sets a callback invoked when a step finishes.
+func WithOnStepFinish(fn OnStepFinishFunc) Option {
+	return func(a *Agent) {
+		a.onStepFinish = fn
+	}
+}
+
+// WithOnError sets a callback invoked when an error occurs.
+func WithOnError(fn OnErrorFunc) Option {
+	return func(a *Agent) {
+		a.onError = fn
+	}
+}
+
+// WithOnTextDelta sets a callback invoked for each text delta.
+func WithOnTextDelta(fn OnTextDeltaFunc) Option {
+	return func(a *Agent) {
+		a.onTextDelta = fn
+	}
+}
+
+// WithOnReasoningDelta sets a callback invoked for each reasoning delta.
+func WithOnReasoningDelta(fn OnReasoningDeltaFunc) Option {
+	return func(a *Agent) {
+		a.onReasoningDelta = fn
+	}
+}
+
+// WithOnToolCall sets a callback invoked when a tool call is received.
+func WithOnToolCall(fn OnToolCallFunc) Option {
+	return func(a *Agent) {
+		a.onToolCall = fn
+	}
+}
+
+// WithOnToolResult sets a callback invoked when a tool result is produced.
+func WithOnToolResult(fn OnToolResultFunc) Option {
+	return func(a *Agent) {
+		a.onToolResult = fn
+	}
+}
+
+// WithOnSource sets a callback invoked when a source reference is received.
+func WithOnSource(fn OnSourceFunc) Option {
+	return func(a *Agent) {
+		a.onSource = fn
+	}
+}
+
+// WithPrepareStep sets a function that is called before each step to allow
+// dynamic modification of model, messages, tools, etc.
+func WithPrepareStep(fn PrepareStepFunc) Option {
+	return func(a *Agent) {
+		a.prepareStep = fn
+	}
+}
+
+// WithRepairToolCall sets a function that repairs invalid tool calls.
+func WithRepairToolCall(fn RepairToolCallFunc) Option {
+	return func(a *Agent) {
+		a.repairToolCall = fn
+	}
+}
