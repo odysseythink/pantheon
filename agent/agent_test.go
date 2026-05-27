@@ -1253,3 +1253,121 @@ func TestMaxRetries_ZeroDisables(t *testing.T) {
 		t.Errorf("expected model NOT to be wrapped when MaxRetries=0")
 	}
 }
+
+func TestRun_ReturnsSteps(t *testing.T) {
+	m := &mockModel{
+		responses: []core.Message{
+			{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "hello"}}},
+		},
+		finishReasons: []string{"stop"},
+	}
+	a := New(m)
+
+	result, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	})
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+
+	if len(result.Steps) != 1 {
+		t.Fatalf("Steps count: got %d, want 1", len(result.Steps))
+	}
+	step := result.Steps[0]
+	if step.StepNumber != 1 {
+		t.Errorf("StepNumber: got %d, want 1", step.StepNumber)
+	}
+	if step.Response.FinishReason != "stop" {
+		t.Errorf("FinishReason: got %q, want stop", step.Response.FinishReason)
+	}
+	if len(step.ToolResults) != 0 {
+		t.Errorf("ToolResults: got %d, want 0", len(step.ToolResults))
+	}
+	if len(step.Messages) != 2 {
+		t.Errorf("Messages count: got %d, want 2 (user + assistant)", len(step.Messages))
+	}
+}
+
+func TestRun_StepResultContainsToolResults(t *testing.T) {
+	m := &mockModel{
+		responses: []core.Message{
+			{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.ToolCallPart{ID: "call_1", Name: "tool", Arguments: `{}`}}},
+			{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+		},
+		finishReasons: []string{"tool_calls", "stop"},
+	}
+	a := New(m)
+	a.RegisterTool("tool", func(ctx context.Context, args string) (string, error) {
+		return "result", nil
+	})
+
+	result, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	})
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+
+	if len(result.Steps) != 2 {
+		t.Fatalf("Steps count: got %d, want 2", len(result.Steps))
+	}
+
+	step1 := result.Steps[0]
+	if step1.StepNumber != 1 {
+		t.Errorf("Step1 StepNumber: got %d, want 1", step1.StepNumber)
+	}
+	if len(step1.ToolResults) != 1 {
+		t.Errorf("Step1 ToolResults: got %d, want 1", len(step1.ToolResults))
+	}
+	if step1.ToolResults[0].Name != "tool" {
+		t.Errorf("Step1 ToolResult Name: got %q, want tool", step1.ToolResults[0].Name)
+	}
+
+	step2 := result.Steps[1]
+	if step2.StepNumber != 2 {
+		t.Errorf("Step2 StepNumber: got %d, want 2", step2.StepNumber)
+	}
+	if len(step2.ToolResults) != 0 {
+		t.Errorf("Step2 ToolResults: got %d, want 0", len(step2.ToolResults))
+	}
+}
+
+func TestRun_StepResultMessagesSnapshot(t *testing.T) {
+	m := &mockModel{
+		responses: []core.Message{
+			{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.ToolCallPart{ID: "call_1", Name: "tool", Arguments: `{}`}}},
+			{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+		},
+		finishReasons: []string{"tool_calls", "stop"},
+	}
+	a := New(m)
+	a.RegisterTool("tool", func(ctx context.Context, args string) (string, error) {
+		return "result", nil
+	})
+
+	result, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	})
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+
+	if len(result.Steps) != 2 {
+		t.Fatalf("Steps count: got %d, want 2", len(result.Steps))
+	}
+
+	step1 := result.Steps[0]
+	if len(step1.Messages) != 3 {
+		t.Errorf("Step1 Messages count: got %d, want 3", len(step1.Messages))
+	}
+
+	step2 := result.Steps[1]
+	if len(step2.Messages) != 4 {
+		t.Errorf("Step2 Messages count: got %d, want 4", len(step2.Messages))
+	}
+
+	result.Messages = append(result.Messages, core.Message{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "extra"}}})
+	if len(step2.Messages) != 4 {
+		t.Errorf("Step2 Messages should remain 4 after result.Messages modified, got %d", len(step2.Messages))
+	}
+}
