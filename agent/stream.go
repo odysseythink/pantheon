@@ -43,6 +43,14 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 		messages := append([]core.Message(nil), req.Messages...)
 		var lastHadToolCalls bool
 
+		// Build a lookup of provider-executed tools (server-side, skip local execution).
+		providerTools := make(map[string]bool)
+		for _, t := range req.Tools {
+			if t.ProviderTool != nil {
+				providerTools[t.Name] = true
+			}
+		}
+
 		for step := 0; step < a.maxSteps; step++ {
 			lastHadToolCalls = false
 			if !yield(&StreamEvent{Type: StreamEventTypeStepStart, Step: step + 1}, nil) {
@@ -70,6 +78,8 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 
 			var assistantMsg core.Message
 			assistantMsg.Role = core.MESSAGE_ROLE_ASSISTANT
+			var finishReason string
+			var usage core.Usage
 
 			for part, err := range stream {
 				if err != nil {
@@ -93,12 +103,29 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 						return
 					}
 				case core.StreamPartTypeUsage:
+					if part.Usage != nil {
+						usage = *part.Usage
+					}
 					if !yield(&StreamEvent{Type: StreamEventTypeUsage, Usage: part.Usage, Step: step + 1}, nil) {
 						return
 					}
 				case core.StreamPartTypeFinish:
-					// finish marker; don't yield
+					finishReason = part.FinishReason
 				}
+			}
+
+			// Evaluate custom stop conditions before executing tools.
+			resp := &core.Response{
+				Message:      assistantMsg,
+				FinishReason: finishReason,
+				Usage:        usage,
+			}
+			if a.shouldStop(step, resp, messages) {
+				messages = append(messages, assistantMsg)
+				if !yield(&StreamEvent{Type: StreamEventTypeStepFinish, Step: step + 1}, nil) {
+					return
+				}
+				break
 			}
 
 			messages = append(messages, assistantMsg)
@@ -113,6 +140,10 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 
 			lastHadToolCalls = true
 			for _, tc := range toolCalls {
+				// Provider-executed tools are handled server-side; skip local execution.
+				if providerTools[tc.Name] {
+					continue
+				}
 				result, isError := a.executeTool(ctx, tc)
 				toolResult := core.ToolResultPart{
 					ToolCallID: tc.ID,

@@ -563,3 +563,276 @@ func TestRunStreamYieldStopAtStepFinishAfterTool(t *testing.T) {
 		t.Errorf("count: got %d, want 4", count)
 	}
 }
+
+// --- Stop condition integration tests for RunStream ---
+
+func TestRunStreamWithStopCondition_StepCount(t *testing.T) {
+	// Model would yield a tool call, but stop condition fires at step 0.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "tool", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(StepCountIs(0)))
+	a.RegisterTool("tool", func(ctx context.Context, args string) (string, error) {
+		return "result", nil
+	})
+
+	var toolResult *core.ToolResultPart
+	var stepFinish bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "tool", Parameters: &core.Schema{Type: "object"}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		switch event.Type {
+		case StreamEventTypeToolResult:
+			toolResult = event.ToolResult
+		case StreamEventTypeStepFinish:
+			stepFinish = true
+		}
+	}
+
+	if toolResult != nil {
+		t.Error("tool should NOT be executed when stop condition fires")
+	}
+	if !stepFinish {
+		t.Error("expected StepFinish event")
+	}
+	if m.callIdx != 1 {
+		t.Errorf("model calls: got %d, want 1", m.callIdx)
+	}
+}
+
+func TestRunStreamWithStopCondition_HasToolCall(t *testing.T) {
+	// Stream yields a tool call that matches the stop condition.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "finish", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(HasToolCall("finish")))
+	a.RegisterTool("finish", func(ctx context.Context, args string) (string, error) {
+		return "result", nil
+	})
+
+	var toolResult *core.ToolResultPart
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "finish", Parameters: &core.Schema{Type: "object"}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeToolResult {
+			toolResult = event.ToolResult
+		}
+	}
+
+	if toolResult != nil {
+		t.Error("tool should NOT be executed when HasToolCall stop condition matches")
+	}
+	if m.callIdx != 1 {
+		t.Errorf("model calls: got %d, want 1", m.callIdx)
+	}
+}
+
+func TestRunStreamWithStopCondition_FinishReason(t *testing.T) {
+	// Stream finishes with reason "stop" which matches the condition.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(FinishReasonIs("stop")))
+
+	var text string
+	var stepFinish bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		switch event.Type {
+		case StreamEventTypeTextDelta:
+			text += event.TextDelta
+		case StreamEventTypeStepFinish:
+			stepFinish = true
+		}
+	}
+
+	if text != "done" {
+		t.Errorf("text: got %q, want done", text)
+	}
+	if !stepFinish {
+		t.Error("expected StepFinish event")
+	}
+}
+
+func TestRunStreamWithStopCondition_MaxTokensUsed(t *testing.T) {
+	// Stream includes usage that exceeds the limit.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeUsage, Usage: &core.Usage{TotalTokens: 150}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(MaxTokensUsed(100)))
+
+	var stepFinish bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeStepFinish {
+			stepFinish = true
+		}
+	}
+
+	if !stepFinish {
+		t.Error("expected StepFinish event when MaxTokensUsed triggers")
+	}
+}
+
+func TestRunStreamWithStopCondition_AnyOf(t *testing.T) {
+	// Finish reason "stop" matches the AnyOf condition.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(AnyOf(
+		StepCountIs(2),
+		FinishReasonIs("stop"),
+	)))
+
+	var stepFinish bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeStepFinish {
+			stepFinish = true
+		}
+	}
+
+	if !stepFinish {
+		t.Error("expected StepFinish event")
+	}
+}
+
+func TestRunStreamWithStopCondition_AllOf(t *testing.T) {
+	// AllOf requires both step >= 1 AND finish reason "stop".
+	// Step 0: finish "length" → does NOT match → tool executes.
+	// Step 1: finish "stop" → matches → stops.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "noop", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "length"},
+		},
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(AllOf(
+		func(step int, resp *core.Response, messages []core.Message) bool { return step >= 1 },
+		FinishReasonIs("stop"),
+	)))
+	a.RegisterTool("noop", func(ctx context.Context, args string) (string, error) {
+		return "ok", nil
+	})
+
+	var toolResults int
+	var stepFinishes int
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "noop", Parameters: &core.Schema{Type: "object"}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		switch event.Type {
+		case StreamEventTypeToolResult:
+			toolResults++
+		case StreamEventTypeStepFinish:
+			stepFinishes++
+		}
+	}
+
+	// Tool executed once at step 0, then stopped at step 1.
+	if toolResults != 1 {
+		t.Errorf("tool results: got %d, want 1", toolResults)
+	}
+	if stepFinishes != 2 {
+		t.Errorf("step finishes: got %d, want 2", stepFinishes)
+	}
+	if m.callIdx != 2 {
+		t.Errorf("model calls: got %d, want 2", m.callIdx)
+	}
+}
+
+// TestRunStreamProviderToolSkipped verifies that provider-defined tools
+// (ProviderTool != nil) are skipped during local execution in RunStream.
+func TestRunStreamProviderToolSkipped(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "server_tool", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	// Intentionally register a local handler with the same name — it should NOT be called.
+	called := false
+	a := New(m, WithMaxSteps(5))
+	a.RegisterTool("server_tool", func(ctx context.Context, args string) (string, error) {
+		called = true
+		return "local result", nil
+	})
+
+	var toolResults int
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools: []core.ToolDefinition{{
+			Name:         "server_tool",
+			Parameters:   &core.Schema{Type: "object"},
+			ProviderTool: map[string]any{"type": "server_tool"},
+		}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeToolResult {
+			toolResults++
+		}
+	}
+
+	if called {
+		t.Error("local handler for provider tool should NOT be called")
+	}
+	if toolResults != 0 {
+		t.Errorf("tool results: got %d, want 0", toolResults)
+	}
+}
