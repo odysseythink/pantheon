@@ -12,8 +12,9 @@ import (
 )
 
 type mockModel struct {
-	responses []core.Message
-	callIdx   int
+	responses     []core.Message
+	finishReasons []string
+	callIdx       int
 }
 
 func (m *mockModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
@@ -21,8 +22,12 @@ func (m *mockModel) Generate(ctx context.Context, req *core.Request) (*core.Resp
 		return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}}}, nil
 	}
 	msg := m.responses[m.callIdx]
+	var finishReason string
+	if m.callIdx < len(m.finishReasons) {
+		finishReason = m.finishReasons[m.callIdx]
+	}
 	m.callIdx++
-	return &core.Response{Message: msg}, nil
+	return &core.Response{Message: msg, FinishReason: finishReason}, nil
 }
 
 func (m *mockModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
@@ -313,3 +318,210 @@ func TestRunToolExecutionError(t *testing.T) {
 		t.Errorf("error text: got %q", tp.Text)
 	}
 }
+
+// --- Stop condition integration tests ---
+
+func TestRunWithStopCondition_StepCount(t *testing.T) {
+	// Model would return a tool call, but stop condition fires at step 0.
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{
+			core.ToolCallPart{ID: "call_1", Name: "tool", Arguments: `{}`},
+		}},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(StepCountIs(0)))
+	a.RegisterTool("tool", func(ctx context.Context, args string) (string, error) {
+		return "result", nil
+	})
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "tool", Parameters: &core.Schema{Type: "object"}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// user + assistant = 2 messages; tool should NOT be executed
+	if len(res.Messages) != 2 {
+		t.Errorf("messages: got %d, want 2 (no tool execution)", len(res.Messages))
+	}
+	if m.callIdx != 1 {
+		t.Errorf("model calls: got %d, want 1", m.callIdx)
+	}
+}
+
+func TestRunWithStopCondition_HasToolCall(t *testing.T) {
+	// Model returns a tool call that matches the stop condition.
+	m := &mockModel{responses: []core.Message{
+		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{
+			core.ToolCallPart{ID: "call_1", Name: "finish", Arguments: `{}`},
+		}},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(HasToolCall("finish")))
+	a.RegisterTool("finish", func(ctx context.Context, args string) (string, error) {
+		return "result", nil
+	})
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "finish", Parameters: &core.Schema{Type: "object"}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Messages) != 2 {
+		t.Errorf("messages: got %d, want 2", len(res.Messages))
+	}
+	if m.callIdx != 1 {
+		t.Errorf("model calls: got %d, want 1", m.callIdx)
+	}
+}
+
+func TestRunWithStopCondition_FinishReason(t *testing.T) {
+	// Model returns a response with finish reason "stop".
+	m := &mockModel{
+		responses: []core.Message{
+			{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+		},
+		finishReasons: []string{"stop"},
+	}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(FinishReasonIs("stop")))
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// user + assistant = 2 messages
+	if len(res.Messages) != 2 {
+		t.Errorf("messages: got %d, want 2", len(res.Messages))
+	}
+	if m.callIdx != 1 {
+		t.Errorf("model calls: got %d, want 1", m.callIdx)
+	}
+}
+
+func TestRunWithStopCondition_AnyOf(t *testing.T) {
+	// First response has finish reason "stop" which matches AnyOf.
+	m := &mockModel{
+		responses: []core.Message{
+			{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+		},
+		finishReasons: []string{"stop"},
+	}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(AnyOf(
+		StepCountIs(2),
+		FinishReasonIs("stop"),
+	)))
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Messages) != 2 {
+		t.Errorf("messages: got %d, want 2", len(res.Messages))
+	}
+}
+
+func TestRunWithStopCondition_AllOf(t *testing.T) {
+	// AllOf requires both conditions: step count >= 1 AND finish reason "stop".
+	// First call: step 0, finish reason "length" → does NOT match AllOf → tool execution proceeds.
+	// Second call: step 1, finish reason "stop" → matches AllOf → stops.
+	m := &mockModel{
+		responses: []core.Message{
+			{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{
+				core.ToolCallPart{ID: "call_1", Name: "noop", Arguments: `{}`},
+			}},
+			{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "done"}}},
+		},
+		finishReasons: []string{"length", "stop"},
+	}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(AllOf(
+		func(step int, resp *core.Response, messages []core.Message) bool { return step >= 1 },
+		FinishReasonIs("stop"),
+	)))
+	a.RegisterTool("noop", func(ctx context.Context, args string) (string, error) {
+		return "ok", nil
+	})
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "noop", Parameters: &core.Schema{Type: "object"}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// user + assistant(step0) + tool_result + assistant(step1) = 4 messages
+	if len(res.Messages) != 4 {
+		t.Errorf("messages: got %d, want 4", len(res.Messages))
+	}
+	if m.callIdx != 2 {
+		t.Errorf("model calls: got %d, want 2", m.callIdx)
+	}
+}
+
+func TestRunWithStopCondition_MaxTokensUsed(t *testing.T) {
+	// Model returns usage that exceeds the limit.
+	m := &mockModel{}
+
+	// Wrap the mock to inject usage into the response.
+	usageModel := &usageInjectingModel{
+		inner: m,
+		usage: []core.Usage{
+			{TotalTokens: 150},
+		},
+	}
+
+	a := New(usageModel, WithMaxSteps(5), WithStopConditions(MaxTokensUsed(100)))
+
+	res, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(res.Messages) != 2 {
+		t.Errorf("messages: got %d, want 2", len(res.Messages))
+	}
+}
+
+// usageInjectingModel wraps a LanguageModel and injects specific usage values.
+type usageInjectingModel struct {
+	inner core.LanguageModel
+	usage []core.Usage
+	idx   int
+}
+
+func (m *usageInjectingModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	resp, err := m.inner.Generate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if m.idx < len(m.usage) {
+		resp.Usage = m.usage[m.idx]
+		m.idx++
+	}
+	return resp, nil
+}
+
+func (m *usageInjectingModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	return m.inner.Stream(ctx, req)
+}
+
+func (m *usageInjectingModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return m.inner.GenerateObject(ctx, req)
+}
+
+func (m *usageInjectingModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return m.inner.StreamObject(ctx, req)
+}
+
+func (m *usageInjectingModel) Provider() string { return m.inner.Provider() }
+func (m *usageInjectingModel) Model() string    { return m.inner.Model() }

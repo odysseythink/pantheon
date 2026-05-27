@@ -3,6 +3,7 @@ package openaicompat
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/utils/jsonrepair"
@@ -42,7 +43,7 @@ func (c *Client) StreamObject(ctx context.Context, model string, req *core.Objec
 	stream := c.ChatCompletionStream(ctx, model, coreReq)
 
 	return func(yield func(*core.ObjectStreamPart, error) bool) {
-		var accumulated string
+		var accumulated strings.Builder
 		var lastParsed map[string]any
 		var finishReason string
 		var usage *core.Usage
@@ -55,10 +56,10 @@ func (c *Client) StreamObject(ctx context.Context, model string, req *core.Objec
 
 			switch part.Type {
 			case core.StreamPartTypeTextDelta:
-				accumulated += part.TextDelta
+				accumulated.WriteString(part.TextDelta)
 
 				// Attempt to parse incremental JSON.
-				repaired, repairErr := jsonrepair.RepairJSON(accumulated)
+				repaired, repairErr := jsonrepair.RepairJSON(accumulated.String())
 				if repairErr != nil {
 					continue
 				}
