@@ -49,6 +49,7 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 		a.ensureRetryModel()
 		messages := append([]core.Message(nil), req.Messages...)
 		var lastHadToolCalls bool
+		var steps []StepResult
 
 		for step := 0; step < a.maxSteps; step++ {
 			lastHadToolCalls = false
@@ -86,6 +87,7 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 					Step:     step,
 					Model:    stepModel,
 					Messages: stepMessages,
+					Steps:    steps,
 				})
 				if err != nil {
 					a.invokeError(yield, fmt.Errorf("prepare step %d: %w", step, err))
@@ -237,11 +239,20 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 			}
 			if a.shouldStop(step, resp, messages) {
 				messages = append(messages, assistantMsg)
+				stepResult := StepResult{
+					StepNumber: step + 1,
+					Response:   core.Response{Message: assistantMsg, FinishReason: finishReason, Usage: usage},
+					Messages:   append([]core.Message(nil), messages...),
+				}
+				steps = append(steps, stepResult)
 				if a.onStepFinish != nil {
 					if err := a.onStepFinish(step+1, messages, usage); err != nil {
 						a.invokeError(yield, err)
 						return
 					}
+				}
+				if !yield(&StreamEvent{Type: StreamEventTypeStepResult, StepResult: &stepResult, Step: step + 1}, nil) {
+					return
 				}
 				if !yield(&StreamEvent{Type: StreamEventTypeStepFinish, Step: step + 1}, nil) {
 					return
@@ -253,11 +264,20 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 
 			toolCalls := extractToolCalls(assistantMsg.Content)
 			if len(toolCalls) == 0 || disableAllTools {
+				stepResult := StepResult{
+					StepNumber: step + 1,
+					Response:   core.Response{Message: assistantMsg, FinishReason: finishReason, Usage: usage},
+					Messages:   append([]core.Message(nil), messages...),
+				}
+				steps = append(steps, stepResult)
 				if a.onStepFinish != nil {
 					if err := a.onStepFinish(step+1, messages, usage); err != nil {
 						a.invokeError(yield, err)
 						return
 					}
+				}
+				if !yield(&StreamEvent{Type: StreamEventTypeStepResult, StepResult: &stepResult, Step: step + 1}, nil) {
+					return
 				}
 				if !yield(&StreamEvent{Type: StreamEventTypeStepFinish, Step: step + 1}, nil) {
 					return
@@ -315,6 +335,7 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 			}
 
 			var stopTurn bool
+			var stepToolResults []core.ToolResultPart
 			for _, r := range results {
 				toolResult := core.ToolResultPart{
 					ToolCallID: r.toolCallID,
@@ -323,6 +344,7 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 					IsError:    r.isError,
 					StopTurn:   r.stopTurn,
 				}
+				stepToolResults = append(stepToolResults, toolResult)
 				messages = append(messages, core.Message{
 					Role:    core.MESSAGE_ROLE_TOOL,
 					Content: []core.ContentParter{toolResult},
@@ -339,6 +361,16 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 				if r.stopTurn {
 					stopTurn = true
 				}
+			}
+			stepResult := StepResult{
+				StepNumber:  step + 1,
+				Response:    core.Response{Message: assistantMsg, FinishReason: finishReason, Usage: usage},
+				ToolResults: stepToolResults,
+				Messages:    append([]core.Message(nil), messages...),
+			}
+			steps = append(steps, stepResult)
+			if !yield(&StreamEvent{Type: StreamEventTypeStepResult, StepResult: &stepResult, Step: step + 1}, nil) {
+				return
 			}
 			if stopTurn {
 				lastHadToolCalls = false
