@@ -161,6 +161,15 @@ func joinTexts(texts []string) string {
 func ToOpenAITools(tools []core.ToolDefinition) []any {
 	var out []any
 	for _, t := range tools {
+		if pdt, ok := core.IsProviderDefinedTool(t.ProviderTool); ok {
+			switch pdt.ID {
+			case "openai.web_search_preview":
+				out = append(out, map[string]any{"type": "web_search_preview"})
+			default:
+				out = append(out, t.ProviderTool) // unknown ID: fallback to opaque
+			}
+			continue
+		}
 		if t.ProviderTool != nil {
 			out = append(out, t.ProviderTool)
 			continue

@@ -237,6 +237,75 @@ func TestToOpenAITools_ProviderTool(t *testing.T) {
 	}
 }
 
+func TestToOpenAITools_ProviderDefinedTool(t *testing.T) {
+	tools := []core.ToolDefinition{
+		{
+			Name: "web_search",
+			ProviderTool: &core.ProviderDefinedTool{
+				ID:   "openai.web_search_preview",
+				Name: "web_search",
+			},
+		},
+		{
+			Name:        "get_weather",
+			Description: "Get weather",
+			Parameters:  &core.Schema{Type: "object"},
+		},
+	}
+	out := ToOpenAITools(tools)
+	if len(out) != 2 {
+		t.Fatalf("expected 2 tools, got %d", len(out))
+	}
+	m, ok := out[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map for provider tool, got %T", out[0])
+	}
+	if m["type"] != "web_search_preview" {
+		t.Errorf("unexpected provider tool: %+v", m)
+	}
+	tool, ok := out[1].(Tool)
+	if !ok {
+		t.Fatalf("expected Tool, got %T", out[1])
+	}
+	if tool.Type != "function" {
+		t.Errorf("expected function type, got %q", tool.Type)
+	}
+}
+
+func TestToOpenAITools_ProviderDefinedToolUnknownID(t *testing.T) {
+	opaque := map[string]string{"type": "custom"}
+	tools := []core.ToolDefinition{
+		{
+			Name:         "custom_tool",
+			ProviderTool: &core.ProviderDefinedTool{ID: "unknown.custom", Name: "custom_tool"},
+		},
+		{
+			Name:         "opaque_tool",
+			ProviderTool: opaque,
+		},
+	}
+	out := ToOpenAITools(tools)
+	if len(out) != 2 {
+		t.Fatalf("expected 2 tools, got %d", len(out))
+	}
+	// Unknown ProviderDefinedTool falls back to opaque passthrough
+	pdt, ok := out[0].(*core.ProviderDefinedTool)
+	if !ok {
+		t.Fatalf("expected *ProviderDefinedTool fallback, got %T", out[0])
+	}
+	if pdt.ID != "unknown.custom" {
+		t.Errorf("unexpected fallback: %+v", pdt)
+	}
+	// Non-ProviderDefinedTool opaque passthrough
+	m, ok := out[1].(map[string]string)
+	if !ok {
+		t.Fatalf("expected map for opaque tool, got %T", out[1])
+	}
+	if m["type"] != "custom" {
+		t.Errorf("unexpected opaque tool: %+v", m)
+	}
+}
+
 func TestToCoreResponse_Text(t *testing.T) {
 	resp := &ChatCompletionResponse{
 		Model: "gpt-4",
