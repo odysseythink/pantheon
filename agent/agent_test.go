@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -1472,6 +1473,52 @@ func TestRun_WithOnRetry(t *testing.T) {
 	}
 	if inner.calls != 2 { // initial + 1 retry
 		t.Errorf("inner calls: got %d, want 2", inner.calls)
+	}
+}
+
+func TestRun_ReasoningLifecycle(t *testing.T) {
+	m := &mockModel{
+		responses: []core.Message{
+			{
+				Role: core.MESSAGE_ROLE_ASSISTANT,
+				Content: []core.ContentParter{
+					core.ReasoningPart{Text: "I will think step by step."},
+					core.TextPart{Text: "Answer: 42"},
+				},
+			},
+		},
+		finishReasons: []string{"stop"},
+	}
+	var lifecycle []string
+	a := New(m,
+		WithOnReasoningStart(func(step int) error {
+			lifecycle = append(lifecycle, fmt.Sprintf("start:%d", step))
+			return nil
+		}),
+		WithOnReasoningDelta(func(step int, delta string) error {
+			lifecycle = append(lifecycle, fmt.Sprintf("delta:%d:%s", step, delta))
+			return nil
+		}),
+		WithOnReasoningEnd(func(step int, fullReasoning string) error {
+			lifecycle = append(lifecycle, fmt.Sprintf("end:%d:%s", step, fullReasoning))
+			return nil
+		}),
+	)
+
+	_, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	})
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+
+	want := []string{
+		"start:1",
+		"delta:1:I will think step by step.",
+		"end:1:I will think step by step.",
+	}
+	if !slices.Equal(lifecycle, want) {
+		t.Fatalf("lifecycle mismatch:\ngot:  %v\nwant: %v", lifecycle, want)
 	}
 }
 

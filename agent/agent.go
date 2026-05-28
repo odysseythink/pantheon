@@ -296,6 +296,27 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 
 		messages = append(messages, resp.Message)
 
+		// Fire reasoning lifecycle callbacks for non-streaming calls.
+		for _, part := range resp.Message.Content {
+			if rp, ok := part.(core.ReasoningPart); ok {
+				if a.onReasoningStart != nil {
+					if err := a.onReasoningStart(step + 1); err != nil {
+						return nil, err
+					}
+				}
+				if a.onReasoningDelta != nil {
+					if err := a.onReasoningDelta(step+1, rp.Text); err != nil {
+						return nil, err
+					}
+				}
+				if a.onReasoningEnd != nil {
+					if err := a.onReasoningEnd(step+1, rp.Text); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+
 		toolCalls := extractToolCalls(resp.Message.Content)
 		if len(toolCalls) == 0 || disableAllTools {
 			steps = append(steps, StepResult{
