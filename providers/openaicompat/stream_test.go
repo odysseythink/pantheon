@@ -320,3 +320,95 @@ func TestChatCompletionStream_ToolInputDeltas(t *testing.T) {
 		}
 	}
 }
+
+
+func TestChatCompletionStream_ReasoningBoundaries(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected Flusher")
+		}
+
+		chunks := []ChatCompletionResponse{
+			{Model: "gpt-4", Choices: []Choice{{
+				Delta: Message{ReasoningContent: "Let me think"},
+			}}},
+			{Model: "gpt-4", Choices: []Choice{{
+				Delta: Message{ReasoningContent: " about this"},
+			}}},
+			{Model: "gpt-4", Choices: []Choice{{
+				Delta:        Message{Content: "Hello"},
+				FinishReason: ptr("stop"),
+			}}},
+		}
+		for _, c := range chunks {
+			data, _ := json.Marshal(c)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		}
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "sk-test")
+	stream := c.ChatCompletionStream(context.Background(), "gpt-4", &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Think"}}}},
+	})
+
+	var types []core.StreamPartType
+	var reasoningDeltas []string
+	var textDeltas []string
+	var finishReason string
+	for part, err := range stream {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		types = append(types, part.Type)
+		switch part.Type {
+		case core.StreamPartTypeReasoningDelta:
+			reasoningDeltas = append(reasoningDeltas, part.ReasoningDelta)
+		case core.StreamPartTypeTextDelta:
+			textDeltas = append(textDeltas, part.TextDelta)
+		case core.StreamPartTypeFinish:
+			finishReason = part.FinishReason
+		}
+	}
+
+	wantTypes := []core.StreamPartType{
+		core.StreamPartTypeReasoningStart,
+		core.StreamPartTypeReasoningDelta,
+		core.StreamPartTypeReasoningDelta,
+		core.StreamPartTypeReasoningEnd,
+		core.StreamPartTypeTextDelta,
+		core.StreamPartTypeFinish,
+	}
+	if len(types) != len(wantTypes) {
+		t.Fatalf("part types count mismatch: got %d, want %d\ngot: %v", len(types), len(wantTypes), types)
+	}
+	for i := range wantTypes {
+		if types[i] != wantTypes[i] {
+			t.Fatalf("part type[%d]: got %v, want %v", i, types[i], wantTypes[i])
+		}
+	}
+
+	got := ""
+	for _, d := range reasoningDeltas {
+		got += d
+	}
+	if got != "Let me think about this" {
+		t.Errorf("reasoning deltas: got %q, want %q", got, "Let me think about this")
+	}
+	got = ""
+	for _, d := range textDeltas {
+		got += d
+	}
+	if got != "Hello" {
+		t.Errorf("text deltas: got %q, want %q", got, "Hello")
+	}
+	if finishReason != "stop" {
+		t.Errorf("finish reason: got %q, want stop", finishReason)
+	}
+}
