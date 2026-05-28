@@ -88,6 +88,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 		scanner.Buffer(make([]byte, 4096), 1024*1024)
 		var toolCalls map[int]*core.ToolCallPart
 		var finishReasonSeen bool
+		var reasoningActive bool
 
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -125,6 +126,41 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 			}
 
 			delta := chunk.Choices[0].Delta
+			if delta.ReasoningContent != "" {
+				if !reasoningActive {
+					reasoningActive = true
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeReasoningStart,
+					}
+					if c.Hooks.PostProcessStreamPart != nil {
+						c.Hooks.PostProcessStreamPart(sp, &chunk)
+					}
+					if !yield(sp, nil) {
+						return
+					}
+				}
+				sp := &core.StreamPart{
+					Type:           core.StreamPartTypeReasoningDelta,
+					ReasoningDelta: delta.ReasoningContent,
+				}
+				if c.Hooks.PostProcessStreamPart != nil {
+					c.Hooks.PostProcessStreamPart(sp, &chunk)
+				}
+				if !yield(sp, nil) {
+					return
+				}
+			} else if reasoningActive {
+				reasoningActive = false
+				sp := &core.StreamPart{
+					Type: core.StreamPartTypeReasoningEnd,
+				}
+				if c.Hooks.PostProcessStreamPart != nil {
+					c.Hooks.PostProcessStreamPart(sp, &chunk)
+				}
+				if !yield(sp, nil) {
+					return
+				}
+			}
 			if text, ok := delta.Content.(string); ok && text != "" {
 				sp := &core.StreamPart{Type: core.StreamPartTypeTextDelta, TextDelta: text}
 				if c.Hooks.PostProcessStreamPart != nil {
@@ -186,6 +222,18 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 			if chunk.Choices[0].FinishReason != nil {
 				finishReasonSeen = true
 				fr := *chunk.Choices[0].FinishReason
+				if reasoningActive {
+					reasoningActive = false
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeReasoningEnd,
+					}
+					if c.Hooks.PostProcessStreamPart != nil {
+						c.Hooks.PostProcessStreamPart(sp, &chunk)
+					}
+					if !yield(sp, nil) {
+						return
+					}
+				}
 				for _, tc := range toolCalls {
 					// Emit tool_input_end
 					spEnd := &core.StreamPart{
