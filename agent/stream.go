@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"strings"
 
 	"github.com/odysseythink/pantheon/core"
 )
@@ -168,6 +169,8 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 			var finishReason string
 			var usage core.Usage
 			var activeToolCalls map[string]*core.ToolCallPart
+			var reasoningActive bool
+			var reasoningText strings.Builder
 
 			for part, err := range stream {
 				if err != nil {
@@ -191,7 +194,23 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 					if !yield(&StreamEvent{Type: StreamEventTypeTextDelta, TextDelta: part.TextDelta, Step: step + 1}, nil) {
 						return
 					}
+				case core.StreamPartTypeReasoningStart:
+					reasoningActive = true
+					reasoningText.Reset()
+					if a.onReasoningStart != nil {
+						if err := a.onReasoningStart(step + 1); err != nil {
+							a.invokeError(yield, err)
+							return
+						}
+					}
+					if !yield(&StreamEvent{Type: StreamEventTypeReasoningStart, Step: step + 1}, nil) {
+						return
+					}
+
 				case core.StreamPartTypeReasoningDelta:
+					if reasoningActive {
+						reasoningText.WriteString(part.ReasoningDelta)
+					}
 					assistantMsg.Content = append(assistantMsg.Content, core.ReasoningPart{Text: part.ReasoningDelta})
 					if a.onReasoningDelta != nil {
 						if err := a.onReasoningDelta(step+1, part.ReasoningDelta); err != nil {
@@ -200,6 +219,20 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 						}
 					}
 					if !yield(&StreamEvent{Type: StreamEventTypeReasoningDelta, ReasoningDelta: part.ReasoningDelta, Step: step + 1}, nil) {
+						return
+					}
+
+				case core.StreamPartTypeReasoningEnd:
+					fullText := reasoningText.String()
+					if a.onReasoningEnd != nil {
+						if err := a.onReasoningEnd(step+1, fullText); err != nil {
+							a.invokeError(yield, err)
+							return
+						}
+					}
+					reasoningActive = false
+					reasoningText.Reset()
+					if !yield(&StreamEvent{Type: StreamEventTypeReasoningEnd, ReasoningDelta: fullText, Step: step + 1}, nil) {
 						return
 					}
 				case core.StreamPartTypeToolInputStart:

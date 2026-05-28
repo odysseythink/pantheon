@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1345,5 +1347,139 @@ func TestRunStreamToolInputCallbackError(t *testing.T) {
 	}
 	if !sawError {
 		t.Fatal("expected error event from OnToolInputStart failure")
+	}
+}
+
+func TestRunStream_ReasoningBoundaries(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningStart},
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "Let me think"},
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: " about this..."},
+			{Type: core.StreamPartTypeReasoningEnd},
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Hello!"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var eventTypes []StreamEventType
+	var startStep int
+	var endStep int
+	var endReasoning string
+	var deltas []string
+
+	a.onReasoningStart = func(step int) error {
+		startStep = step
+		return nil
+	}
+	a.onReasoningEnd = func(step int, fullReasoning string) error {
+		endStep = step
+		endReasoning = fullReasoning
+		return nil
+	}
+	a.onReasoningDelta = func(step int, delta string) error {
+		deltas = append(deltas, delta)
+		return nil
+	}
+
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		eventTypes = append(eventTypes, event.Type)
+	}
+
+	wantTypes := []StreamEventType{
+		StreamEventTypeStepStart,
+		StreamEventTypeReasoningStart,
+		StreamEventTypeReasoningDelta,
+		StreamEventTypeReasoningDelta,
+		StreamEventTypeReasoningEnd,
+		StreamEventTypeTextDelta,
+		StreamEventTypeStepResult,
+		StreamEventTypeStepFinish,
+	}
+	if !slices.Equal(eventTypes, wantTypes) {
+		t.Fatalf("event types mismatch:\ngot:  %v\nwant: %v", eventTypes, wantTypes)
+	}
+	if startStep != 1 {
+		t.Fatalf("OnReasoningStart step wrong: %d", startStep)
+	}
+	if endStep != 1 {
+		t.Fatalf("OnReasoningEnd step wrong: %d", endStep)
+	}
+	if endReasoning != "Let me think about this..." {
+		t.Fatalf("OnReasoningEnd fullReasoning wrong: %q", endReasoning)
+	}
+	wantDeltas := []string{"Let me think", " about this..."}
+	if !slices.Equal(deltas, wantDeltas) {
+		t.Fatalf("deltas mismatch:\ngot:  %v\nwant: %v", deltas, wantDeltas)
+	}
+}
+
+func TestRunStream_ReasoningBoundaries_BackwardCompat(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "Thinking..."},
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Done!"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var eventTypes []StreamEventType
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		eventTypes = append(eventTypes, event.Type)
+	}
+
+	wantTypes := []StreamEventType{
+		StreamEventTypeStepStart,
+		StreamEventTypeReasoningDelta,
+		StreamEventTypeTextDelta,
+		StreamEventTypeStepResult,
+		StreamEventTypeStepFinish,
+	}
+	if !slices.Equal(eventTypes, wantTypes) {
+		t.Fatalf("event types mismatch:\ngot:  %v\nwant: %v", eventTypes, wantTypes)
+	}
+}
+
+func TestRunStream_ReasoningBoundaries_CallbackError(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningStart},
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "think"},
+			{Type: core.StreamPartTypeReasoningEnd},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+	a.onReasoningStart = func(step int) error {
+		return fmt.Errorf("reasoning start error")
+	}
+
+	var sawError bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}) {
+		if err != nil {
+			sawError = true
+			if err.Error() != "reasoning start error" {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			break
+		}
+		_ = event
+	}
+	if !sawError {
+		t.Fatal("expected error event")
 	}
 }
