@@ -1483,3 +1483,77 @@ func TestRunStream_ReasoningBoundaries_CallbackError(t *testing.T) {
 		t.Fatal("expected error event")
 	}
 }
+
+func TestRunStream_ReasoningBoundaries_EndCallbackError(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningStart},
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "think"},
+			{Type: core.StreamPartTypeReasoningEnd},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+	a.onReasoningEnd = func(step int, fullReasoning string) error {
+		return fmt.Errorf("reasoning end error")
+	}
+
+	var sawError bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}) {
+		if err != nil {
+			sawError = true
+			if err.Error() != "reasoning end error" {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			break
+		}
+		_ = event
+	}
+	if !sawError {
+		t.Fatal("expected error event")
+	}
+}
+
+func TestRunStream_ReasoningBoundaries_DefensiveEndOnFinish(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningStart},
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "incomplete"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var eventTypes []StreamEventType
+	var endReasoning string
+	a.onReasoningEnd = func(step int, fullReasoning string) error {
+		endReasoning = fullReasoning
+		return nil
+	}
+
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		eventTypes = append(eventTypes, event.Type)
+	}
+
+	wantTypes := []StreamEventType{
+		StreamEventTypeStepStart,
+		StreamEventTypeReasoningStart,
+		StreamEventTypeReasoningDelta,
+		StreamEventTypeReasoningEnd,
+		StreamEventTypeStepResult,
+		StreamEventTypeStepFinish,
+	}
+	if !slices.Equal(eventTypes, wantTypes) {
+		t.Fatalf("event types mismatch:\ngot:  %v\nwant: %v", eventTypes, wantTypes)
+	}
+	if endReasoning != "incomplete" {
+		t.Fatalf("defensive end reasoning wrong: %q", endReasoning)
+	}
+}

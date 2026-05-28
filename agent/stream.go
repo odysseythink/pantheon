@@ -314,6 +314,23 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 				}
 			}
 
+			// Defensive: if provider emitted reasoning_start without reasoning_end,
+			// emit the end event now before the step concludes.
+			if reasoningActive {
+				fullText := reasoningText.String()
+				if a.onReasoningEnd != nil {
+					if err := a.onReasoningEnd(step+1, fullText); err != nil {
+						a.invokeError(yield, err)
+						return
+					}
+				}
+				reasoningActive = false
+				reasoningText.Reset()
+				if !yield(&StreamEvent{Type: StreamEventTypeReasoningEnd, ReasoningDelta: fullText, Step: step + 1}, nil) {
+					return
+				}
+			}
+
 			// Evaluate custom stop conditions before executing tools.
 			resp := &core.Response{
 				Message:      assistantMsg,

@@ -165,7 +165,6 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 					if !yield(sp, nil) {
 						return
 					}
-					currentBlockType = ""
 				} else if currentToolCall != nil {
 					// Emit tool_input_end
 					spEnd := &core.StreamPart{
@@ -181,8 +180,8 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 						return
 					}
 					currentToolCall = nil
-					currentBlockType = ""
 				}
+				currentBlockType = ""
 			case "message_delta":
 				if event.Delta != nil && event.Delta.StopReason != "" {
 					sp := &core.StreamPart{Type: core.StreamPartTypeFinish, FinishReason: event.Delta.StopReason}

@@ -109,7 +109,7 @@ func (m *LanguageModel) Stream(ctx context.Context, req *core.Request) (core.Str
 							return
 						}
 					}
-					if content.Type == "thinking" && content.Thinking != "" {
+					if (content.Type == "thinking" || content.Type == "reasoning") && content.Thinking != "" {
 						// Simulate lifecycle: start → delta → end
 						spStart := &core.StreamPart{
 							Type: core.StreamPartTypeReasoningStart,
