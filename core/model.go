@@ -61,6 +61,12 @@ const (
 	StreamPartTypeTextDelta StreamPartType = "text_delta"
 	// StreamPartTypeReasoningDelta indicates a delta of reasoning text.
 	StreamPartTypeReasoningDelta StreamPartType = "reasoning_delta"
+	// StreamPartTypeToolInputStart indicates the start of a tool call argument stream.
+	StreamPartTypeToolInputStart StreamPartType = "tool_input_start"
+	// StreamPartTypeToolInputDelta indicates a delta fragment of tool call arguments.
+	StreamPartTypeToolInputDelta StreamPartType = "tool_input_delta"
+	// StreamPartTypeToolInputEnd indicates the end of a tool call argument stream.
+	StreamPartTypeToolInputEnd StreamPartType = "tool_input_end"
 	// StreamPartTypeToolCall indicates a tool call emitted by the model.
 	StreamPartTypeToolCall StreamPartType = "tool_call"
 	// StreamPartTypeSource indicates a source reference emitted by the model.
