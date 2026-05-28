@@ -125,9 +125,36 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 						Name:      tc.Function.Name,
 						Arguments: tc.Function.Arguments,
 					}
+					// Emit tool_input_start on first sighting
+					if tc.ID != "" || tc.Function.Name != "" {
+						sp := &core.StreamPart{
+							Type: core.StreamPartTypeToolInputStart,
+							ToolCall: &core.ToolCallPart{
+								ID:   tc.ID,
+								Name: tc.Function.Name,
+							},
+						}
+						if !yield(sp, nil) {
+							return
+						}
+					}
 				} else {
 					existing.Name += tc.Function.Name
 					existing.Arguments += tc.Function.Arguments
+				}
+
+				// Emit tool_input_delta for non-empty argument fragments
+				if tc.Function.Arguments != "" {
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeToolInputDelta,
+						ToolCall: &core.ToolCallPart{
+							ID:        toolCalls[tc.Index].ID,
+							Arguments: tc.Function.Arguments,
+						},
+					}
+					if !yield(sp, nil) {
+						return
+					}
 				}
 			}
 
@@ -140,8 +167,17 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 				}
 				sort.Ints(indices)
 				for _, idx := range indices {
-					sp := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: toolCalls[idx]}
-					if !yield(sp, nil) {
+					// Emit tool_input_end
+					spEnd := &core.StreamPart{
+						Type:     core.StreamPartTypeToolInputEnd,
+						ToolCall: &core.ToolCallPart{ID: toolCalls[idx].ID},
+					}
+					if !yield(spEnd, nil) {
+						return
+					}
+					// Emit tool_call
+					spCall := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: toolCalls[idx]}
+					if !yield(spCall, nil) {
 						return
 					}
 				}
