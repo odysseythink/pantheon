@@ -72,6 +72,7 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 		scanner := bufio.NewScanner(resp.Body)
 		scanner.Buffer(make([]byte, 4096), 1024*1024)
 		var currentToolCall *core.ToolCallPart
+		var currentBlockType string
 
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -127,25 +128,45 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 					}
 				}
 			case "content_block_start":
-				if event.Content != nil && event.Content.Type == "tool_use" {
-					currentToolCall = &core.ToolCallPart{
-						ID:   event.Content.ID,
-						Name: event.Content.Name,
-					}
-					// Emit tool_input_start
-					sp := &core.StreamPart{
-						Type: core.StreamPartTypeToolInputStart,
-						ToolCall: &core.ToolCallPart{
+				if event.Content != nil {
+					currentBlockType = event.Content.Type
+					if event.Content.Type == "tool_use" {
+						currentToolCall = &core.ToolCallPart{
 							ID:   event.Content.ID,
 							Name: event.Content.Name,
-						},
+						}
+						// Emit tool_input_start
+						sp := &core.StreamPart{
+							Type: core.StreamPartTypeToolInputStart,
+							ToolCall: &core.ToolCallPart{
+								ID:   event.Content.ID,
+								Name: event.Content.Name,
+							},
+						}
+						if !yield(sp, nil) {
+							return
+						}
+					} else if event.Content.Type == "thinking" {
+						// Emit reasoning_start
+						sp := &core.StreamPart{
+							Type: core.StreamPartTypeReasoningStart,
+						}
+						if !yield(sp, nil) {
+							return
+						}
+					}
+				}
+			case "content_block_stop":
+				if currentBlockType == "thinking" {
+					// Emit reasoning_end
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeReasoningEnd,
 					}
 					if !yield(sp, nil) {
 						return
 					}
-				}
-			case "content_block_stop":
-				if currentToolCall != nil {
+					currentBlockType = ""
+				} else if currentToolCall != nil {
 					// Emit tool_input_end
 					spEnd := &core.StreamPart{
 						Type:     core.StreamPartTypeToolInputEnd,
@@ -160,6 +181,7 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 						return
 					}
 					currentToolCall = nil
+					currentBlockType = ""
 				}
 			case "message_delta":
 				if event.Delta != nil && event.Delta.StopReason != "" {
