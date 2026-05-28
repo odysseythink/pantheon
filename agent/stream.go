@@ -14,6 +14,9 @@ type StreamEventType string
 const (
 	StreamEventTypeTextDelta      StreamEventType = "text_delta"
 	StreamEventTypeReasoningDelta StreamEventType = "reasoning_delta"
+	StreamEventTypeToolInputStart StreamEventType = "tool_input_start"
+	StreamEventTypeToolInputDelta StreamEventType = "tool_input_delta"
+	StreamEventTypeToolInputEnd   StreamEventType = "tool_input_end"
 	StreamEventTypeToolCall       StreamEventType = "tool_call"
 	StreamEventTypeToolResult     StreamEventType = "tool_result"
 	StreamEventTypeSource         StreamEventType = "source"

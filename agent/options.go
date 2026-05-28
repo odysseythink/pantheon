@@ -96,6 +96,27 @@ func WithOnToolResult(fn OnToolResultFunc) Option {
 	}
 }
 
+// WithOnToolInputStart sets a callback invoked when tool input streaming starts.
+func WithOnToolInputStart(fn OnToolInputStartFunc) Option {
+	return func(a *Agent) {
+		a.onToolInputStart = fn
+	}
+}
+
+// WithOnToolInputDelta sets a callback invoked for each tool input delta fragment.
+func WithOnToolInputDelta(fn OnToolInputDeltaFunc) Option {
+	return func(a *Agent) {
+		a.onToolInputDelta = fn
+	}
+}
+
+// WithOnToolInputEnd sets a callback invoked when tool input streaming ends.
+func WithOnToolInputEnd(fn OnToolInputEndFunc) Option {
+	return func(a *Agent) {
+		a.onToolInputEnd = fn
+	}
+}
+
 // WithOnSource sets a callback invoked when a source reference is received.
 func WithOnSource(fn OnSourceFunc) Option {
 	return func(a *Agent) {

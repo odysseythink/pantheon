@@ -13,6 +13,10 @@ import (
 )
 
 // Agent orchestrates a LanguageModel with tool execution.
+type OnToolInputStartFunc func(id, toolName string) error
+type OnToolInputDeltaFunc func(id, delta string) error
+type OnToolInputEndFunc   func(id string) error
+
 type Agent struct {
 	model          core.LanguageModel
 	maxSteps       int
@@ -30,6 +34,9 @@ type Agent struct {
 	onToolCall       OnToolCallFunc
 	onToolResult     OnToolResultFunc
 	onSource         OnSourceFunc
+	onToolInputStart OnToolInputStartFunc
+	onToolInputDelta OnToolInputDeltaFunc
+	onToolInputEnd   OnToolInputEndFunc
 
 	// step preparation
 	prepareStep PrepareStepFunc
