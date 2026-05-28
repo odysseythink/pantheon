@@ -1474,3 +1474,61 @@ func TestRun_WithOnRetry(t *testing.T) {
 		t.Errorf("inner calls: got %d, want 2", inner.calls)
 	}
 }
+
+func TestRunToolInputLifecycle(t *testing.T) {
+	m := &mockModel{
+		responses: []core.Message{
+			{
+				Role: core.MESSAGE_ROLE_ASSISTANT,
+				Content: []core.ContentParter{
+					core.ToolCallPart{ID: "tc1", Name: "mock_tool", Arguments: `{"x":1}`},
+				},
+			},
+			{
+				Role:    core.MESSAGE_ROLE_ASSISTANT,
+				Content: []core.ContentParter{core.TextPart{Text: "done"}},
+			},
+		},
+	}
+	var lifecycle []string
+	a := New(m,
+		WithOnToolInputStart(func(id, toolName string) error {
+			lifecycle = append(lifecycle, "start:"+id+":"+toolName)
+			return nil
+		}),
+		WithOnToolInputDelta(func(id, delta string) error {
+			lifecycle = append(lifecycle, "delta:"+id+":"+delta)
+			return nil
+		}),
+		WithOnToolInputEnd(func(id string) error {
+			lifecycle = append(lifecycle, "end:"+id)
+			return nil
+		}),
+		WithOnToolCall(func(step int, tc *core.ToolCallPart) error {
+			lifecycle = append(lifecycle, "call:"+tc.ID)
+			return nil
+		}),
+	)
+
+	_, err := a.Run(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	})
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+
+	want := []string{
+		"start:tc1:mock_tool",
+		"delta:tc1:{\"x\":1}",
+		"end:tc1",
+		"call:tc1",
+	}
+	if len(lifecycle) != len(want) {
+		t.Fatalf("lifecycle count mismatch: got %d, want %d\ngot: %v", len(lifecycle), len(want), lifecycle)
+	}
+	for i := range want {
+		if lifecycle[i] != want[i] {
+			t.Fatalf("lifecycle[%d]: got %q, want %q", i, lifecycle[i], want[i])
+		}
+	}
+}

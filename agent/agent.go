@@ -306,6 +306,30 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 
 		lastHadToolCalls = true
 
+		// Fire tool-input lifecycle callbacks for non-streaming calls.
+		for _, tc := range toolCalls {
+			if a.onToolInputStart != nil {
+				if err := a.onToolInputStart(tc.ID, tc.Name); err != nil {
+					return nil, err
+				}
+			}
+			if a.onToolInputDelta != nil {
+				if err := a.onToolInputDelta(tc.ID, tc.Arguments); err != nil {
+					return nil, err
+				}
+			}
+			if a.onToolInputEnd != nil {
+				if err := a.onToolInputEnd(tc.ID); err != nil {
+					return nil, err
+				}
+			}
+			if a.onToolCall != nil {
+				if err := a.onToolCall(step+1, &tc); err != nil {
+					return nil, err
+				}
+			}
+		}
+
 		// Filter out provider-executed tools.
 		localCalls := make([]core.ToolCallPart, 0, len(toolCalls))
 		for _, tc := range toolCalls {
