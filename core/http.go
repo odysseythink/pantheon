@@ -122,6 +122,7 @@ func HttpClientCallWithClient[T any](
 		return empty_resp, &ProviderError{
 			Message: string(bodyData),
 			Status:  resp.StatusCode,
+			Headers: resp.Header.Clone(),
 		}
 	}
 	err = json.NewDecoder(resp.Body).Decode(&empty_resp)

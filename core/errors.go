@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 )
 
@@ -10,6 +11,7 @@ type ProviderError struct {
 	Message string
 	Code    string
 	Status  int
+	Headers http.Header // full HTTP response headers on >= 400
 }
 
 // Error returns the error message.

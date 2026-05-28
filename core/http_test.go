@@ -105,6 +105,44 @@ func TestHttpClientCall_ErrorStatus(t *testing.T) {
 	}
 }
 
+func TestHttpClientCall_CarriesHeadersOnError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "5")
+		w.Header().Set("X-Custom-Header", "value")
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"error": "rate limited"}`))
+	}))
+	defer server.Close()
+
+	_, err := HttpClientCall[map[string]string](
+		context.Background(),
+		"POST",
+		server.URL+"/test",
+		nil,
+		nil,
+		nil,
+	)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	pe, ok := err.(*ProviderError)
+	if !ok {
+		t.Fatalf("expected ProviderError, got %T", err)
+	}
+	if pe.Status != 429 {
+		t.Errorf("expected status 429, got %d", pe.Status)
+	}
+	if pe.Headers == nil {
+		t.Fatal("expected Headers to be set")
+	}
+	if pe.Headers.Get("Retry-After") != "5" {
+		t.Errorf("expected Retry-After 5, got %q", pe.Headers.Get("Retry-After"))
+	}
+	if pe.Headers.Get("X-Custom-Header") != "value" {
+		t.Errorf("expected X-Custom-Header value, got %q", pe.Headers.Get("X-Custom-Header"))
+	}
+}
+
 func TestHttpClientCall_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
