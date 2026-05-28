@@ -58,6 +58,7 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 		scanner := bufio.NewScanner(resp.Body)
 		scanner.Buffer(make([]byte, 4096), 1024*1024)
 		toolCalls := make(map[int]*core.ToolCallPart)
+		var reasoningActive bool
 
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -100,9 +101,27 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 
 			delta := chunk.Choices[0].Delta
 			if delta.ReasoningContent != "" {
+				if !reasoningActive {
+					reasoningActive = true
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeReasoningStart,
+					}
+					if !yield(sp, nil) {
+						return
+					}
+				}
 				sp := &core.StreamPart{
 					Type:           core.StreamPartTypeReasoningDelta,
 					ReasoningDelta: delta.ReasoningContent,
+				}
+				if !yield(sp, nil) {
+					return
+				}
+			} else if reasoningActive {
+				// Transitioned from reasoning to text/tool
+				reasoningActive = false
+				sp := &core.StreamPart{
+					Type: core.StreamPartTypeReasoningEnd,
 				}
 				if !yield(sp, nil) {
 					return
@@ -160,6 +179,15 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 
 			if chunk.Choices[0].FinishReason != nil {
 				fr := *chunk.Choices[0].FinishReason
+				if reasoningActive {
+					reasoningActive = false
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeReasoningEnd,
+					}
+					if !yield(sp, nil) {
+						return
+					}
+				}
 				// Sort indices to yield tool calls in deterministic order
 				indices := make([]int, 0, len(toolCalls))
 				for idx := range toolCalls {
