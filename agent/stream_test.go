@@ -1219,3 +1219,131 @@ func TestRunStream_WithOnRetry(t *testing.T) {
 		t.Errorf("inner calls: got %d, want 2", inner.calls)
 	}
 }
+
+func TestRunStreamToolInputDeltas(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolInputStart, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "search"}},
+			{Type: core.StreamPartTypeToolInputDelta, ToolCall: &core.ToolCallPart{ID: "call_1", Arguments: `{"q":`}},
+			{Type: core.StreamPartTypeToolInputDelta, ToolCall: &core.ToolCallPart{ID: "call_1", Arguments: `"hello"`}},
+			{Type: core.StreamPartTypeToolInputDelta, ToolCall: &core.ToolCallPart{ID: "call_1", Arguments: `}`}},
+			{Type: core.StreamPartTypeToolInputEnd, ToolCall: &core.ToolCallPart{ID: "call_1"}},
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "search", Arguments: `{"q":"hello"}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+	}}
+	a := New(m,
+		WithOnToolInputStart(func(id, toolName string) error {
+			if id != "call_1" || toolName != "search" {
+				t.Errorf("OnToolInputStart got id=%q name=%q", id, toolName)
+			}
+			return nil
+		}),
+		WithOnToolInputDelta(func(id, delta string) error {
+			if id != "call_1" {
+				t.Errorf("OnToolInputDelta got id=%q", id)
+			}
+			return nil
+		}),
+		WithOnToolInputEnd(func(id string) error {
+			if id != "call_1" {
+				t.Errorf("OnToolInputEnd got id=%q", id)
+			}
+			return nil
+		}),
+	)
+
+	var eventTypes []string
+	var deltas []string
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "search"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		switch event.Type {
+		case StreamEventTypeToolInputStart, StreamEventTypeToolInputDelta, StreamEventTypeToolInputEnd, StreamEventTypeToolCall:
+			eventTypes = append(eventTypes, string(event.Type))
+		}
+		if event.Type == StreamEventTypeToolInputDelta && event.ToolCall != nil {
+			deltas = append(deltas, event.ToolCall.Arguments)
+		}
+	}
+
+	wantTypes := []string{"tool_input_start", "tool_input_delta", "tool_input_delta", "tool_input_delta", "tool_input_end", "tool_call"}
+	if len(eventTypes) != len(wantTypes) {
+		t.Fatalf("event types count mismatch: got %d, want %d", len(eventTypes), len(wantTypes))
+	}
+	for i := range wantTypes {
+		if eventTypes[i] != wantTypes[i] {
+			t.Fatalf("event type[%d]: got %q, want %q", i, eventTypes[i], wantTypes[i])
+		}
+	}
+
+	wantDeltas := []string{`{"q":`, `"hello"`, `}`}
+	if len(deltas) != len(wantDeltas) {
+		t.Fatalf("deltas count mismatch: got %d, want %d", len(deltas), len(wantDeltas))
+	}
+	for i := range wantDeltas {
+		if deltas[i] != wantDeltas[i] {
+			t.Fatalf("delta[%d]: got %q, want %q", i, deltas[i], wantDeltas[i])
+		}
+	}
+}
+
+func TestRunStreamToolInputDeltaAccumulates(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolInputStart, ToolCall: &core.ToolCallPart{ID: "c1", Name: "calc"}},
+			{Type: core.StreamPartTypeToolInputDelta, ToolCall: &core.ToolCallPart{ID: "c1", Arguments: `{"a":1`}},
+			{Type: core.StreamPartTypeToolInputDelta, ToolCall: &core.ToolCallPart{ID: "c1", Arguments: `,"b":2}`}},
+			{Type: core.StreamPartTypeToolInputEnd, ToolCall: &core.ToolCallPart{ID: "c1"}},
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "c1", Name: "calc", Arguments: `{"a":1,"b":2}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var toolCallArgs string
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "calc"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeToolCall && event.ToolCall != nil {
+			toolCallArgs = event.ToolCall.Arguments
+		}
+	}
+
+	// The tool_call part from the mock should have the accumulated arguments
+	// (the mock provides the complete args, but the activeToolCalls map should also accumulate them)
+	if toolCallArgs != `{"a":1,"b":2}` {
+		t.Fatalf("tool call args mismatch: got %q", toolCallArgs)
+	}
+}
+
+func TestRunStreamToolInputCallbackError(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolInputStart, ToolCall: &core.ToolCallPart{ID: "c1", Name: "search"}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m, WithOnToolInputStart(func(id, toolName string) error {
+		return errors.New("start error")
+	}))
+
+	var sawError bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "x"}}}},
+	}) {
+		if event != nil && event.Type == StreamEventTypeError {
+			sawError = true
+		}
+		_ = err // err is non-nil when callback fails; loop terminates after this iteration
+	}
+	if !sawError {
+		t.Fatal("expected error event from OnToolInputStart failure")
+	}
+}

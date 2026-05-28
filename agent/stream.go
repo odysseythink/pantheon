@@ -165,6 +165,7 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 			assistantMsg.Role = core.MESSAGE_ROLE_ASSISTANT
 			var finishReason string
 			var usage core.Usage
+			var activeToolCalls map[string]*core.ToolCallPart
 
 			for part, err := range stream {
 				if err != nil {
@@ -199,6 +200,49 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 					if !yield(&StreamEvent{Type: StreamEventTypeReasoningDelta, ReasoningDelta: part.ReasoningDelta, Step: step + 1}, nil) {
 						return
 					}
+				case core.StreamPartTypeToolInputStart:
+					if activeToolCalls == nil {
+						activeToolCalls = make(map[string]*core.ToolCallPart)
+					}
+					activeToolCalls[part.ToolCall.ID] = &core.ToolCallPart{
+						ID:   part.ToolCall.ID,
+						Name: part.ToolCall.Name,
+					}
+					if a.onToolInputStart != nil {
+						if err := a.onToolInputStart(part.ToolCall.ID, part.ToolCall.Name); err != nil {
+							a.invokeError(yield, err)
+							return
+						}
+					}
+					if !yield(&StreamEvent{Type: StreamEventTypeToolInputStart, ToolCall: part.ToolCall, Step: step + 1}, nil) {
+						return
+					}
+
+				case core.StreamPartTypeToolInputDelta:
+					if tc, ok := activeToolCalls[part.ToolCall.ID]; ok {
+						tc.Arguments += part.ToolCall.Arguments
+					}
+					if a.onToolInputDelta != nil {
+						if err := a.onToolInputDelta(part.ToolCall.ID, part.ToolCall.Arguments); err != nil {
+							a.invokeError(yield, err)
+							return
+						}
+					}
+					if !yield(&StreamEvent{Type: StreamEventTypeToolInputDelta, ToolCall: part.ToolCall, Step: step + 1}, nil) {
+						return
+					}
+
+				case core.StreamPartTypeToolInputEnd:
+					if a.onToolInputEnd != nil {
+						if err := a.onToolInputEnd(part.ToolCall.ID); err != nil {
+							a.invokeError(yield, err)
+							return
+						}
+					}
+					if !yield(&StreamEvent{Type: StreamEventTypeToolInputEnd, ToolCall: part.ToolCall, Step: step + 1}, nil) {
+						return
+					}
+
 				case core.StreamPartTypeToolCall:
 					assistantMsg.Content = append(assistantMsg.Content, *part.ToolCall)
 					if a.onToolCall != nil {
