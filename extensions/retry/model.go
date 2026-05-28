@@ -85,7 +85,7 @@ func retry[T any](m *Model, ctx context.Context, fn func() (T, error)) (T, error
 		if !m.shouldRetry(err) {
 			break
 		}
-		delay := m.computeDelay(attempt)
+		delay := m.computeDelay(attempt, lastErr)
 		if m.OnRetry != nil {
 			m.OnRetry(attempt+1, err, delay)
 		}
@@ -101,7 +101,7 @@ func (m *Model) shouldRetry(err error) bool {
 	return c.Retryable
 }
 
-func (m *Model) computeDelay(attempt int) time.Duration {
+func (m *Model) computeDelay(attempt int, lastErr error) time.Duration {
 	base := m.BaseDelay
 	if base <= 0 {
 		base = 1 * time.Second
@@ -121,6 +121,15 @@ func (m *Model) computeDelay(attempt int) time.Duration {
 	}
 	// Add jitter: delay * [0.75, 1.25]
 	delay = time.Duration(float64(delay) * (0.75 + rand.Float64()*0.5))
+
+	// Try to use provider-suggested delay from response headers
+	if lastErr != nil {
+		var pe *core.ProviderError
+		if errors.As(lastErr, &pe) && pe.Headers != nil {
+			return headerDelay(pe.Headers, delay)
+		}
+	}
+
 	return delay
 }
 

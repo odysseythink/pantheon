@@ -3,6 +3,8 @@ package retry
 import (
 	"context"
 	"errors"
+	"net"
+	"net/http"
 	"testing"
 	"time"
 
@@ -329,4 +331,118 @@ func TestModel_OnRetry_NilSafe(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	// No panic = pass
+}
+
+// headerAwareModel returns 429 with headers on first N calls, then success.
+type headerAwareModel struct {
+	calls     int
+	failNextN int
+	headers   http.Header
+}
+
+func (m *headerAwareModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	m.calls++
+	if m.failNextN > 0 {
+		m.failNextN--
+		return nil, &core.ProviderError{Status: 429, Message: "rate limited", Headers: m.headers}
+	}
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "ok"}}}}, nil
+}
+func (m *headerAwareModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *headerAwareModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *headerAwareModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *headerAwareModel) Provider() string { return "header-mock" }
+func (m *headerAwareModel) Model() string    { return "header-mock" }
+
+func TestModel_HeaderAwareDelay(t *testing.T) {
+	inner := &headerAwareModel{failNextN: 1, headers: http.Header{"Retry-After": []string{"0.1"}}}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 3,
+		BaseDelay:  1 * time.Second,
+		Multiplier: 2.0,
+	}
+
+	start := time.Now()
+	_, err := m.Generate(context.Background(), &core.Request{})
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if inner.calls != 2 {
+		t.Errorf("calls: got %d, want 2", inner.calls)
+	}
+	// With retry-after: 100ms, total wait should be ~100ms, not 1s+
+	if elapsed > 300*time.Millisecond {
+		t.Errorf("elapsed %v too long; header-aware delay not working", elapsed)
+	}
+}
+
+func TestModel_HeaderAwareDelay_UnreasonableHeader(t *testing.T) {
+	// Unreasonable retry-after (120s) should fallback to exponential backoff
+	inner := &headerAwareModel{failNextN: 1, headers: http.Header{"Retry-After": []string{"120"}}}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 3,
+		BaseDelay:  50 * time.Millisecond,
+		Multiplier: 2.0,
+	}
+
+	start := time.Now()
+	_, err := m.Generate(context.Background(), &core.Request{})
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Fallback delay is 50ms * [0.75, 1.25] = ~37-62ms. Total should be < 200ms.
+	if elapsed > 200*time.Millisecond {
+		t.Errorf("elapsed %v too long; unreasonable header should fallback", elapsed)
+	}
+}
+
+// networkErrorModel returns a net.Error on first call, then success.
+type networkErrorModel struct{ calls int }
+
+func (m *networkErrorModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	m.calls++
+	if m.calls == 1 {
+		return nil, &net.DNSError{IsTimeout: true}
+	}
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "ok"}}}}, nil
+}
+func (m *networkErrorModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *networkErrorModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *networkErrorModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *networkErrorModel) Provider() string { return "net-mock" }
+func (m *networkErrorModel) Model() string    { return "net-mock" }
+
+func TestModel_NetworkErrorRetry(t *testing.T) {
+	inner := &networkErrorModel{}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 3,
+		BaseDelay:  1 * time.Millisecond,
+	}
+
+	_, err := m.Generate(context.Background(), &core.Request{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if inner.calls != 2 {
+		t.Errorf("calls: got %d, want 2 (initial + 1 retry)", inner.calls)
+	}
 }

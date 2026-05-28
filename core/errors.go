@@ -12,11 +12,17 @@ type ProviderError struct {
 	Code    string
 	Status  int
 	Headers http.Header // full HTTP response headers on >= 400
+	Err     error       // underlying error (e.g. net.Error from client.Do)
 }
 
 // Error returns the error message.
 func (e *ProviderError) Error() string {
 	return e.Message
+}
+
+// Unwrap returns the underlying error for errors.As/is traversal.
+func (e *ProviderError) Unwrap() error {
+	return e.Err
 }
 
 // IsRetryable reports whether the error is likely transient and safe to retry.

@@ -13,8 +13,8 @@ import (
 //   3. x-ratelimit-reset-* — seconds until rate limit resets
 //   4. fallback            — caller's exponential backoff delay
 //
-// If the header-derived delay is zero, exceeds 60 seconds, or exceeds the
-// fallback delay, the fallback is used instead.
+// If the header-derived delay is zero or exceeds 60 seconds, the fallback
+// is used instead.
 func headerDelay(headers http.Header, fallback time.Duration) time.Duration {
 	if headers == nil {
 		return fallback
@@ -25,7 +25,7 @@ func headerDelay(headers http.Header, fallback time.Duration) time.Duration {
 	// Priority 1: retry-after-ms (most precise)
 	if v := headers.Get("retry-after-ms"); v != "" {
 		if ms, err := strconv.ParseFloat(v, 64); err == nil {
-			delay = time.Duration(ms) * time.Millisecond
+			delay = time.Duration(ms * float64(time.Millisecond))
 		}
 	}
 
@@ -33,7 +33,7 @@ func headerDelay(headers http.Header, fallback time.Duration) time.Duration {
 	if delay == 0 {
 		if v := headers.Get("retry-after"); v != "" {
 			if sec, err := strconv.ParseFloat(v, 64); err == nil {
-				delay = time.Duration(sec) * time.Second
+				delay = time.Duration(sec * float64(time.Second))
 			} else if t, err := time.Parse(time.RFC1123, v); err == nil {
 				delay = time.Until(t)
 				if delay < 0 {
@@ -48,7 +48,7 @@ func headerDelay(headers http.Header, fallback time.Duration) time.Duration {
 		for _, key := range []string{"x-ratelimit-reset-requests", "x-ratelimit-reset-tokens"} {
 			if v := headers.Get(key); v != "" {
 				if sec, err := strconv.ParseFloat(v, 64); err == nil {
-					delay = time.Duration(sec) * time.Second
+					delay = time.Duration(sec * float64(time.Second))
 					break
 				}
 			}

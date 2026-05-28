@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -418,5 +419,37 @@ func TestHttpClientCall_NetworkError(t *testing.T) {
 	}
 	if pe.Status != http.StatusInternalServerError {
 		t.Errorf("expected status 500, got %d", pe.Status)
+	}
+}
+
+func TestHttpClientCall_NetworkError_Unwrappable(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := listener.Addr().String()
+	listener.Close()
+
+	_, err = HttpClientCall[map[string]string](
+		context.Background(),
+		"GET",
+		"http://"+addr+"/test",
+		nil,
+		nil,
+		nil,
+	)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	pe, ok := err.(*ProviderError)
+	if !ok {
+		t.Fatalf("expected ProviderError, got %T", err)
+	}
+	if pe.Err == nil {
+		t.Error("expected underlying error to be preserved")
+	}
+	var netErr net.Error
+	if !errors.As(err, &netErr) {
+		t.Error("expected network error to be unwrappable via errors.As")
 	}
 }
