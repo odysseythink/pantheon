@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"testing"
 )
 
@@ -73,17 +72,30 @@ func TestNewAgentTool_Execute(t *testing.T) {
 		if input.Units == "fahrenheit" {
 			temp = "72°F"
 		}
-		return fmt.Sprintf("Weather in %s: %s", input.Location, temp), nil
+		return "Weather in " + input.Location + ": " + temp, nil
 	})
 
-	args := json.RawMessage(`{"location":"San Francisco","units":"fahrenheit"}`)
-	result, err := entry.Handler(context.Background(), args)
-	if err != nil {
-		t.Fatalf("unexpected handler error: %v", err)
-	}
-	if result != "Weather in San Francisco: 72°F" {
-		t.Errorf("result: got %q", result)
-	}
+	t.Run("celsius", func(t *testing.T) {
+		args := json.RawMessage(`{"location":"San Francisco","units":"celsius"}`)
+		result, err := entry.Handler(context.Background(), args)
+		if err != nil {
+			t.Fatalf("unexpected handler error: %v", err)
+		}
+		if result != "Weather in San Francisco: 22°C" {
+			t.Errorf("result: got %q", result)
+		}
+	})
+
+	t.Run("fahrenheit", func(t *testing.T) {
+		args := json.RawMessage(`{"location":"San Francisco","units":"fahrenheit"}`)
+		result, err := entry.Handler(context.Background(), args)
+		if err != nil {
+			t.Fatalf("unexpected handler error: %v", err)
+		}
+		if result != "Weather in San Francisco: 72°F" {
+			t.Errorf("result: got %q", result)
+		}
+	})
 }
 
 func TestNewAgentTool_StructResult(t *testing.T) {
@@ -176,6 +188,9 @@ func TestNewParallelAgentTool(t *testing.T) {
 	if !entry.Parallel {
 		t.Error("expected Parallel = true")
 	}
+	if !entry.Schema.Parallel {
+		t.Error("expected Schema.Parallel = true")
+	}
 	if entry.Name != "multiply" {
 		t.Errorf("name: got %q, want multiply", entry.Name)
 	}
@@ -220,5 +235,29 @@ func TestNewAgentTool_RegistryIntegration(t *testing.T) {
 	}
 	if result != "4" {
 		t.Errorf("result: got %q, want 4", result)
+	}
+}
+
+func TestNewAgentTool_ContextPropagation(t *testing.T) {
+	type ctxKey struct{}
+	expectedValue := "propagated"
+
+	entry := NewAgentTool("ctxcheck", "Checks context propagation",
+		func(ctx context.Context, input testCalcInput) (any, error) {
+			val, ok := ctx.Value(ctxKey{}).(string)
+			if !ok {
+				return nil, errors.New("context value not found")
+			}
+			return val, nil
+		})
+
+	ctx := context.WithValue(context.Background(), ctxKey{}, expectedValue)
+	args := json.RawMessage(`{"a":1,"b":2}`)
+	result, err := entry.Handler(ctx, args)
+	if err != nil {
+		t.Fatalf("unexpected handler error: %v", err)
+	}
+	if result != expectedValue {
+		t.Errorf("result: got %q, want %q", result, expectedValue)
 	}
 }

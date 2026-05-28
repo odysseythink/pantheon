@@ -3,7 +3,6 @@ package tool
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/odysseythink/pantheon/core"
 )
@@ -15,6 +14,9 @@ import (
 // The handler automatically unmarshals the JSON arguments into T, calls fn,
 // and serializes the result. Errors from fn are returned as structured
 // JSON error payloads ({"error": "..."}).
+//
+// Panic safety: the returned Handler does NOT recover panics from fn.
+// Use Registry.Dispatch for automatic panic recovery.
 func NewAgentTool[T any](name, description string, fn func(ctx context.Context, input T) (any, error)) *Entry {
 	schema := core.GenerateSchemaFrom[T]()
 
@@ -29,7 +31,7 @@ func NewAgentTool[T any](name, description string, fn func(ctx context.Context, 
 		Handler: func(ctx context.Context, args json.RawMessage) (string, error) {
 			var input T
 			if err := json.Unmarshal(args, &input); err != nil {
-				return Error(fmt.Sprintf("invalid parameters: %s", err)), nil
+				return Error("invalid parameters: " + err.Error()), nil
 			}
 			result, err := fn(ctx, input)
 			if err != nil {
@@ -45,5 +47,6 @@ func NewAgentTool[T any](name, description string, fn func(ctx context.Context, 
 func NewParallelAgentTool[T any](name, description string, fn func(ctx context.Context, input T) (any, error)) *Entry {
 	entry := NewAgentTool(name, description, fn)
 	entry.Parallel = true
+	entry.Schema.Parallel = true
 	return entry
 }
