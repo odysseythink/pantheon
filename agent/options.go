@@ -82,6 +82,20 @@ func WithOnReasoningDelta(fn OnReasoningDeltaFunc) Option {
 	}
 }
 
+// WithOnReasoningStart sets a callback invoked when a reasoning paragraph starts.
+func WithOnReasoningStart(fn OnReasoningStartFunc) Option {
+	return func(a *Agent) {
+		a.onReasoningStart = fn
+	}
+}
+
+// WithOnReasoningEnd sets a callback invoked when a reasoning paragraph ends.
+func WithOnReasoningEnd(fn OnReasoningEndFunc) Option {
+	return func(a *Agent) {
+		a.onReasoningEnd = fn
+	}
+}
+
 // WithOnToolCall sets a callback invoked when a tool call is received.
 func WithOnToolCall(fn OnToolCallFunc) Option {
 	return func(a *Agent) {

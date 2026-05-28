@@ -61,6 +61,10 @@ const (
 	StreamPartTypeTextDelta StreamPartType = "text_delta"
 	// StreamPartTypeReasoningDelta indicates a delta of reasoning text.
 	StreamPartTypeReasoningDelta StreamPartType = "reasoning_delta"
+	// StreamPartTypeReasoningStart indicates the start of a reasoning paragraph.
+	StreamPartTypeReasoningStart StreamPartType = "reasoning_start"
+	// StreamPartTypeReasoningEnd indicates the end of a reasoning paragraph.
+	StreamPartTypeReasoningEnd StreamPartType = "reasoning_end"
 	// StreamPartTypeToolInputStart indicates the start of a tool call argument stream.
 	StreamPartTypeToolInputStart StreamPartType = "tool_input_start"
 	// StreamPartTypeToolInputDelta indicates a delta fragment of tool call arguments.

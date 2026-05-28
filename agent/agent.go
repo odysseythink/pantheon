@@ -31,6 +31,8 @@ type Agent struct {
 	onError          OnErrorFunc
 	onTextDelta      OnTextDeltaFunc
 	onReasoningDelta OnReasoningDeltaFunc
+	onReasoningStart OnReasoningStartFunc
+	onReasoningEnd   OnReasoningEndFunc
 	onToolCall       OnToolCallFunc
 	onToolResult     OnToolResultFunc
 	onSource         OnSourceFunc

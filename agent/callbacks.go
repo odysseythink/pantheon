@@ -22,6 +22,15 @@ type OnTextDeltaFunc func(step int, delta string) error
 // If it returns a non-nil error, the stream yields an error event and aborts.
 type OnReasoningDeltaFunc func(step int, delta string) error
 
+// OnReasoningStartFunc is called when a reasoning paragraph starts.
+// If it returns a non-nil error, the stream yields an error event and aborts.
+type OnReasoningStartFunc func(step int) error
+
+// OnReasoningEndFunc is called when a reasoning paragraph ends.
+// fullReasoning contains the complete accumulated reasoning text for this paragraph.
+// If it returns a non-nil error, the stream yields an error event and aborts.
+type OnReasoningEndFunc func(step int, fullReasoning string) error
+
 // OnToolCallFunc is called when a tool call is received from the model.
 // If it returns a non-nil error, the stream yields an error event and aborts.
 type OnToolCallFunc func(step int, call *core.ToolCallPart) error
