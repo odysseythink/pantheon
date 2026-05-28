@@ -111,15 +111,41 @@ func (m *LanguageModel) Stream(ctx context.Context, req *core.Request) (core.Str
 					}
 					if content.Type == "tool_use" {
 						args, _ := json.Marshal(content.Input)
-						sp := &core.StreamPart{
-							Type: core.StreamPartTypeToolCall,
+						tc := &core.ToolCallPart{
+							ID:        content.ID,
+							Name:      content.Name,
+							Arguments: string(args),
+						}
+						// Simulate lifecycle: start → delta → end → call
+						spStart := &core.StreamPart{
+							Type: core.StreamPartTypeToolInputStart,
 							ToolCall: &core.ToolCallPart{
-								ID:        content.ID,
-								Name:      content.Name,
-								Arguments: string(args),
+								ID:   tc.ID,
+								Name: tc.Name,
 							},
 						}
-						if !yield(sp, nil) {
+						if !yield(spStart, nil) {
+							return
+						}
+						spDelta := &core.StreamPart{
+							Type: core.StreamPartTypeToolInputDelta,
+							ToolCall: &core.ToolCallPart{
+								ID:        tc.ID,
+								Arguments: tc.Arguments,
+							},
+						}
+						if !yield(spDelta, nil) {
+							return
+						}
+						spEnd := &core.StreamPart{
+							Type:     core.StreamPartTypeToolInputEnd,
+							ToolCall: &core.ToolCallPart{ID: tc.ID},
+						}
+						if !yield(spEnd, nil) {
+							return
+						}
+						spCall := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: tc}
+						if !yield(spCall, nil) {
 							return
 						}
 					}
