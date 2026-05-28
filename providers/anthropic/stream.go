@@ -113,6 +113,17 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 				case "input_json_delta":
 					if currentToolCall != nil {
 						currentToolCall.Arguments += event.Delta.PartialJSON
+						// Emit tool_input_delta
+						sp := &core.StreamPart{
+							Type: core.StreamPartTypeToolInputDelta,
+							ToolCall: &core.ToolCallPart{
+								ID:        currentToolCall.ID,
+								Arguments: event.Delta.PartialJSON,
+							},
+						}
+						if !yield(sp, nil) {
+							return
+						}
 					}
 				}
 			case "content_block_start":
@@ -121,11 +132,31 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 						ID:   event.Content.ID,
 						Name: event.Content.Name,
 					}
+					// Emit tool_input_start
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeToolInputStart,
+						ToolCall: &core.ToolCallPart{
+							ID:   event.Content.ID,
+							Name: event.Content.Name,
+						},
+					}
+					if !yield(sp, nil) {
+						return
+					}
 				}
 			case "content_block_stop":
 				if currentToolCall != nil {
-					sp := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: currentToolCall}
-					if !yield(sp, nil) {
+					// Emit tool_input_end
+					spEnd := &core.StreamPart{
+						Type:     core.StreamPartTypeToolInputEnd,
+						ToolCall: &core.ToolCallPart{ID: currentToolCall.ID},
+					}
+					if !yield(spEnd, nil) {
+						return
+					}
+					// Emit tool_call
+					spCall := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: currentToolCall}
+					if !yield(spCall, nil) {
 						return
 					}
 					currentToolCall = nil
