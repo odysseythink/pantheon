@@ -145,20 +145,65 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 						Name:      tc.Function.Name,
 						Arguments: tc.Function.Arguments,
 					}
+					// Emit tool_input_start on first sighting
+					if tc.ID != "" || tc.Function.Name != "" {
+						sp := &core.StreamPart{
+							Type: core.StreamPartTypeToolInputStart,
+							ToolCall: &core.ToolCallPart{
+								ID:   tc.ID,
+								Name: tc.Function.Name,
+							},
+						}
+						if c.Hooks.PostProcessStreamPart != nil {
+							c.Hooks.PostProcessStreamPart(sp, &chunk)
+						}
+						if !yield(sp, nil) {
+							return
+						}
+					}
 				} else {
 					existing.Name += tc.Function.Name
 					existing.Arguments += tc.Function.Arguments
+				}
+
+				// Emit tool_input_delta for non-empty argument fragments
+				if tc.Function.Arguments != "" {
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeToolInputDelta,
+						ToolCall: &core.ToolCallPart{
+							ID:        toolCalls[tc.Index].ID,
+							Arguments: tc.Function.Arguments,
+						},
+					}
+					if c.Hooks.PostProcessStreamPart != nil {
+						c.Hooks.PostProcessStreamPart(sp, &chunk)
+					}
+					if !yield(sp, nil) {
+						return
+					}
 				}
 			}
 			if chunk.Choices[0].FinishReason != nil {
 				finishReasonSeen = true
 				fr := *chunk.Choices[0].FinishReason
 				for _, tc := range toolCalls {
-					sp := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: tc}
-					if c.Hooks.PostProcessStreamPart != nil {
-						c.Hooks.PostProcessStreamPart(sp, &chunk)
+					// Emit tool_input_end
+					spEnd := &core.StreamPart{
+						Type:     core.StreamPartTypeToolInputEnd,
+						ToolCall: &core.ToolCallPart{ID: tc.ID},
 					}
-					if !yield(sp, nil) {
+					if c.Hooks.PostProcessStreamPart != nil {
+						c.Hooks.PostProcessStreamPart(spEnd, &chunk)
+					}
+					if !yield(spEnd, nil) {
+						return
+					}
+					// Emit tool_call
+					spCall := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: tc}
+					if c.Hooks.PostProcessStreamPart != nil {
+						c.Hooks.PostProcessStreamPart(spCall, &chunk)
+					}
+					if !yield(spCall, nil) {
 						return
 					}
 				}

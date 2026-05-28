@@ -215,3 +215,108 @@ func TestChatCompletionStream_ToolCall(t *testing.T) {
 		t.Error("expected tool call event")
 	}
 }
+
+func TestChatCompletionStream_ToolInputDeltas(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected Flusher")
+		}
+
+		chunks := []ChatCompletionResponse{
+			{Model: "gpt-4", Choices: []Choice{{
+				Delta: Message{
+					ToolCalls: []types.ToolCall{{
+						Index: 0,
+						ID:    "call_1",
+						Type:  "function",
+						Function: struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						}{Name: "search", Arguments: `{"q":`},
+					}},
+				},
+			}}},
+			{Model: "gpt-4", Choices: []Choice{{
+				Delta: Message{
+					ToolCalls: []types.ToolCall{{
+						Index: 0,
+						Function: struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						}{Arguments: `"hello"`},
+					}},
+				},
+			}}},
+			{Model: "gpt-4", Choices: []Choice{{
+				Delta: Message{
+					ToolCalls: []types.ToolCall{{
+						Index: 0,
+						Function: struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						}{Arguments: `}`},
+					}},
+				},
+			}}},
+			{Model: "gpt-4", Choices: []Choice{{
+				FinishReason: ptr("tool_calls"),
+			}}},
+		}
+		for _, c := range chunks {
+			data, _ := json.Marshal(c)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		}
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "sk-test")
+	stream := c.ChatCompletionStream(context.Background(), "gpt-4", &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Search?"}}}},
+	})
+
+	var types []core.StreamPartType
+	var deltas []string
+	for part, err := range stream {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		types = append(types, part.Type)
+		if part.Type == core.StreamPartTypeToolInputDelta && part.ToolCall != nil {
+			deltas = append(deltas, part.ToolCall.Arguments)
+		}
+	}
+
+	wantTypes := []core.StreamPartType{
+		core.StreamPartTypeToolInputStart,
+		core.StreamPartTypeToolInputDelta,
+		core.StreamPartTypeToolInputDelta,
+		core.StreamPartTypeToolInputDelta,
+		core.StreamPartTypeToolInputEnd,
+		core.StreamPartTypeToolCall,
+		core.StreamPartTypeFinish,
+	}
+	if len(types) != len(wantTypes) {
+		t.Fatalf("part types count mismatch: got %d, want %d\ngot: %v", len(types), len(wantTypes), types)
+	}
+	for i := range wantTypes {
+		if types[i] != wantTypes[i] {
+			t.Fatalf("part type[%d]: got %v, want %v", i, types[i], wantTypes[i])
+		}
+	}
+
+	wantDeltas := []string{`{"q":`, `"hello"`, `}`}
+	if len(deltas) != len(wantDeltas) {
+		t.Fatalf("deltas count mismatch: got %d, want %d", len(deltas), len(wantDeltas))
+	}
+	for i := range wantDeltas {
+		if deltas[i] != wantDeltas[i] {
+			t.Fatalf("delta[%d]: got %q, want %q", i, deltas[i], wantDeltas[i])
+		}
+	}
+}
