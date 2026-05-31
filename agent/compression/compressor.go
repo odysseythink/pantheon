@@ -82,17 +82,6 @@ func (c *DefaultCompressor) UpdateFromResponse(usage core.Usage) error {
 	return nil
 }
 
-// ShouldCompress returns true when prompt tokens exceed the threshold.
-func (c *DefaultCompressor) ShouldCompress(promptTokens int) bool {
-	if !c.cfg.Enabled || c.aux == nil {
-		return false
-	}
-	if c.thresholdTokens == 0 {
-		return false
-	}
-	return promptTokens > c.thresholdTokens
-}
-
 // UpdateModel updates the model info and recalculates token budgets.
 func (c *DefaultCompressor) UpdateModel(model string, contextLength int) error {
 	c.modelName = model
@@ -111,9 +100,9 @@ func (c *DefaultCompressor) HandleToolCall(ctx context.Context, name string, arg
 	return "", core.ErrNotImplemented
 }
 
-// CompressMessages implements ContextEngine by delegating to the legacy Compress method.
+// CompressMessages implements ContextEngine.
 func (c *DefaultCompressor) CompressMessages(ctx context.Context, messages []core.Message, focusTopic string) ([]core.Message, error) {
-	return c.Compress(ctx, messages)
+	return c.compressInternal(ctx, messages, focusTopic)
 }
 
 // Compress summarizes the middle of the history and returns a shortened
@@ -279,4 +268,53 @@ func estimateMessagesTokens(msgs []core.Message) int {
 		total += estimateMessageTokens(m)
 	}
 	return total
+}
+// compressInternal is the 5-phase compression orchestrator.
+func (c *DefaultCompressor) compressInternal(ctx context.Context, history []core.Message, focusTopic string) ([]core.Message, error) {
+	if !c.cfg.Enabled || c.aux == nil {
+		return history, nil
+	}
+
+	originalTokens := estimateMessagesTokens(history)
+
+	// Phase 1: Prune tool results
+	history = c.pruneToolResults(history)
+
+	// Phase 2: Determine boundaries
+	b := c.determineBoundaries(history)
+	if b.tailStart <= b.headEnd {
+		result := c.compressOversizedMessages(ctx, history)
+		c.recordCompressionResult(originalTokens, estimateMessagesTokens(result))
+		return result, nil
+	}
+
+	head := history[:b.headEnd]
+	middle := history[b.headEnd:b.tailStart]
+	tail := history[b.tailStart:]
+
+	if len(middle) == 0 {
+		result := c.compressOversizedMessages(ctx, history)
+		c.recordCompressionResult(originalTokens, estimateMessagesTokens(result))
+		return result, nil
+	}
+
+	// Phase 3: Generate summary
+	summary, err := c.generateSummaryWithFallback(ctx, middle, focusTopic)
+	if err != nil {
+		return nil, fmt.Errorf("compression: generate summary: %w", err)
+	}
+
+	// Phase 4: Assemble
+	result := c.assemble(head, tail, summary)
+
+	// Phase 5: Sanitize
+	result = c.sanitizeToolPairs(result)
+
+	// Per-message oversize check
+	result = c.compressOversizedMessages(ctx, result)
+
+	c.recordCompressionResult(originalTokens, estimateMessagesTokens(result))
+	c.state.previousSummary = summary
+
+	return result, nil
 }

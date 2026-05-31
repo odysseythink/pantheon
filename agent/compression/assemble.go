@@ -14,7 +14,7 @@ func (c *DefaultCompressor) assemble(head, tail []core.Message, summary string) 
 
 	summaryMsg := core.Message{
 		Role:    core.MESSAGE_ROLE_ASSISTANT,
-		Content: core.NewTextContent(summaryPrefix + summary),
+		Content: core.NewTextContent("[Compressed summary of earlier conversation]\n" + summary),
 	}
 
 	// Avoid consecutive same-role messages
