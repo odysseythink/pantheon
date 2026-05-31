@@ -35,6 +35,13 @@ func WithCompressor(c *compression.Compressor) Option {
 	}
 }
 
+// WithMemoryProviders attaches memory provider hooks for compression lifecycle events.
+func WithMemoryProviders(r *compression.MemoryProviderRegistry) Option {
+	return func(a *Agent) {
+		a.memoryProviders = r
+	}
+}
+
 // WithRegistry attaches a rich tool.Registry that takes precedence
 // over RegisterTool calls. When set, the executor reads metadata
 // (schema, MaxResultChars, IsInteractive) from the registry.

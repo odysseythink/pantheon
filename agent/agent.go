@@ -23,7 +23,8 @@ type Agent struct {
 	stopConditions []StopCondition
 	toolRegistry   map[string]ToolFunc
 	registry       *tool.Registry
-	contextEngine  compression.ContextEngine
+	contextEngine    compression.ContextEngine
+	memoryProviders  *compression.MemoryProviderRegistry
 
 	// callbacks
 	onStepStart      OnStepStartFunc
@@ -186,6 +187,13 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 	for step := 0; step < a.maxSteps; step++ {
 		lastHadToolCalls = false
 		if a.contextEngine != nil {
+			if a.memoryProviders != nil {
+				var err error
+				messages, err = a.memoryProviders.OnPreCompress(messages)
+				if err != nil {
+					return nil, fmt.Errorf("memory provider pre-compress: %w", err)
+				}
+			}
 			compressed, err := a.contextEngine.CompressMessages(ctx, messages, "")
 			if err != nil {
 				return nil, fmt.Errorf("compress history: %w", err)

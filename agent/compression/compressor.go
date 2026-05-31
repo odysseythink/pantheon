@@ -275,6 +275,11 @@ func (c *DefaultCompressor) compressInternal(ctx context.Context, history []core
 		return history, nil
 	}
 
+	promptTokens := estimateMessagesTokens(history)
+	if !c.ShouldCompress(promptTokens) {
+		return history, nil
+	}
+
 	originalTokens := estimateMessagesTokens(history)
 
 	// Phase 1: Prune tool results

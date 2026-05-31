@@ -63,7 +63,8 @@ func (c *DefaultCompressor) ShouldCompress(promptTokens int) bool {
 		return false
 	}
 	if c.thresholdTokens == 0 {
-		return false
+		// Threshold not yet calibrated — allow compression (caller controls via Enabled).
+		return true
 	}
 	return promptTokens > c.thresholdTokens
 }
