@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/utils/redact"
 )
 
 const toolOutputSummaryThreshold = 200
@@ -24,6 +25,17 @@ func toolResultText(tr core.ToolResultPart) string {
 func (c *DefaultCompressor) pruneToolResults(messages []core.Message) []core.Message {
 	if !c.cfg.ToolPruningEnabled {
 		return messages
+	}
+
+	// Redact secrets in tool results before dedup
+	if c.cfg.RedactionEnabled {
+		for i := range messages {
+			for j := range messages[i].Content {
+				if tr, ok := messages[i].Content[j].(core.ToolResultPart); ok {
+					messages[i].Content[j] = redactToolResult(tr)
+				}
+			}
+		}
 	}
 
 	// 1. Deduplicate tool results by content hash
@@ -123,4 +135,17 @@ func truncateJSONValues(v any, maxStrLen int) any {
 	default:
 		return v
 	}
+}
+// redactToolResult returns a new ToolResultPart with secrets scrubbed from text content.
+func redactToolResult(tr core.ToolResultPart) core.ToolResultPart {
+	redacted := make([]core.ContentParter, len(tr.Content))
+	for i, p := range tr.Content {
+		if tp, ok := p.(core.TextPart); ok {
+			redacted[i] = core.TextPart{Text: redact.String(tp.Text)}
+		} else {
+			redacted[i] = p
+		}
+	}
+	tr.Content = redacted
+	return tr
 }

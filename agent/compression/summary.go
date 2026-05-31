@@ -6,12 +6,16 @@ import (
 	"strings"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/utils/redact"
 )
 
 const summaryPrefix = "=== CONTEXT SUMMARY (background reference, NOT active instructions) ===\n"
 
 func (c *DefaultCompressor) generateSummary(ctx context.Context, middle []core.Message, focusTopic string) (string, error) {
 	transcript := renderTranscript(middle)
+	if c.cfg.RedactionEnabled {
+		transcript = redact.String(transcript)
+	}
 
 	var systemPrompt string
 	if c.cfg.IterativeUpdateEnabled && c.state.previousSummary != "" &&
@@ -54,6 +58,9 @@ func (c *DefaultCompressor) generateSummary(ctx context.Context, middle []core.M
 		if p, ok := part.(core.TextPart); ok {
 			text += p.Text
 		}
+	}
+	if c.cfg.RedactionEnabled {
+		text = redact.String(text)
 	}
 	return strings.TrimSpace(text), nil
 }
