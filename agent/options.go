@@ -21,11 +21,17 @@ func WithMaxSteps(n int) Option {
 	}
 }
 
-// WithCompressor attaches a compressor that will be invoked before each
-// model generation step to keep the message history within bounds.
+// WithContextEngine attaches a context engine for compression.
+func WithContextEngine(e compression.ContextEngine) Option {
+	return func(a *Agent) {
+		a.contextEngine = e
+	}
+}
+
+// WithCompressor attaches a compressor. Backward-compatible alias for WithContextEngine.
 func WithCompressor(c *compression.Compressor) Option {
 	return func(a *Agent) {
-		a.compressor = c
+		a.contextEngine = c
 	}
 }
 

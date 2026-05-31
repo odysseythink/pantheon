@@ -69,8 +69,8 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 				return
 			}
 
-			if a.compressor != nil {
-				compressed, err := a.compressor.Compress(ctx, messages)
+			if a.contextEngine != nil {
+				compressed, err := a.contextEngine.CompressMessages(ctx, messages, "")
 				if err != nil {
 					a.invokeError(yield, fmt.Errorf("compress history: %w", err))
 					return
