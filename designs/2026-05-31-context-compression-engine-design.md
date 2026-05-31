@@ -43,7 +43,9 @@ type ContextEngine interface {
     Name() string
     UpdateFromResponse(usage core.Usage) error
     ShouldCompress(promptTokens int) bool
-    Compress(ctx context.Context, messages []core.Message, focusTopic string) ([]core.Message, error)
+    // CompressMessages is the 3-argument version used by Agent.
+    // DefaultCompressor also keeps the backward-compatible 2-argument Compress().
+    CompressMessages(ctx context.Context, messages []core.Message, focusTopic string) ([]core.Message, error)
     UpdateModel(model string, contextLength int) error
     GetToolSchemas() []core.ToolDefinition
     HandleToolCall(ctx context.Context, name string, args map[string]any) (string, error)
@@ -119,7 +121,7 @@ if a.contextEngine != nil {
 
 // 下次生成前
 if a.contextEngine != nil && a.contextEngine.ShouldCompress(estimatedTokens) {
-    messages, err = a.contextEngine.Compress(ctx, messages, "")
+    messages, err = a.contextEngine.CompressMessages(ctx, messages, "")
 }
 ```
 
