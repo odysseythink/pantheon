@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/odysseythink/pantheon/core"
 )
@@ -14,21 +15,44 @@ import (
 // verbatim, small enough that a 200KB+ paste gets summarized.
 const defaultPerMessageMaxTokens = 8000
 
-// Compressor summarizes middle-of-history messages using an auxiliary LLM
-// to reduce token count while preserving the conversation's head and tail.
-type Compressor struct {
-	cfg         CompressionConfig
-	aux         core.LanguageModel
+// DefaultCompressor is the built-in ContextEngine implementation.
+type DefaultCompressor struct {
+	cfg    CompressionConfig
+	aux    core.LanguageModel
+	state  compressionState
+
+	// Token budgets (recalculated on UpdateModel)
+	thresholdTokens  int
+	tailTokenBudget  int
+	maxSummaryTokens int
+
+	// Model info
+	modelName     string
+	contextLength int
+
+	// Backward-compat: args from NewCompressor
 	maxTokens   int
 	maxMessages int
 	keepLastN   int
 }
 
-// NewCompressor constructs a Compressor. `aux` is the auxiliary language model
+// compressionState tracks runtime state for iterative updates & robustness.
+type compressionState struct {
+	previousSummary           string
+	lastCompressionSavingsPct float64
+	ineffectiveCount          int
+	summaryCooldownUntil      time.Time
+	lastSummaryError          error
+}
+
+// Compressor is an alias for DefaultCompressor for backward compatibility.
+type Compressor = DefaultCompressor
+
+// NewDefaultCompressor constructs a DefaultCompressor. `aux` is the auxiliary language model
 // used for the summarization call. If aux is nil, Compress returns the
 // history unchanged.
-func NewCompressor(cfg CompressionConfig, aux core.LanguageModel, args ...int) *Compressor {
-	c := &Compressor{cfg: cfg, aux: aux}
+func NewDefaultCompressor(cfg CompressionConfig, aux core.LanguageModel, args ...int) *DefaultCompressor {
+	c := &DefaultCompressor{cfg: cfg.WithDefaults(), aux: aux}
 	if len(args) > 0 {
 		c.maxTokens = args[0]
 	}
@@ -39,6 +63,58 @@ func NewCompressor(cfg CompressionConfig, aux core.LanguageModel, args ...int) *
 		c.keepLastN = args[2]
 	}
 	return c
+}
+
+// NewCompressor is a backward-compatible alias for NewDefaultCompressor.
+func NewCompressor(cfg CompressionConfig, aux core.LanguageModel, args ...int) *Compressor {
+	return NewDefaultCompressor(cfg, aux, args...)
+}
+
+// Name returns the engine name.
+func (c *DefaultCompressor) Name() string { return "default" }
+
+// UpdateFromResponse initializes token budgets from the first usage response.
+func (c *DefaultCompressor) UpdateFromResponse(usage core.Usage) error {
+	if c.thresholdTokens == 0 && c.contextLength > 0 {
+		c.thresholdTokens = int(float64(c.contextLength) * c.cfg.Threshold)
+		c.tailTokenBudget = int(float64(c.thresholdTokens) * c.cfg.SummaryTargetRatio)
+		c.maxSummaryTokens = min(int(float64(c.contextLength)*0.05), 12000)
+	}
+	return nil
+}
+
+// ShouldCompress returns true when prompt tokens exceed the threshold.
+func (c *DefaultCompressor) ShouldCompress(promptTokens int) bool {
+	if !c.cfg.Enabled || c.aux == nil {
+		return false
+	}
+	if c.thresholdTokens == 0 {
+		return false
+	}
+	return promptTokens > c.thresholdTokens
+}
+
+// UpdateModel updates the model info and recalculates token budgets.
+func (c *DefaultCompressor) UpdateModel(model string, contextLength int) error {
+	c.modelName = model
+	c.contextLength = contextLength
+	c.thresholdTokens = int(float64(contextLength) * c.cfg.Threshold)
+	c.tailTokenBudget = int(float64(c.thresholdTokens) * c.cfg.SummaryTargetRatio)
+	c.maxSummaryTokens = min(int(float64(contextLength)*0.05), 12000)
+	return nil
+}
+
+// GetToolSchemas returns tool schemas exposed by this engine.
+func (c *DefaultCompressor) GetToolSchemas() []core.ToolDefinition { return nil }
+
+// HandleToolCall handles a tool call dispatched to this engine.
+func (c *DefaultCompressor) HandleToolCall(ctx context.Context, name string, args map[string]any) (string, error) {
+	return "", core.ErrNotImplemented
+}
+
+// CompressMessages implements ContextEngine by delegating to the legacy Compress method.
+func (c *DefaultCompressor) CompressMessages(ctx context.Context, messages []core.Message, focusTopic string) ([]core.Message, error) {
+	return c.Compress(ctx, messages)
 }
 
 // Compress summarizes the middle of the history and returns a shortened
@@ -52,7 +128,7 @@ func NewCompressor(cfg CompressionConfig, aux core.LanguageModel, args ...int) *
 // If the auxiliary provider is nil, the original is returned.
 // If the history is shorter than head + tail + 1, only the per-message
 // oversize check runs (the middle-summary step is skipped).
-func (c *Compressor) Compress(ctx context.Context, history []core.Message) ([]core.Message, error) {
+func (c *DefaultCompressor) Compress(ctx context.Context, history []core.Message) ([]core.Message, error) {
 	if !c.cfg.Enabled || c.aux == nil {
 		return history, nil
 	}
@@ -98,7 +174,7 @@ func (c *Compressor) Compress(ctx context.Context, history []core.Message) ([]co
 // structural ids that pair across messages — summarizing them would orphan
 // the partner. On summarize-error a message is kept verbatim; the engine
 // will surface the eventual provider 400 rather than silently drop content.
-func (c *Compressor) compressOversizedMessages(ctx context.Context, msgs []core.Message) []core.Message {
+func (c *DefaultCompressor) compressOversizedMessages(ctx context.Context, msgs []core.Message) []core.Message {
 	threshold := c.cfg.PerMessageMaxTokens
 	if threshold == 0 {
 		threshold = defaultPerMessageMaxTokens
@@ -134,7 +210,7 @@ func (c *Compressor) compressOversizedMessages(ctx context.Context, msgs []core.
 // summarizeSingle asks the aux provider for a terse summary of a single
 // oversized message. The role is passed through to the prompt so the
 // summarizer can preserve "what the user said" vs "what the assistant said".
-func (c *Compressor) summarizeSingle(ctx context.Context, role core.MessageRoleType, text string) (string, error) {
+func (c *DefaultCompressor) summarizeSingle(ctx context.Context, role core.MessageRoleType, text string) (string, error) {
 	systemPrompt := fmt.Sprintf(
 		"You are a summarizer. The %s sent a message that is too large to keep verbatim. "+
 			"Produce a terse, structured summary preserving key facts, decisions, code references, "+
@@ -166,7 +242,7 @@ func (c *Compressor) summarizeSingle(ctx context.Context, role core.MessageRoleT
 
 // summarize sends the middle messages to the auxiliary provider with
 // a terse summarization prompt and returns the assistant's text response.
-func (c *Compressor) summarize(ctx context.Context, middle []core.Message) (string, error) {
+func (c *DefaultCompressor) summarize(ctx context.Context, middle []core.Message) (string, error) {
 	// Build a condensed transcript to hand to the aux provider.
 	transcript := renderTranscript(middle)
 
