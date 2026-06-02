@@ -9,7 +9,7 @@ type OnStepStartFunc func(step int) error
 // OnStepFinishFunc is called when a step finishes (after tool execution or
 // when the step completes without tools).
 // If it returns a non-nil error, the stream yields an error event and aborts.
-type OnStepFinishFunc func(step int, messages []core.Message, usage core.Usage) error
+type OnStepFinishFunc func(step int, messages []core.Message, usage core.Usage, finishReason string, toolResults []core.ToolResultPart, providerMetadata map[string]any) error
 
 // OnErrorFunc is called when an error occurs during streaming.
 type OnErrorFunc func(err error)

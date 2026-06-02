@@ -881,7 +881,7 @@ func TestRunStreamCallbacks_AllInvoked(t *testing.T) {
 			textDelta = delta
 			return nil
 		}),
-		WithOnStepFinish(func(step int, messages []core.Message, usage core.Usage) error {
+		WithOnStepFinish(func(step int, messages []core.Message, usage core.Usage, finishReason string, toolResults []core.ToolResultPart, providerMetadata map[string]any) error {
 			stepFinishStep = step
 			return nil
 		}),
@@ -938,7 +938,7 @@ func TestRunStreamCallbacks_ReasoningAndTool(t *testing.T) {
 			toolResultName = result.Name
 			return nil
 		}),
-		WithOnStepFinish(func(step int, messages []core.Message, usage core.Usage) error {
+		WithOnStepFinish(func(step int, messages []core.Message, usage core.Usage, finishReason string, toolResults []core.ToolResultPart, providerMetadata map[string]any) error {
 			stepFinishes++
 			return nil
 		}),

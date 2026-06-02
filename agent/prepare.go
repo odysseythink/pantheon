@@ -36,4 +36,4 @@ type PrepareStepResult struct {
 
 // PrepareStepFunc is called before each step to allow dynamic modification
 // of the step's configuration.
-type PrepareStepFunc func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error)
+type PrepareStepFunc func(ctx context.Context, opts PrepareStepOptions) (context.Context, PrepareStepResult, error)

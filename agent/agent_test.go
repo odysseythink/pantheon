@@ -576,8 +576,8 @@ func TestRunWithPrepareStep_SystemPrompt(t *testing.T) {
 	}}
 
 	newSystem := "You are a helpful assistant"
-	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
-		return PrepareStepResult{SystemPrompt: &newSystem}, nil
+	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (context.Context, PrepareStepResult, error) {
+		return ctx, PrepareStepResult{SystemPrompt: &newSystem}, nil
 	}))
 
 	res, err := a.Run(context.Background(), &core.Request{
@@ -606,9 +606,9 @@ func TestRunWithPrepareStep_DisableTools(t *testing.T) {
 	}}
 
 	called := false
-	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
+	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (context.Context, PrepareStepResult, error) {
 		called = true
-		return PrepareStepResult{DisableAllTools: true}, nil
+		return ctx, PrepareStepResult{DisableAllTools: true}, nil
 	}))
 	a.RegisterTool("tool", func(ctx context.Context, args string) (string, error) {
 		return "result", nil
@@ -634,8 +634,8 @@ func TestRunWithPrepareStep_DisableTools(t *testing.T) {
 
 func TestRunWithPrepareStep_Error(t *testing.T) {
 	m := &mockModel{}
-	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
-		return PrepareStepResult{}, errors.New("prepare failed")
+	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (context.Context, PrepareStepResult, error) {
+		return ctx, PrepareStepResult{}, errors.New("prepare failed")
 	}))
 
 	_, err := a.Run(context.Background(), &core.Request{
@@ -658,8 +658,8 @@ func TestRunStreamWithPrepareStep(t *testing.T) {
 	}}
 
 	newSystem := "stream system"
-	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
-		return PrepareStepResult{SystemPrompt: &newSystem}, nil
+	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (context.Context, PrepareStepResult, error) {
+		return ctx, PrepareStepResult{SystemPrompt: &newSystem}, nil
 	}))
 
 	for event, err := range a.RunStream(context.Background(), &core.Request{
@@ -1095,10 +1095,10 @@ func TestPrepareStep_WithGenerationParams(t *testing.T) {
 	model := &mockModel{}
 	registry := tool.NewRegistry()
 
-	prepare := func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
+	prepare := func(ctx context.Context, opts PrepareStepOptions) (context.Context, PrepareStepResult, error) {
 		temp := 0.1
 		maxTok := 100
-		return PrepareStepResult{
+		return ctx, PrepareStepResult{
 			Model:       model,
 			Messages:    opts.Messages,
 			Temperature: &temp,

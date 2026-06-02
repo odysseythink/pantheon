@@ -213,7 +213,7 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		prepared := PrepareStepResult{}
 		if a.prepareStep != nil {
 			var err error
-			prepared, err = a.prepareStep(ctx, PrepareStepOptions{
+			ctx, prepared, err = a.prepareStep(ctx, PrepareStepOptions{
 				Step:     step,
 				Model:    stepModel,
 				Messages: stepMessages,
@@ -299,9 +299,10 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		if a.shouldStop(step, resp, messages) {
 			messages = append(messages, resp.Message)
 			steps = append(steps, StepResult{
-				StepNumber: step + 1,
-				Response:   *resp,
-				Messages:   append([]core.Message(nil), messages...),
+				StepNumber:       step + 1,
+				Response:         *resp,
+				Messages:         append([]core.Message(nil), messages...),
+				ProviderMetadata: resp.ProviderMetadata,
 			})
 			break
 		}
@@ -332,9 +333,10 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		toolCalls := extractToolCalls(resp.Message.Content)
 		if len(toolCalls) == 0 || disableAllTools {
 			steps = append(steps, StepResult{
-				StepNumber: step + 1,
-				Response:   *resp,
-				Messages:   append([]core.Message(nil), messages...),
+				StepNumber:       step + 1,
+				Response:         *resp,
+				Messages:         append([]core.Message(nil), messages...),
+				ProviderMetadata: resp.ProviderMetadata,
 			})
 			break
 		}
@@ -426,6 +428,7 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 				Content:    []core.ContentParter{resultContent},
 				IsError:    r.isError,
 				StopTurn:   r.stopTurn,
+				Metadata:   r.metadata,
 			}
 			stepToolResults = append(stepToolResults, toolResult)
 			messages = append(messages, core.Message{
@@ -437,10 +440,11 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 			}
 		}
 		steps = append(steps, StepResult{
-			StepNumber:  step + 1,
-			Response:    *resp,
-			ToolResults: stepToolResults,
-			Messages:    append([]core.Message(nil), messages...),
+			StepNumber:       step + 1,
+			Response:         *resp,
+			ToolResults:      stepToolResults,
+			Messages:         append([]core.Message(nil), messages...),
+			ProviderMetadata: resp.ProviderMetadata,
 		})
 		if stopTurn {
 			lastHadToolCalls = false

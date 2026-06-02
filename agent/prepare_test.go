@@ -17,9 +17,9 @@ func TestPrepareStep_ReceivesSteps(t *testing.T) {
 	}
 
 	var receivedSteps [][]StepResult
-	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (PrepareStepResult, error) {
+	a := New(m, WithPrepareStep(func(ctx context.Context, opts PrepareStepOptions) (context.Context, PrepareStepResult, error) {
 		receivedSteps = append(receivedSteps, append([]StepResult(nil), opts.Steps...))
-		return PrepareStepResult{}, nil
+		return ctx, PrepareStepResult{}, nil
 	}))
 	a.RegisterTool("tool", func(ctx context.Context, args string) (string, error) {
 		return "result", nil
