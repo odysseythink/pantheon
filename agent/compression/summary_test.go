@@ -2,8 +2,13 @@ package compression
 
 import (
 	"context"
+	"errors"
+	"iter"
+	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/odysseythink/pantheon/core"
 )
 
 func TestGenerateSummary_Fresh(t *testing.T) {
@@ -70,5 +75,61 @@ func TestGenerateSummary_MaxSummaryTokens(t *testing.T) {
 	}
 	if *rec.lastReq.MaxTokens != 6400 {
 		t.Fatalf("expected MaxTokens 6400, got %d", *rec.lastReq.MaxTokens)
+	}
+}
+
+
+type mockSummaryLM struct {
+	lastSystemPrompt string
+}
+
+func (m *mockSummaryLM) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	m.lastSystemPrompt = req.SystemPrompt
+	return &core.Response{Message: core.NewTextMessage(core.MESSAGE_ROLE_ASSISTANT, "summary")}, nil
+}
+
+func (m *mockSummaryLM) Stream(ctx context.Context, req *core.Request) (iter.Seq2[*core.StreamPart, error], error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockSummaryLM) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return nil, nil
+}
+
+func (m *mockSummaryLM) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+
+func (m *mockSummaryLM) Provider() string { return "mock-summary" }
+func (m *mockSummaryLM) Model() string    { return "mock-summary-model" }
+
+func TestRenderTranscriptTruncatesPerMessage(t *testing.T) {
+	longText := strings.Repeat("a", 10000)
+	msgs := []core.Message{
+		core.NewTextMessage(core.MESSAGE_ROLE_USER, longText),
+	}
+	transcript := renderTranscript(msgs)
+	// Each message should be truncated to 6000 chars of content
+	if strings.Contains(transcript, strings.Repeat("a", 7000)) {
+		t.Fatal("expected transcript to truncate per-message text")
+	}
+	if !strings.Contains(transcript, "(truncated") {
+		t.Fatal("expected truncation marker in transcript")
+	}
+}
+
+func TestGenerateSummaryUsesRedactPatterns(t *testing.T) {
+	mockAux := &mockSummaryLM{}
+	cfg := DefaultCompressionConfig()
+	cfg.RedactionEnabled = true
+	cfg.RedactPatterns = []*regexp.Regexp{regexp.MustCompile(`SECRET`)}
+	c := NewDefaultCompressor(cfg, mockAux)
+
+	msgs := []core.Message{core.NewTextMessage(core.MESSAGE_ROLE_USER, "SECRET data here")}
+	_, _ = c.generateSummary(context.Background(), msgs, "")
+
+	// mockSummaryLM should record the redacted prompt
+	if strings.Contains(mockAux.lastSystemPrompt, "SECRET") {
+		t.Fatal("expected SECRET to be redacted in prompt sent to aux model")
 	}
 }

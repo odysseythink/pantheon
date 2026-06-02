@@ -8,6 +8,8 @@ import (
 	"github.com/odysseythink/pantheon/utils/redact"
 )
 
+const perMessageCharLimit = 6000
+
 // renderTranscript builds a plain-text transcript of conversation messages.
 func renderTranscript(msgs []core.Message) string {
 	var out string
@@ -16,7 +18,11 @@ func renderTranscript(msgs []core.Message) string {
 		for _, p := range m.Content {
 			switch part := p.(type) {
 			case core.TextPart:
-				out += part.Text
+				text := part.Text
+				if len(text) > perMessageCharLimit {
+					text = text[:perMessageCharLimit] + " (truncated)"
+				}
+				out += text
 			case core.ToolCallPart:
 				out += "[tool_call: " + part.Name + "]"
 			case core.ToolResultPart:
