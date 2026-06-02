@@ -18,4 +18,7 @@ type StepResult struct {
 	// Messages is a snapshot of the complete message history at the end of this step.
 	// It includes the assistant message from the model response and any tool result messages.
 	Messages []core.Message
+
+	// ProviderMetadata holds provider-specific metadata from the raw response.
+	ProviderMetadata map[string]any
 }

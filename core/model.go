@@ -21,11 +21,12 @@ type Request struct {
 
 // Response is the result of a single model generation call.
 type Response struct {
-	Message      Message
-	FinishReason string
-	Usage        Usage
-	Model        string
-	Warnings     []CallWarning
+	Message          Message
+	FinishReason     string
+	Usage            Usage
+	Model            string
+	Warnings         []CallWarning
+	ProviderMetadata map[string]any // provider-specific metadata from the raw response
 }
 
 // Usage reports token consumption for a model call.
@@ -48,9 +49,10 @@ type StreamPart struct {
 	ReasoningDelta string
 	ToolCall       *ToolCallPart
 	Source         *SourcePart
-	Usage          *Usage
-	FinishReason   string
-	Warnings       []CallWarning
+	Usage            *Usage
+	FinishReason     string
+	Warnings         []CallWarning
+	ProviderMetadata map[string]any // provider-specific metadata from the raw response
 }
 
 // StreamPartType identifies the kind of a StreamPart.
