@@ -94,11 +94,41 @@ func ToAnthropicTools(tools []core.ToolDefinition) []any {
 			out = append(out, t.ProviderTool)
 			continue
 		}
-		out = append(out, Tool{
+		tool := Tool{
 			Name:        t.Name,
 			Description: t.Description,
 			InputSchema: t.Parameters,
-		})
+		}
+		// Merge per-tool ProviderOptions
+		if t.ProviderOptions != nil {
+			if opts, ok := t.ProviderOptions.Get("anthropic"); ok {
+				switch v := opts.(type) {
+				case *ProviderCacheControlOptions:
+					toolMap := map[string]any{
+						"name":         tool.Name,
+						"description":  tool.Description,
+						"input_schema": tool.InputSchema,
+						"cache_control": map[string]any{
+							"type": v.CacheControl.Type,
+						},
+					}
+					out = append(out, toolMap)
+					continue
+				case ProviderCacheControlOptions:
+					toolMap := map[string]any{
+						"name":         tool.Name,
+						"description":  tool.Description,
+						"input_schema": tool.InputSchema,
+						"cache_control": map[string]any{
+							"type": v.CacheControl.Type,
+						},
+					}
+					out = append(out, toolMap)
+					continue
+				}
+			}
+		}
+		out = append(out, tool)
 	}
 	return out
 }
