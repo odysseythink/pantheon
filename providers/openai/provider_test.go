@@ -60,8 +60,11 @@ func TestProvider_LanguageModel(t *testing.T) {
 	}
 }
 
+func boolPtr(b bool) *bool    { return &b }
+func stringPtr(s string) *string { return &s }
+
 func TestProviderOptions_ProviderName(t *testing.T) {
-	opts := ProviderOptions{Store: true}
+	opts := ProviderOptions{Store: boolPtr(true)}
 	if opts.ProviderName() != "openai" {
 		t.Errorf("unexpected provider name: %s", opts.ProviderName())
 	}
@@ -75,10 +78,10 @@ func TestProviderOptions_PrepareRequest(t *testing.T) {
 	coreReq := &core.Request{
 		ProviderOptions: core.ProviderOptions{
 			"openai": &ProviderOptions{
-				Store:           true,
-				Metadata:        map[string]string{"key": "val"},
-				ReasoningEffort: "high",
-				User:            "alice",
+				Store:           boolPtr(true),
+				Metadata:        map[string]any{"key": "val"},
+				ReasoningEffort: func() *ReasoningEffort { r := ReasoningEffortHigh; return &r }(),
+				User:            stringPtr("alice"),
 			},
 		},
 	}
@@ -116,6 +119,30 @@ func TestProviderOptions_PrepareRequest_WrongProvider(t *testing.T) {
 	prov.client.Hooks.PrepareRequest(req, "gpt-4", coreReq)
 	if req.Store {
 		t.Error("expected Store to remain false when provider options are for a different provider")
+	}
+}
+
+func TestParseOptions(t *testing.T) {
+	data := map[string]any{
+		"reasoning_effort": "high",
+		"store":            true,
+	}
+	opts, err := ParseOptions(data)
+	if err != nil {
+		t.Fatalf("ParseOptions failed: %v", err)
+	}
+	if opts.ReasoningEffort == nil || *opts.ReasoningEffort != ReasoningEffortHigh {
+		t.Errorf("ReasoningEffort = %v, want high", opts.ReasoningEffort)
+	}
+	if opts.Store == nil || !*opts.Store {
+		t.Errorf("Store = %v, want true", opts.Store)
+	}
+}
+
+func TestResponsesReasoningMetadata(t *testing.T) {
+	m := ResponsesReasoningMetadata{ItemID: "item-1", Summary: []string{"summary"}}
+	if m.ItemID != "item-1" {
+		t.Errorf("ItemID = %q, want item-1", m.ItemID)
 	}
 }
 
