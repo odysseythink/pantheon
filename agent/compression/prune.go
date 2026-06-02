@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/odysseythink/pantheon/core"
-	"github.com/odysseythink/pantheon/utils/redact"
 )
 
 const toolOutputSummaryThreshold = 200
@@ -32,7 +31,7 @@ func (c *DefaultCompressor) pruneToolResults(messages []core.Message) []core.Mes
 		for i := range messages {
 			for j := range messages[i].Content {
 				if tr, ok := messages[i].Content[j].(core.ToolResultPart); ok {
-					messages[i].Content[j] = redactToolResult(tr)
+					messages[i].Content[j] = redactToolResultWithPatterns(c, tr)
 				}
 			}
 		}
@@ -64,7 +63,7 @@ func (c *DefaultCompressor) pruneToolResults(messages []core.Message) []core.Mes
 				text := toolResultText(part)
 				if len(text) > toolOutputSummaryThreshold {
 					messages[i].Content[j] = core.TextPart{
-						Text: summarizeToolResult(part),
+						Text: c.summarizeToolResult(part),
 					}
 				}
 			case core.ImagePart:
@@ -86,10 +85,63 @@ func (c *DefaultCompressor) pruneToolResults(messages []core.Message) []core.Mes
 	return messages
 }
 
-func summarizeToolResult(tr core.ToolResultPart) string {
+func (c *DefaultCompressor) summarizeToolResult(tr core.ToolResultPart) string {
 	text := toolResultText(tr)
 	lines := strings.Count(text, "\n")
-	return fmt.Sprintf("[tool_result %s: %d chars, %d lines]", tr.ToolCallID, len(text), lines)
+	if len(text) > 0 && !strings.HasSuffix(text, "\n") {
+		lines++
+	}
+
+	switch tr.Name {
+	case "terminal":
+		return fmt.Sprintf("[terminal_output: %d lines, %d chars]", lines, len(text))
+	case "browser_navigate":
+		url := extractJSONField(text, "url")
+		if url == "" {
+			url = extractJSONField(text, "title")
+		}
+		return fmt.Sprintf("[browser_navigate: %s]", url)
+	case "create_files":
+		count := countJSONArrayItems(text, "created")
+		return fmt.Sprintf("[create_files: %d files created]", count)
+	case "web_scraping":
+		return fmt.Sprintf("[web_scraping: %d chars extracted]", len(text))
+	case "session_search":
+		count := countJSONArrayItems(text, "results")
+		return fmt.Sprintf("[session_search: %d results]", count)
+	default:
+		return fmt.Sprintf("[tool_result %s: %d chars, %d lines]", tr.ToolCallID, len(text), lines)
+	}
+}
+
+func extractJSONField(jsonText, field string) string {
+	var m map[string]any
+	if err := json.Unmarshal([]byte(jsonText), &m); err != nil {
+		return ""
+	}
+	v, ok := m[field].(string)
+	if ok {
+		return v
+	}
+	// also try if it's nested under a "result" or similar
+	if vm, ok := m[field].(map[string]any); ok {
+		if s, ok := vm["url"].(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+func countJSONArrayItems(jsonText, field string) int {
+	var m map[string]any
+	if err := json.Unmarshal([]byte(jsonText), &m); err != nil {
+		return 0
+	}
+	arr, ok := m[field].([]any)
+	if ok {
+		return len(arr)
+	}
+	return 0
 }
 
 func truncateJSONArgs(args string, maxLen int) string {
@@ -136,12 +188,11 @@ func truncateJSONValues(v any, maxStrLen int) any {
 		return v
 	}
 }
-// redactToolResult returns a new ToolResultPart with secrets scrubbed from text content.
-func redactToolResult(tr core.ToolResultPart) core.ToolResultPart {
+func redactToolResultWithPatterns(c *DefaultCompressor, tr core.ToolResultPart) core.ToolResultPart {
 	redacted := make([]core.ContentParter, len(tr.Content))
 	for i, p := range tr.Content {
 		if tp, ok := p.(core.TextPart); ok {
-			redacted[i] = core.TextPart{Text: redact.String(tp.Text)}
+			redacted[i] = core.TextPart{Text: c.applyRedaction(tp.Text)}
 		} else {
 			redacted[i] = p
 		}
