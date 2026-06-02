@@ -8,6 +8,9 @@ import (
 	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
+// Name is the provider name for Anthropic.
+const Name = "anthropic"
+
 type Provider struct {
 	client *Client
 }
@@ -41,7 +44,7 @@ func WithHTTPClient(client *http.Client) Option {
 
 // Name returns the provider name.
 func (p *Provider) Name() string {
-	return "anthropic"
+	return Name
 }
 
 // Models returns the list of available models from the Anthropic provider.
@@ -60,8 +63,20 @@ func (p *Provider) LanguageModel(ctx context.Context, modelID string) (core.Lang
 
 // ProviderOptions holds Anthropic-specific request options.
 type ProviderOptions struct {
-	Thinking *ThinkingConfig `json:"thinking,omitempty"`
+	SendReasoning          *bool           `json:"send_reasoning,omitempty"`
+	Thinking               *ThinkingConfig `json:"thinking,omitempty"`
+	Effort                 *Effort         `json:"effort,omitempty"`
+	DisableParallelToolUse *bool           `json:"disable_parallel_tool_use,omitempty"`
 }
 
 // ProviderName returns the provider name for these options.
-func (ProviderOptions) ProviderName() string { return "anthropic" }
+func (ProviderOptions) ProviderName() string { return Name }
+
+// ParseOptions parses provider options from a map for the Anthropic provider.
+func ParseOptions(data map[string]any) (*ProviderOptions, error) {
+	var options ProviderOptions
+	if err := core.ParseOptions(data, &options); err != nil {
+		return nil, err
+	}
+	return &options, nil
+}

@@ -101,3 +101,36 @@ type Delta struct {
 	PartialJSON string `json:"partial_json,omitempty"`
 	StopReason  string `json:"stop_reason,omitempty"`
 }
+
+// Effort represents the output effort level for Anthropic models.
+type Effort string
+
+const (
+	EffortLow    Effort = "low"
+	EffortMedium Effort = "medium"
+	EffortHigh   Effort = "high"
+	EffortXHigh  Effort = "xhigh"
+	EffortMax    Effort = "max"
+)
+
+// ReasoningOptionMetadata represents reasoning metadata for the Anthropic provider.
+type ReasoningOptionMetadata struct {
+	Signature    string `json:"signature"`
+	RedactedData string `json:"redacted_data"`
+}
+
+// ProviderName returns the provider name for these options.
+func (ReasoningOptionMetadata) ProviderName() string { return Name }
+
+// CacheControl represents cache control settings for the Anthropic provider.
+type CacheControl struct {
+	Type string `json:"type"`
+}
+
+// ProviderCacheControlOptions represents cache control options for the Anthropic provider.
+type ProviderCacheControlOptions struct {
+	CacheControl CacheControl `json:"cache_control"`
+}
+
+// ProviderName returns the provider name for these options.
+func (ProviderCacheControlOptions) ProviderName() string { return Name }

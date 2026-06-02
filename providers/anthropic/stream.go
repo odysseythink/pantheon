@@ -111,6 +111,16 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 					if !yield(sp, nil) {
 						return
 					}
+				case "signature_delta":
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeReasoningDelta,
+						ProviderMetadata: map[string]any{
+							Name: &ReasoningOptionMetadata{Signature: event.Delta.Signature},
+						},
+					}
+					if !yield(sp, nil) {
+						return
+					}
 				case "input_json_delta":
 					if currentToolCall != nil {
 						currentToolCall.Arguments += event.Delta.PartialJSON
