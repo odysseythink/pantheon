@@ -2,6 +2,7 @@ package compression
 
 import (
 	"context"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -41,5 +42,36 @@ func TestGenerateSummary_RedactsTranscript(t *testing.T) {
 	}
 	if strings.Contains(rec.lastReq.Messages[0].Text(), "sk-ant") {
 		t.Fatal("transcript should be redacted before sending to aux")
+	}
+}
+
+
+func TestRedactPatternsOverride(t *testing.T) {
+	cfg := DefaultCompressionConfig()
+	cfg.RedactionEnabled = true
+	cfg.RedactPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`SECRET_\d+`),
+	}
+	c := NewDefaultCompressor(cfg, nil)
+
+	input := "token SECRET_123 and SECRET_456"
+	got := c.applyRedaction(input)
+	want := "token [REDACTED] and [REDACTED]"
+	if got != want {
+		t.Fatalf("applyRedaction(%q) = %q, want %q", input, got, want)
+	}
+}
+
+func TestRedactPatternsNilUsesDefault(t *testing.T) {
+	cfg := DefaultCompressionConfig()
+	cfg.RedactionEnabled = true
+	cfg.RedactPatterns = nil
+	c := NewDefaultCompressor(cfg, nil)
+
+	input := "contact alice@example.com"
+	got := c.applyRedaction(input)
+	// default redact.String should scrub emails
+	if strings.Contains(got, "alice@example.com") {
+		t.Fatalf("expected email redacted, got %q", got)
 	}
 }

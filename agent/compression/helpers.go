@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/utils/redact"
 )
 
 // renderTranscript builds a plain-text transcript of conversation messages.
@@ -95,4 +96,18 @@ func contentToString(parts []core.ContentParter) string {
 		}
 	}
 	return strings.Join(texts, " ")
+}
+
+
+func (c *DefaultCompressor) applyRedaction(text string) string {
+	if !c.cfg.RedactionEnabled {
+		return text
+	}
+	if len(c.cfg.RedactPatterns) > 0 {
+		for _, re := range c.cfg.RedactPatterns {
+			text = re.ReplaceAllString(text, "[REDACTED]")
+		}
+		return text
+	}
+	return redact.String(text)
 }

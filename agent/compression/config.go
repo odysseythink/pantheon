@@ -1,6 +1,9 @@
 package compression
 
-import "time"
+import (
+	"regexp"
+	"time"
+)
 
 // CompressionConfig controls context compression behavior.
 // When the conversation history exceeds Threshold * model context length,
@@ -13,22 +16,23 @@ type CompressionConfig struct {
 	MaxPasses           int     `yaml:"max_passes"`   // default 3
 	PerMessageMaxTokens int     `yaml:"per_message_max_tokens,omitempty"`
 
-	Engine                   string        `yaml:"engine"`
-	SummaryModel             string        `yaml:"summary_model"`
-	FallbackModel            string        `yaml:"fallback_model"`
-	ProtectFirstN            int           `yaml:"protect_first_n"`
-	SummaryTargetRatio       float64       `yaml:"summary_target_ratio"`
-	MaxSummaryTokens         int           `yaml:"max_summary_tokens"`
-	AntiThrashEnabled        bool          `yaml:"anti_thrash_enabled"`
-	AntiThrashThreshold      float64       `yaml:"anti_thrash_threshold"`
-	AntiThrashMaxConsecutive int           `yaml:"anti_thrash_max_consecutive"`
-	CooldownEnabled          bool          `yaml:"cooldown_enabled"`
-	CooldownBase             time.Duration `yaml:"cooldown_base"`
-	CooldownMax              time.Duration `yaml:"cooldown_max"`
-	RedactionEnabled         bool          `yaml:"redaction_enabled"`
-	ToolPruningEnabled       bool          `yaml:"tool_pruning_enabled"`
-	IterativeUpdateEnabled   bool          `yaml:"iterative_update_enabled"`
-	IterativeUpdateMaxLength float64       `yaml:"iterative_update_max_length"`
+	Engine                   string           `yaml:"engine"`
+	SummaryModel             string           `yaml:"summary_model"`
+	FallbackModel            string           `yaml:"fallback_model"`
+	ProtectFirstN            int              `yaml:"protect_first_n"`
+	SummaryTargetRatio       float64          `yaml:"summary_target_ratio"`
+	MaxSummaryTokens         int              `yaml:"max_summary_tokens"`
+	AntiThrashEnabled        bool             `yaml:"anti_thrash_enabled"`
+	AntiThrashThreshold      float64          `yaml:"anti_thrash_threshold"`
+	AntiThrashMaxConsecutive int              `yaml:"anti_thrash_max_consecutive"`
+	CooldownEnabled          bool             `yaml:"cooldown_enabled"`
+	CooldownBase             time.Duration    `yaml:"cooldown_base"`
+	CooldownMax              time.Duration    `yaml:"cooldown_max"`
+	RedactionEnabled         bool             `yaml:"redaction_enabled"`
+	RedactPatterns           []*regexp.Regexp `yaml:"redact_patterns,omitempty"`
+	ToolPruningEnabled       bool             `yaml:"tool_pruning_enabled"`
+	IterativeUpdateEnabled   bool             `yaml:"iterative_update_enabled"`
+	IterativeUpdateMaxLength float64          `yaml:"iterative_update_max_length"`
 }
 
 // WithDefaults returns a copy with zero values filled in.
@@ -79,11 +83,11 @@ func (cfg CompressionConfig) WithDefaults() CompressionConfig {
 // All feature flags are enabled by default.
 func DefaultCompressionConfig() CompressionConfig {
 	return CompressionConfig{
-		Enabled:              true,
-		AntiThrashEnabled:    true,
-		CooldownEnabled:      true,
-		RedactionEnabled:     true,
-		ToolPruningEnabled:   true,
+		Enabled:                true,
+		AntiThrashEnabled:      true,
+		CooldownEnabled:        true,
+		RedactionEnabled:       true,
+		ToolPruningEnabled:     true,
 		IterativeUpdateEnabled: true,
 	}.WithDefaults()
 }
