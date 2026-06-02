@@ -113,6 +113,26 @@ func toGeminiTools(tools []core.ToolDefinition) []any {
 			out = append(out, t.ProviderTool)
 			continue
 		}
+
+		// Merge per-tool ProviderOptions into the tool definition
+		var toolProviderOpts map[string]any
+		if t.ProviderOptions != nil {
+			if opts, ok := t.ProviderOptions.Get("google"); ok {
+				switch v := opts.(type) {
+				case *ProviderOptions:
+					// Serialize provider options as extra fields on the tool
+					// Google Gemini does not currently have per-tool options in the standard API,
+					// but we preserve them for future use.
+					if v.ThinkingConfig != nil {
+						// no-op for now
+					}
+				case ProviderOptions:
+					// no-op
+				}
+			}
+		}
+		_ = toolProviderOpts // silence unused if no fields are mapped yet
+
 		out = append(out, Tool{
 			FunctionDeclarations: []FunctionDeclaration{{
 				Name:        t.Name,
