@@ -159,14 +159,18 @@ func NewTextContent(text string) []ContentParter {
 type ReasoningPart struct {
 	Text            string          `json:"text"`
 	Signature       string          `json:"signature,omitempty"`
-	ProviderOptions ProviderOptions `json:"-"` // provider-specific metadata (not serialized)
+	ProviderOptions ProviderOptions `json:"provider_options,omitempty"`
 }
 
 func (ReasoningPart) contentPart() {}
 
 // MarshalJSON serializes ReasoningPart to JSON.
 func (p ReasoningPart) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{"type": "reasoning", "text": p.Text, "signature": p.Signature})
+	aux := map[string]any{"type": "reasoning", "text": p.Text, "signature": p.Signature}
+	if p.ProviderOptions != nil && len(p.ProviderOptions) > 0 {
+		aux["provider_options"] = p.ProviderOptions
+	}
+	return json.Marshal(aux)
 }
 
 // ImagePart is an image provided to the model.

@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -167,6 +168,30 @@ func TestToolResultPartUnmarshal_InvalidNestedContent(t *testing.T) {
 		t.Fatal("expected error for invalid nested content")
 	}
 }
+
+func TestReasoningPartMarshalJSON_WithProviderOptions(t *testing.T) {
+	p := ReasoningPart{
+		Text:      "thinking...",
+		Signature: "sig123",
+		ProviderOptions: ProviderOptions{
+			"anthropic": &reasoningMockProviderOptions{name: "anthropic", data: map[string]any{"signature": "sig123"}},
+		},
+	}
+	data, err := p.MarshalJSON()
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+	if !strings.Contains(string(data), `"provider_options"`) {
+		t.Errorf("expected provider_options in JSON, got %s", string(data))
+	}
+}
+
+type reasoningMockProviderOptions struct {
+	name string
+	data map[string]any
+}
+
+func (m *reasoningMockProviderOptions) ProviderName() string { return m.name }
 
 func TestContentPart_Interface(t *testing.T) {
 	// contentPart() is a marker method; calling it ensures coverage.
