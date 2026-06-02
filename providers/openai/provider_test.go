@@ -2,12 +2,12 @@ package openai
 
 import (
 	"context"
-	"net/http"
-	"testing"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
-	
+	"testing"
+
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/providers/openaicompat"
 	"github.com/odysseythink/pantheon/utils/catwalk"
@@ -60,7 +60,7 @@ func TestProvider_LanguageModel(t *testing.T) {
 	}
 }
 
-func boolPtr(b bool) *bool    { return &b }
+func boolPtr(b bool) *bool       { return &b }
 func stringPtr(s string) *string { return &s }
 
 func TestProviderOptions_ProviderName(t *testing.T) {

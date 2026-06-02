@@ -2,12 +2,12 @@ package openrouter
 
 import (
 	"context"
-	"net/http"
-	"testing"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
-	
+	"testing"
+
 	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 

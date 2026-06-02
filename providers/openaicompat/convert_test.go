@@ -9,9 +9,9 @@ import (
 func TestToOpenAITools_WithProviderOptions(t *testing.T) {
 	// OpenAI does not have standard per-tool options, but the function should not panic.
 	tools := []core.ToolDefinition{{
-		Name:        "test",
-		Description: "test tool",
-		Parameters:  nil,
+		Name:            "test",
+		Description:     "test tool",
+		Parameters:      nil,
 		ProviderOptions: core.ProviderOptions{},
 	}}
 	out := ToOpenAITools(tools)
