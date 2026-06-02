@@ -78,6 +78,31 @@ func TestProviderOptions_ProviderName(t *testing.T) {
 	}
 }
 
+func TestParseOptions(t *testing.T) {
+	data := map[string]any{
+		"reasoning": map[string]any{"enabled": true, "effort": "high"},
+	}
+	opts, err := ParseOptions(data)
+	if err != nil {
+		t.Fatalf("ParseOptions failed: %v", err)
+	}
+	if opts.Reasoning == nil || opts.Reasoning.Enabled == nil || !*opts.Reasoning.Enabled {
+		t.Errorf("Reasoning.Enabled = %v, want true", opts.Reasoning)
+	}
+}
+
+func TestProviderMetadata(t *testing.T) {
+	m := ProviderMetadata{
+		Provider: "anthropic",
+		Usage: UsageAccounting{
+			Cost: 0.001,
+		},
+	}
+	if m.Usage.Cost != 0.001 {
+		t.Errorf("Usage.Cost = %f, want 0.001", m.Usage.Cost)
+	}
+}
+
 func TestProvider_Models(t *testing.T) {
 	apiKey := os.Getenv("OPENROUTER_API_KEY")
 	if apiKey == "" {
