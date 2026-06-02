@@ -18,10 +18,12 @@ type ToolCall struct {
 
 // ToolResponse is the result of executing a tool.
 type ToolResponse struct {
-	Content  string
-	IsError  bool
-	StopTurn bool
-	Metadata string // opaque JSON-encoded metadata for client-side use
+	Content   string
+	IsError   bool
+	StopTurn  bool
+	Data      []byte // Binary data for image/media responses.
+	MediaType string // MIME type of Data (e.g. "image/png").
+	Metadata  string // opaque JSON-encoded metadata for client-side use
 }
 
 // ExecutableProviderTool pairs a provider-native tool definition with a

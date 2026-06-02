@@ -455,6 +455,12 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 				var resultContent core.ContentParter
 				if r.isError {
 					resultContent = core.ToolResultErrorPart{Error: r.result}
+				} else if len(r.data) > 0 {
+					if strings.HasPrefix(r.mediaType, "image/") {
+						resultContent = core.ImagePart{Data: r.data, MIMEType: r.mediaType}
+					} else {
+						resultContent = core.DocumentPart{Data: r.data, MIMEType: r.mediaType}
+					}
 				} else {
 					resultContent = core.TextPart{Text: r.result}
 				}
