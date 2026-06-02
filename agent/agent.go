@@ -61,6 +61,10 @@ type Agent struct {
 	// Provider-native tools (executed server-side by the provider)
 	providerTools []core.ToolDefinition
 
+	// systemPrompt is the default system prompt for the agent.
+	// If the request also provides a system prompt, the request's value takes precedence.
+	systemPrompt string
+
 	// Retry
 	maxRetries *int
 	onRetry    retry.OnRetryFunc
@@ -263,6 +267,10 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 			if t.ExecutableTool != nil {
 				executableTools[t.Name] = t.ExecutableTool
 			}
+		}
+
+		if stepSystemPrompt == "" && a.systemPrompt != "" {
+			stepSystemPrompt = a.systemPrompt
 		}
 
 		resp, err := stepModel.Generate(ctx, &core.Request{

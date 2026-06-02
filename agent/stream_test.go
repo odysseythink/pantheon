@@ -59,6 +59,57 @@ func (m *mockStreamModel) StreamObject(ctx context.Context, req *core.ObjectRequ
 func (m *mockStreamModel) Provider() string { return "mock" }
 func (m *mockStreamModel) Model() string    { return "mock" }
 
+func TestRunStream_WithSystemPrompt(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Hello"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	var receivedSystemPrompt string
+	captureModel := &captureStreamModel{inner: m, onStream: func(req *core.Request) {
+		receivedSystemPrompt = req.SystemPrompt
+	}}
+
+	a := New(captureModel, WithSystemPrompt("You are a helpful assistant"))
+
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		_ = event
+	}
+
+	if receivedSystemPrompt != "You are a helpful assistant" {
+		t.Errorf("system prompt: got %q, want 'You are a helpful assistant'", receivedSystemPrompt)
+	}
+}
+
+type captureStreamModel struct {
+	inner    core.LanguageModel
+	onStream func(req *core.Request)
+}
+
+func (m *captureStreamModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	m.onStream(req)
+	return m.inner.Generate(ctx, req)
+}
+func (m *captureStreamModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	m.onStream(req)
+	return m.inner.Stream(ctx, req)
+}
+func (m *captureStreamModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return m.inner.GenerateObject(ctx, req)
+}
+func (m *captureStreamModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return m.inner.StreamObject(ctx, req)
+}
+func (m *captureStreamModel) Provider() string { return m.inner.Provider() }
+func (m *captureStreamModel) Model() string    { return m.inner.Model() }
+
 func TestRunStreamTextOnly(t *testing.T) {
 	m := &mockStreamModel{streams: [][]core.StreamPart{
 		{

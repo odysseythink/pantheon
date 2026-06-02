@@ -143,6 +143,10 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 				}
 			}
 
+			if stepSystemPrompt == "" && a.systemPrompt != "" {
+				stepSystemPrompt = a.systemPrompt
+			}
+
 			stream, err := stepModel.Stream(ctx, &core.Request{
 				Messages:     stepMessages,
 				SystemPrompt: stepSystemPrompt,

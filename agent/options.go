@@ -209,6 +209,14 @@ func WithProviderOptions(opts core.ProviderOptions) Option {
 	}
 }
 
+// WithSystemPrompt sets the default system prompt for the agent.
+// If the request also provides a system prompt, the request's value takes precedence.
+func WithSystemPrompt(prompt string) Option {
+	return func(a *Agent) {
+		a.systemPrompt = prompt
+	}
+}
+
 // WithProviderDefinedTools registers provider-native tools with the agent.
 // These tools are executed server-side by the provider and are merged with
 // per-request tools on each Run/RunStream call.
