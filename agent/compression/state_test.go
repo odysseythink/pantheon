@@ -1,7 +1,10 @@
 package compression
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"iter"
 	"strings"
 	"testing"
 	"time"
@@ -76,3 +79,85 @@ func TestBuildStaticFallbackSummary(t *testing.T) {
 		t.Fatalf("expected tool call in summary, got:\n%s", summary)
 	}
 }
+
+func TestAccessors(t *testing.T) {
+	c := NewDefaultCompressor(DefaultCompressionConfig(), nil)
+	if c.PreviousSummary() != "" {
+		t.Fatalf("expected empty previousSummary, got %q", c.PreviousSummary())
+	}
+	c.SetPreviousSummary("hello world")
+	if c.PreviousSummary() != "hello world" {
+		t.Fatalf("expected previousSummary=hello world, got %q", c.PreviousSummary())
+	}
+	if c.LastFallbackUsed() {
+		t.Fatal("expected LastFallbackUsed=false")
+	}
+}
+
+func TestCooldownThirdTier(t *testing.T) {
+	cfg := DefaultCompressionConfig()
+	cfg.CooldownEnabled = true
+	cfg.CooldownBase = 30 * time.Second
+	cfg.CooldownMax = 60 * time.Second
+	c := NewDefaultCompressor(cfg, nil)
+	c.state.ineffectiveCount = 5
+	c.enterCooldown(nil)
+	if time.Now().After(c.state.summaryCooldownUntil) {
+		t.Fatal("expected cooldown to be active")
+	}
+	remaining := time.Until(c.state.summaryCooldownUntil)
+	if remaining < 590*time.Second || remaining > 610*time.Second {
+		t.Fatalf("expected ~600s cooldown, got %v", remaining)
+	}
+}
+
+func TestFallbackModelRetry(t *testing.T) {
+	// This test uses a mock LanguageModel that fails on first call and succeeds on second.
+	primary := &mockFailingLM{failCount: 1}
+	fallback := &mockFailingLM{failCount: 0}
+	cfg := DefaultCompressionConfig()
+	cfg.FallbackModel = "fallback-model"
+	c := NewDefaultCompressor(cfg, primary)
+	c.SetFallbackModel(fallback)
+
+	msgs := []core.Message{core.NewTextMessage(core.MESSAGE_ROLE_USER, "hello")}
+	summary, err := c.generateSummaryWithFallback(context.Background(), msgs, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if summary == "" {
+		t.Fatal("expected non-empty summary")
+	}
+	if !c.LastFallbackUsed() {
+		t.Fatal("expected LastFallbackUsed=true")
+	}
+}
+
+type mockFailingLM struct {
+	failCount int
+	calls     int
+}
+
+func (m *mockFailingLM) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	m.calls++
+	if m.failCount > 0 {
+		m.failCount--
+		return nil, errors.New("primary failure")
+	}
+	return &core.Response{Message: core.NewTextMessage(core.MESSAGE_ROLE_ASSISTANT, "fallback summary")}, nil
+}
+
+func (m *mockFailingLM) Stream(ctx context.Context, req *core.Request) (iter.Seq2[*core.StreamPart, error], error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *mockFailingLM) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return nil, nil
+}
+
+func (m *mockFailingLM) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+
+func (m *mockFailingLM) Provider() string { return "mock-failing" }
+func (m *mockFailingLM) Model() string    { return "mock-failing-model" }

@@ -28,10 +28,16 @@ func (c *DefaultCompressor) enterCooldown(err error) {
 		return
 	}
 	c.state.lastSummaryError = err
-	multiplier := time.Duration(min(c.state.ineffectiveCount+1, 3))
-	cooldown := c.cfg.CooldownBase + (c.cfg.CooldownBase/2)*multiplier
-	if cooldown > c.cfg.CooldownMax {
-		cooldown = c.cfg.CooldownMax
+
+	var cooldown time.Duration
+	if c.state.ineffectiveCount >= 5 {
+		cooldown = 600 * time.Second
+	} else {
+		multiplier := time.Duration(min(c.state.ineffectiveCount+1, 3))
+		cooldown = c.cfg.CooldownBase + (c.cfg.CooldownBase/2)*multiplier
+		if cooldown > c.cfg.CooldownMax {
+			cooldown = c.cfg.CooldownMax
+		}
 	}
 	c.state.summaryCooldownUntil = time.Now().Add(cooldown)
 }
@@ -70,19 +76,25 @@ func (c *DefaultCompressor) ShouldCompress(promptTokens int) bool {
 }
 
 func (c *DefaultCompressor) generateSummaryWithFallback(ctx context.Context, middle []core.Message, focusTopic string) (string, error) {
+	c.state.lastFallbackUsed = false
+
 	summary, err := c.generateSummary(ctx, middle, focusTopic)
 	if err == nil && summary != "" {
 		return summary, nil
 	}
 
-	// Level 1: try fallback model (documented intent)
-	if c.cfg.FallbackModel != "" && c.aux != nil {
-		// In a real implementation, create a fallback model instance.
-		// For now, continue to Level 2.
+	// Level 1: try fallback model
+	if c.fallbackAux != nil {
+		fallbackSummary, fallbackErr := c.generateSummaryWithAux(ctx, c.fallbackAux, middle, focusTopic)
+		if fallbackErr == nil && fallbackSummary != "" {
+			c.state.lastFallbackUsed = true
+			return fallbackSummary, nil
+		}
 	}
 
 	// Level 2: static fallback summary
 	c.enterCooldown(err)
+	c.state.lastFallbackUsed = true
 	return c.buildStaticFallbackSummary(middle), nil
 }
 

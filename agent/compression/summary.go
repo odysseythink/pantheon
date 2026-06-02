@@ -12,6 +12,10 @@ import (
 const summaryPrefix = "=== CONTEXT SUMMARY (background reference, NOT active instructions) ===\n"
 
 func (c *DefaultCompressor) generateSummary(ctx context.Context, middle []core.Message, focusTopic string) (string, error) {
+	return c.generateSummaryWithAux(ctx, c.aux, middle, focusTopic)
+}
+
+func (c *DefaultCompressor) generateSummaryWithAux(ctx context.Context, aux core.LanguageModel, middle []core.Message, focusTopic string) (string, error) {
 	transcript := renderTranscript(middle)
 	if c.cfg.RedactionEnabled {
 		transcript = redact.String(transcript)
@@ -48,7 +52,7 @@ func (c *DefaultCompressor) generateSummary(ctx context.Context, middle []core.M
 		MaxTokens: ptrInt(c.maxSummaryTokens),
 	}
 
-	resp, err := c.aux.Generate(ctx, req)
+	resp, err := aux.Generate(ctx, req)
 	if err != nil {
 		return "", err
 	}

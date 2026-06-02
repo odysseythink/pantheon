@@ -20,6 +20,9 @@ type DefaultCompressor struct {
 	aux    core.LanguageModel
 	state  compressionState
 
+	// fallback model for retry
+	fallbackAux core.LanguageModel
+
 	// Token budgets (recalculated on UpdateModel)
 	thresholdTokens  int
 	tailTokenBudget  int
@@ -42,6 +45,9 @@ type compressionState struct {
 	ineffectiveCount          int
 	summaryCooldownUntil      time.Time
 	lastSummaryError          error
+	lastFallbackUsed          bool
+	totalPromptTokens         int
+	totalCompletionTokens     int
 }
 
 // Compressor is an alias for DefaultCompressor for backward compatibility.
@@ -90,6 +96,28 @@ func (c *DefaultCompressor) UpdateModel(model string, contextLength int) error {
 	c.tailTokenBudget = int(float64(c.thresholdTokens) * c.cfg.SummaryTargetRatio)
 	c.maxSummaryTokens = min(int(float64(contextLength)*0.05), 12000)
 	return nil
+}
+
+// PreviousSummary returns the last generated summary text.
+func (c *DefaultCompressor) PreviousSummary() string {
+	return c.state.previousSummary
+}
+
+// SetPreviousSummary seeds the compressor with a persisted summary.
+func (c *DefaultCompressor) SetPreviousSummary(s string) {
+	c.state.previousSummary = s
+}
+
+// LastFallbackUsed reports whether the most recent summary generation fell
+// back to the fallback model (or static fallback).
+func (c *DefaultCompressor) LastFallbackUsed() bool {
+	return c.state.lastFallbackUsed
+}
+
+// SetFallbackModel registers an auxiliary model used when the primary
+// summarization call fails.
+func (c *DefaultCompressor) SetFallbackModel(aux core.LanguageModel) {
+	c.fallbackAux = aux
 }
 
 // GetToolSchemas returns tool schemas exposed by this engine.
