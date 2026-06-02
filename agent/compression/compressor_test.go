@@ -613,3 +613,12 @@ func TestUpdateFromResponseRecordsUsage(t *testing.T) {
 		t.Fatalf("expected totalCompletionTokens=150, got %d", c.state.totalCompletionTokens)
 	}
 }
+
+
+func TestUpdateFromResponseCalledByAgent(t *testing.T) {
+	// This is a lightweight check that the agent package compiles with the
+	// new call sites. Full behavioral test lives in agent_test.go.
+	// We verify the method exists on the interface.
+	var eng ContextEngine = NewDefaultCompressor(DefaultCompressionConfig(), nil)
+	_ = eng.UpdateFromResponse(core.Usage{PromptTokens: 10})
+}

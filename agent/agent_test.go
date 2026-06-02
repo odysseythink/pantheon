@@ -312,7 +312,7 @@ func TestMemoryManager_CompressUsesAttachedCompressor(t *testing.T) {
 	// the compressor.
 	var foundSummary bool
 	for _, msg := range res.Messages {
-		if msg.Role == core.MESSAGE_ROLE_ASSISTANT && strings.Contains(msg.Text(), "[Compressed summary of earlier conversation]") {
+		if msg.Role == core.MESSAGE_ROLE_ASSISTANT && strings.Contains(msg.Text(), "=== CONTEXT SUMMARY") {
 			foundSummary = true
 			break
 		}

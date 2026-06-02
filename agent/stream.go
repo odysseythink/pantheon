@@ -314,6 +314,11 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 				}
 			}
 
+			// After stream consumed, update compressor with real usage.
+			if a.contextEngine != nil {
+				_ = a.contextEngine.UpdateFromResponse(usage)
+			}
+
 			// Defensive: if provider emitted reasoning_start without reasoning_end,
 			// emit the end event now before the step concludes.
 			if reasoningActive {

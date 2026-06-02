@@ -285,6 +285,10 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 			return nil, err
 		}
 
+		if a.contextEngine != nil {
+			_ = a.contextEngine.UpdateFromResponse(resp.Usage)
+		}
+
 		totalUsage.PromptTokens += resp.Usage.PromptTokens
 		totalUsage.CompletionTokens += resp.Usage.CompletionTokens
 		totalUsage.TotalTokens += resp.Usage.TotalTokens
