@@ -180,6 +180,20 @@ func ToOpenAITools(tools []core.ToolDefinition) []any {
 			out = append(out, t.ProviderTool)
 			continue
 		}
+		// Merge per-tool ProviderOptions (placeholder for future use)
+		if t.ProviderOptions != nil {
+			if opts, ok := t.ProviderOptions.Get("openai"); ok {
+				_ = opts
+			}
+			if opts, ok := t.ProviderOptions.Get("openaicompat"); ok {
+				switch v := opts.(type) {
+				case *ProviderOptions:
+					_ = v
+				case ProviderOptions:
+					_ = v
+				}
+			}
+		}
 		out = append(out, Tool{
 			Type: "function",
 			Function: Function{
