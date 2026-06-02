@@ -2,6 +2,8 @@ package compression
 
 import "github.com/odysseythink/pantheon/core"
 
+const endMarker = "=== END CONTEXT SUMMARY ==="
+
 func (c *DefaultCompressor) assemble(head, tail []core.Message, summary string) []core.Message {
 	// Add compaction note to system prompt in head
 	for i := range head {
@@ -12,9 +14,10 @@ func (c *DefaultCompressor) assemble(head, tail []core.Message, summary string) 
 		}
 	}
 
+	summaryText := summaryPrefix + summary + "\n" + endMarker
 	summaryMsg := core.Message{
 		Role:    core.MESSAGE_ROLE_ASSISTANT,
-		Content: core.NewTextContent("[Compressed summary of earlier conversation]\n" + summary),
+		Content: core.NewTextContent(summaryText),
 	}
 
 	// Avoid consecutive same-role messages

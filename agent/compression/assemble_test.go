@@ -53,3 +53,33 @@ func TestAssemble_SystemCompactionNote(t *testing.T) {
 		t.Fatal("expected compaction note in system prompt")
 	}
 }
+
+
+func TestAssemblePrefixesSummary(t *testing.T) {
+	cfg := DefaultCompressionConfig()
+	c := NewDefaultCompressor(cfg, nil)
+
+	head := []core.Message{core.NewTextMessage(core.MESSAGE_ROLE_SYSTEM, "sys")}
+	tail := []core.Message{core.NewTextMessage(core.MESSAGE_ROLE_USER, "user")}
+	summary := "task: do X"
+
+	result := c.assemble(head, tail, summary)
+
+	// Find the assistant message that carries the summary
+	var found bool
+	for _, m := range result {
+		if m.Role == core.MESSAGE_ROLE_ASSISTANT {
+			text := m.Text()
+			if !strings.HasPrefix(text, "=== CONTEXT SUMMARY") {
+				t.Fatalf("expected summary prefix, got: %q", text)
+			}
+			if !strings.Contains(text, "=== END CONTEXT SUMMARY ===") {
+				t.Fatalf("expected end marker, got: %q", text)
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("expected an assistant summary message")
+	}
+}
