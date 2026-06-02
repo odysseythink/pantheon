@@ -56,6 +56,7 @@ type toolCallResult struct {
 	result     string
 	isError    bool
 	stopTurn   bool
+	metadata   string
 }
 
 // executeToolCalls runs a slice of tool calls. Tools whose names appear in
@@ -90,7 +91,7 @@ func executeToolCalls(
 					if err != nil {
 						blockResults[k] = toolCallResult{toolCallID: tc.ID, name: tc.Name, result: err.Error(), isError: true}
 					} else {
-						blockResults[k] = toolCallResult{toolCallID: tc.ID, name: tc.Name, result: resp.Content, isError: resp.IsError, stopTurn: resp.StopTurn}
+						blockResults[k] = toolCallResult{toolCallID: tc.ID, name: tc.Name, result: resp.Content, isError: resp.IsError, stopTurn: resp.StopTurn, metadata: resp.Metadata}
 					}
 					mu.Unlock()
 					return nil
@@ -107,7 +108,7 @@ func executeToolCalls(
 			if err != nil {
 				results[i] = toolCallResult{toolCallID: calls[i].ID, name: calls[i].Name, result: err.Error(), isError: true}
 			} else {
-				results[i] = toolCallResult{toolCallID: calls[i].ID, name: calls[i].Name, result: resp.Content, isError: resp.IsError, stopTurn: resp.StopTurn}
+				results[i] = toolCallResult{toolCallID: calls[i].ID, name: calls[i].Name, result: resp.Content, isError: resp.IsError, stopTurn: resp.StopTurn, metadata: resp.Metadata}
 			}
 			i++
 		}

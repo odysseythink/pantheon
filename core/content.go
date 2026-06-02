@@ -157,8 +157,9 @@ func NewTextContent(text string) []ContentParter {
 
 // ReasoningPart is content produced by a reasoning model.
 type ReasoningPart struct {
-	Text      string `json:"text"`
-	Signature string `json:"signature,omitempty"`
+	Text            string          `json:"text"`
+	Signature       string          `json:"signature,omitempty"`
+	ProviderOptions ProviderOptions `json:"-"` // provider-specific metadata (not serialized)
 }
 
 func (ReasoningPart) contentPart() {}
@@ -232,13 +233,18 @@ type ToolResultPart struct {
 	Content    []ContentParter `json:"content"`
 	IsError    bool            `json:"is_error"`
 	StopTurn   bool            `json:"stop_turn,omitempty"`
+	Metadata   string          `json:"metadata,omitempty"` // opaque JSON-encoded metadata for client-side use
 }
 
 func (ToolResultPart) contentPart() {}
 
 // MarshalJSON serializes ToolResultPart to JSON.
 func (p ToolResultPart) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{"type": "tool_result", "tool_call_id": p.ToolCallID, "name": p.Name, "content": p.Content, "is_error": p.IsError})
+	m := map[string]any{"type": "tool_result", "tool_call_id": p.ToolCallID, "name": p.Name, "content": p.Content, "is_error": p.IsError}
+	if p.Metadata != "" {
+		m["metadata"] = p.Metadata
+	}
+	return json.Marshal(m)
 }
 
 // ToolResultErrorPart represents a structured error output from a tool execution.
