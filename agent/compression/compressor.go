@@ -78,13 +78,16 @@ func NewCompressor(cfg CompressionConfig, aux core.LanguageModel, args ...int) *
 // Name returns the engine name.
 func (c *DefaultCompressor) Name() string { return "default" }
 
-// UpdateFromResponse initializes token budgets from the first usage response.
+// UpdateFromResponse initializes token budgets from the first usage response
+// and accumulates real usage for calibration.
 func (c *DefaultCompressor) UpdateFromResponse(usage core.Usage) error {
 	if c.thresholdTokens == 0 && c.contextLength > 0 {
 		c.thresholdTokens = int(float64(c.contextLength) * c.cfg.Threshold)
 		c.tailTokenBudget = int(float64(c.thresholdTokens) * c.cfg.SummaryTargetRatio)
 		c.maxSummaryTokens = min(int(float64(c.contextLength)*0.05), 12000)
 	}
+	c.state.totalPromptTokens += usage.PromptTokens
+	c.state.totalCompletionTokens += usage.CompletionTokens
 	return nil
 }
 

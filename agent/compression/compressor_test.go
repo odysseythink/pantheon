@@ -582,3 +582,34 @@ func TestNewCompressor_Args(t *testing.T) {
 		t.Errorf("keepLastN = %d, want 10", c.keepLastN)
 	}
 }
+
+
+func TestUpdateFromResponseRecordsUsage(t *testing.T) {
+	c := NewDefaultCompressor(DefaultCompressionConfig(), nil)
+	c.UpdateModel("gpt-4", 8192)
+
+	usage1 := core.Usage{PromptTokens: 100, CompletionTokens: 50, TotalTokens: 150}
+	err := c.UpdateFromResponse(usage1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// After first call, thresholdTokens should be initialized
+	if c.thresholdTokens == 0 {
+		t.Fatal("expected thresholdTokens to be initialized after first UpdateFromResponse")
+	}
+
+	usage2 := core.Usage{PromptTokens: 200, CompletionTokens: 100, TotalTokens: 300}
+	err = c.UpdateFromResponse(usage2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Total recorded usage should be accumulated
+	if c.state.totalPromptTokens != 300 {
+		t.Fatalf("expected totalPromptTokens=300, got %d", c.state.totalPromptTokens)
+	}
+	if c.state.totalCompletionTokens != 150 {
+		t.Fatalf("expected totalCompletionTokens=150, got %d", c.state.totalCompletionTokens)
+	}
+}
