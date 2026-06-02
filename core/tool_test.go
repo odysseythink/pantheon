@@ -278,6 +278,30 @@ func TestIsProviderDefinedTool_Pointer(t *testing.T) {
 	}
 }
 
+type mockProviderOptions struct{}
+
+func (mockProviderOptions) ProviderName() string { return "mock" }
+
+func TestToolDefinition_ProviderOptions(t *testing.T) {
+	opts := ProviderOptions{}
+	opts.Set("mock", mockProviderOptions{})
+	def := ToolDefinition{
+		Name:            "test",
+		Description:     "test tool",
+		ProviderOptions: opts,
+	}
+	if def.ProviderOptions == nil {
+		t.Fatal("ProviderOptions should not be nil")
+	}
+	v, ok := def.ProviderOptions.Get("mock")
+	if !ok {
+		t.Fatal("expected 'mock' key in ProviderOptions")
+	}
+	if v.ProviderName() != "mock" {
+		t.Errorf("unexpected provider name: got %q, want 'mock'", v.ProviderName())
+	}
+}
+
 func TestIsProviderDefinedTool_Nil(t *testing.T) {
 	_, ok := IsProviderDefinedTool(nil)
 	if ok {

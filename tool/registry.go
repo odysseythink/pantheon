@@ -31,9 +31,10 @@ type Entry struct {
 	RequiresEnv    []string
 	IsInteractive  bool // interactive tools cannot run in parallel
 	Parallel       bool // when true, this tool may run concurrently with other parallel tools
-	MaxResultChars int  // truncate results larger than this (0 = no limit)
-	Description    string
-	Emoji          string
+	MaxResultChars  int  // truncate results larger than this (0 = no limit)
+	Description     string
+	Emoji           string
+	ProviderOptions core.ProviderOptions // provider-specific tool configuration
 }
 
 // Registry holds all registered tools. Safe for concurrent use.
@@ -106,7 +107,11 @@ func (r *Registry) Definitions(filter func(*Entry) bool) []core.ToolDefinition {
 		if e.CheckFn != nil && !e.CheckFn() {
 			continue
 		}
-		out = append(out, e.Schema)
+		def := e.Schema
+		if e.ProviderOptions != nil {
+			def.ProviderOptions = e.ProviderOptions
+		}
+		out = append(out, def)
 	}
 	return out
 }

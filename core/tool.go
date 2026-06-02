@@ -21,6 +21,7 @@ type ToolResponse struct {
 	Content  string
 	IsError  bool
 	StopTurn bool
+	Metadata string // opaque JSON-encoded metadata for client-side use
 }
 
 // ExecutableProviderTool pairs a provider-native tool definition with a
@@ -69,6 +70,8 @@ type ToolDefinition struct {
 	// Parallel indicates whether this tool can be executed concurrently
 	// with other parallel tools within the same step.
 	Parallel bool
+	// ProviderOptions holds provider-specific tool configuration.
+	ProviderOptions ProviderOptions
 }
 
 // ToolChoice controls whether and how the model may invoke tools.
