@@ -49,6 +49,12 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 	var totalUsage core.Usage
 	var lastHadToolCalls bool
 
+	// Auto-populate tools from the registry when the caller doesn't set them.
+	tools := req.Tools
+	if len(tools) == 0 && a.registry != nil {
+		tools = a.registry.Definitions(nil)
+	}
+
 	for step := 0; step < a.maxSteps; step++ {
 		lastHadToolCalls = false
 		if a.compressor != nil {
@@ -61,7 +67,7 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 		resp, err := a.model.Generate(ctx, &core.Request{
 			Messages:     messages,
 			SystemPrompt: req.SystemPrompt,
-			Tools:        req.Tools,
+			Tools:        tools,
 		})
 		if err != nil {
 			return nil, err
