@@ -76,18 +76,24 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 
 		for scanner.Scan() {
 			line := scanner.Text()
-			if !strings.HasPrefix(line, "event: ") {
+			// The space after the SSE field colon is optional per the spec
+			// (https://html.spec.whatwg.org/multipage/server-sent-events.html):
+			// a single leading space in the value is stripped if present.
+			// Anthropic emits "event: x" / "data: x", but some Anthropic-compatible
+			// endpoints (e.g. Kimi) emit "event:x" / "data:x" without the space.
+			// Match the field name only, then strip one optional leading space.
+			eventType, ok := sseField(line, "event")
+			if !ok {
 				continue
 			}
-			eventType := strings.TrimPrefix(line, "event: ")
 			if !scanner.Scan() {
 				break
 			}
 			dataLine := scanner.Text()
-			if !strings.HasPrefix(dataLine, "data: ") {
+			data, ok := sseField(dataLine, "data")
+			if !ok {
 				continue
 			}
-			data := strings.TrimPrefix(dataLine, "data: ")
 
 			var event StreamEvent
 			if err := json.Unmarshal([]byte(data), &event); err != nil {
@@ -218,4 +224,19 @@ func (c *Client) MessagesStream(ctx context.Context, model string, req *core.Req
 			yield(nil, err)
 		}
 	}
+}
+
+// sseField parses a single Server-Sent Events field line of the form
+// "<name>:<value>" or "<name>: <value>". It returns the value (with one
+// optional leading space stripped, per the SSE spec) and whether the line
+// matched the requested field name. The space after the colon is optional,
+// which lets us interoperate with Anthropic-compatible endpoints that omit it.
+func sseField(line, name string) (string, bool) {
+	prefix := name + ":"
+	if !strings.HasPrefix(line, prefix) {
+		return "", false
+	}
+	value := line[len(prefix):]
+	value = strings.TrimPrefix(value, " ")
+	return value, true
 }

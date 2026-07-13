@@ -67,3 +67,56 @@ func TestMessagesStream_ReasoningBoundaries(t *testing.T) {
 		t.Errorf("unexpected reasoning deltas: %v", reasoningDeltas)
 	}
 }
+
+// TestMessagesStream_NoSpaceAfterColon is a regression test for an empty-response
+// bug seen with Anthropic-compatible endpoints (e.g. Kimi) that emit SSE fields
+// without the optional space after the colon ("event:x" / "data:x" instead of
+// "event: x" / "data: x"). The space is optional per the SSE spec, so the parser
+// must accept both forms.
+func TestMessagesStream_NoSpaceAfterColon(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+
+		// Note: no space after "event:" / "data:" — matches Kimi's coding endpoint.
+		fmt.Fprintln(w, "event:content_block_start")
+		fmt.Fprintln(w, `data:{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`)
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "event:content_block_delta")
+		fmt.Fprintln(w, `data:{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hi there"}}`)
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "event:content_block_stop")
+		fmt.Fprintln(w, `data:{"type":"content_block_stop","index":0}`)
+		fmt.Fprintln(w)
+	}))
+	defer server.Close()
+
+	client := NewClient("test-key")
+	client.BaseURL = server.URL
+	client.HTTPClient = server.Client()
+
+	stream := client.MessagesStream(context.Background(), "kimi-for-coding", &core.Request{
+		Messages: []core.Message{
+			{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}},
+		},
+	})
+
+	var text string
+	var sawTextDelta bool
+	for part, err := range stream {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if part.Type == core.StreamPartTypeTextDelta {
+			sawTextDelta = true
+			text += part.TextDelta
+		}
+	}
+
+	if !sawTextDelta {
+		t.Fatal("no text deltas parsed from no-space SSE stream (regression: empty response)")
+	}
+	if text != "Hi there" {
+		t.Errorf("text delta mismatch: got %q, want %q", text, "Hi there")
+	}
+}

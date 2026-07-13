@@ -92,10 +92,12 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 
 		for scanner.Scan() {
 			line := scanner.Text()
-			if !strings.HasPrefix(line, "data: ") {
+			// The space after the SSE "data:" field colon is optional per spec;
+			// match the field name only, then strip one optional leading space.
+			if !strings.HasPrefix(line, "data:") {
 				continue
 			}
-			data := strings.TrimPrefix(line, "data: ")
+			data := strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " ")
 			if data == "[DONE]" {
 				break
 			}
