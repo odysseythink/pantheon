@@ -92,3 +92,8 @@ func (m *LanguageModel) GenerateObject(ctx context.Context, req *core.ObjectRequ
 	}
 	return openaicompat.ExtractObjectResponse(resp, m.model)
 }
+
+// StreamObject generates a structured object via streaming.
+func (m *LanguageModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}

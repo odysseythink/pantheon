@@ -58,6 +58,7 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 		scanner := bufio.NewScanner(resp.Body)
 		scanner.Buffer(make([]byte, 4096), 1024*1024)
 		toolCalls := make(map[int]*core.ToolCallPart)
+		var reasoningActive bool
 
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -100,9 +101,27 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 
 			delta := chunk.Choices[0].Delta
 			if delta.ReasoningContent != "" {
+				if !reasoningActive {
+					reasoningActive = true
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeReasoningStart,
+					}
+					if !yield(sp, nil) {
+						return
+					}
+				}
 				sp := &core.StreamPart{
 					Type:           core.StreamPartTypeReasoningDelta,
 					ReasoningDelta: delta.ReasoningContent,
+				}
+				if !yield(sp, nil) {
+					return
+				}
+			} else if reasoningActive {
+				// Transitioned from reasoning to text/tool
+				reasoningActive = false
+				sp := &core.StreamPart{
+					Type: core.StreamPartTypeReasoningEnd,
 				}
 				if !yield(sp, nil) {
 					return
@@ -125,14 +144,50 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 						Name:      tc.Function.Name,
 						Arguments: tc.Function.Arguments,
 					}
+					// Emit tool_input_start on first sighting
+					if tc.ID != "" || tc.Function.Name != "" {
+						sp := &core.StreamPart{
+							Type: core.StreamPartTypeToolInputStart,
+							ToolCall: &core.ToolCallPart{
+								ID:   tc.ID,
+								Name: tc.Function.Name,
+							},
+						}
+						if !yield(sp, nil) {
+							return
+						}
+					}
 				} else {
 					existing.Name += tc.Function.Name
 					existing.Arguments += tc.Function.Arguments
+				}
+
+				// Emit tool_input_delta for non-empty argument fragments
+				if tc.Function.Arguments != "" {
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeToolInputDelta,
+						ToolCall: &core.ToolCallPart{
+							ID:        toolCalls[tc.Index].ID,
+							Arguments: tc.Function.Arguments,
+						},
+					}
+					if !yield(sp, nil) {
+						return
+					}
 				}
 			}
 
 			if chunk.Choices[0].FinishReason != nil {
 				fr := *chunk.Choices[0].FinishReason
+				if reasoningActive {
+					reasoningActive = false
+					sp := &core.StreamPart{
+						Type: core.StreamPartTypeReasoningEnd,
+					}
+					if !yield(sp, nil) {
+						return
+					}
+				}
 				// Sort indices to yield tool calls in deterministic order
 				indices := make([]int, 0, len(toolCalls))
 				for idx := range toolCalls {
@@ -140,8 +195,17 @@ func chatCompletionStream(ctx context.Context, client *Client, model string, req
 				}
 				sort.Ints(indices)
 				for _, idx := range indices {
-					sp := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: toolCalls[idx]}
-					if !yield(sp, nil) {
+					// Emit tool_input_end
+					spEnd := &core.StreamPart{
+						Type:     core.StreamPartTypeToolInputEnd,
+						ToolCall: &core.ToolCallPart{ID: toolCalls[idx].ID},
+					}
+					if !yield(spEnd, nil) {
+						return
+					}
+					// Emit tool_call
+					spCall := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: toolCalls[idx]}
+					if !yield(spCall, nil) {
 						return
 					}
 				}

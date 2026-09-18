@@ -2,12 +2,14 @@ package openai
 
 import (
 	"context"
-	"net/http"
-	"testing"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
-	
+	"testing"
+
+	"github.com/odysseythink/pantheon/core"
+	"github.com/odysseythink/pantheon/providers/openaicompat"
 	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
@@ -58,10 +60,89 @@ func TestProvider_LanguageModel(t *testing.T) {
 	}
 }
 
+func boolPtr(b bool) *bool       { return &b }
+func stringPtr(s string) *string { return &s }
+
 func TestProviderOptions_ProviderName(t *testing.T) {
-	opts := ProviderOptions{Store: true}
+	opts := ProviderOptions{Store: boolPtr(true)}
 	if opts.ProviderName() != "openai" {
 		t.Errorf("unexpected provider name: %s", opts.ProviderName())
+	}
+}
+
+func TestProviderOptions_PrepareRequest(t *testing.T) {
+	p, _ := New("sk-test")
+	prov := p.(*Provider)
+
+	req := &openaicompat.ChatCompletionRequest{Model: "gpt-4"}
+	coreReq := &core.Request{
+		ProviderOptions: core.ProviderOptions{
+			"openai": &ProviderOptions{
+				Store:           boolPtr(true),
+				Metadata:        map[string]any{"key": "val"},
+				ReasoningEffort: func() *ReasoningEffort { r := ReasoningEffortHigh; return &r }(),
+				User:            stringPtr("alice"),
+			},
+		},
+	}
+
+	if prov.client.Hooks.PrepareRequest == nil {
+		t.Fatal("expected PrepareRequest to be set")
+	}
+	prov.client.Hooks.PrepareRequest(req, "gpt-4", coreReq)
+
+	if !req.Store {
+		t.Error("expected Store to be true")
+	}
+	if req.Metadata["key"] != "val" {
+		t.Errorf("unexpected metadata: %+v", req.Metadata)
+	}
+	if req.ReasoningEffort != "high" {
+		t.Errorf("unexpected reasoning_effort: %s", req.ReasoningEffort)
+	}
+	if req.User != "alice" {
+		t.Errorf("unexpected user: %s", req.User)
+	}
+}
+
+func TestProviderOptions_PrepareRequest_WrongProvider(t *testing.T) {
+	p, _ := New("sk-test")
+	prov := p.(*Provider)
+
+	req := &openaicompat.ChatCompletionRequest{Model: "gpt-4"}
+	coreReq := &core.Request{
+		ProviderOptions: core.ProviderOptions{
+			"anthropic": &struct{ core.ProviderOptionsDataer }{},
+		},
+	}
+
+	prov.client.Hooks.PrepareRequest(req, "gpt-4", coreReq)
+	if req.Store {
+		t.Error("expected Store to remain false when provider options are for a different provider")
+	}
+}
+
+func TestParseOptions(t *testing.T) {
+	data := map[string]any{
+		"reasoning_effort": "high",
+		"store":            true,
+	}
+	opts, err := ParseOptions(data)
+	if err != nil {
+		t.Fatalf("ParseOptions failed: %v", err)
+	}
+	if opts.ReasoningEffort == nil || *opts.ReasoningEffort != ReasoningEffortHigh {
+		t.Errorf("ReasoningEffort = %v, want high", opts.ReasoningEffort)
+	}
+	if opts.Store == nil || !*opts.Store {
+		t.Errorf("Store = %v, want true", opts.Store)
+	}
+}
+
+func TestResponsesReasoningMetadata(t *testing.T) {
+	m := ResponsesReasoningMetadata{ItemID: "item-1", Summary: []string{"summary"}}
+	if m.ItemID != "item-1" {
+		t.Errorf("ItemID = %q, want item-1", m.ItemID)
 	}
 }
 

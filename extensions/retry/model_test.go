@@ -3,6 +3,8 @@ package retry
 import (
 	"context"
 	"errors"
+	"net"
+	"net/http"
 	"testing"
 	"time"
 
@@ -49,6 +51,9 @@ func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest)
 	return &core.ObjectResponse{Object: map[string]any{"result": "ok"}}, nil
 }
 
+func (m *mockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (m *mockModel) Provider() string { return "mock" }
 func (m *mockModel) Model() string    { return "mock-model" }
 
@@ -65,6 +70,9 @@ func (a *authModel) Stream(ctx context.Context, req *core.Request) (core.StreamR
 func (a *authModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	a.calls++
 	return nil, &core.ProviderError{Status: 401, Message: "unauthorized"}
+}
+func (a *authModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
 }
 func (a *authModel) Provider() string { return "auth-mock" }
 func (a *authModel) Model() string    { return "auth-mock" }
@@ -240,5 +248,201 @@ func TestRetryRespectsContextCancellation(t *testing.T) {
 	}
 	if inner.calls < 1 {
 		t.Errorf("expected at least 1 call, got %d", inner.calls)
+	}
+}
+
+
+type retryCall struct {
+	attempt int
+	err     error
+	delay   time.Duration
+}
+
+func TestModel_OnRetry(t *testing.T) {
+	var calls []retryCall
+	onRetry := func(attempt int, err error, delay time.Duration) {
+		calls = append(calls, retryCall{attempt: attempt, err: err, delay: delay})
+	}
+
+	inner := &mockModel{failNextN: 3}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 2,
+		BaseDelay:  10 * time.Millisecond,
+		Multiplier: 2.0,
+		OnRetry:    onRetry,
+	}
+
+	_, err := m.Generate(context.Background(), &core.Request{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	if len(calls) != 2 {
+		t.Fatalf("expected 2 OnRetry calls, got %d", len(calls))
+	}
+	if calls[0].attempt != 1 {
+		t.Errorf("first call attempt = %d, want 1", calls[0].attempt)
+	}
+	if calls[1].attempt != 2 {
+		t.Errorf("second call attempt = %d, want 2", calls[1].attempt)
+	}
+	if calls[0].err == nil {
+		t.Error("expected non-nil error in first callback")
+	}
+	// delay should be >= 75% of base (jitter floor: 10ms * 0.75 = 7.5ms)
+	if calls[0].delay < 7*time.Millisecond {
+		t.Errorf("first delay too short: %v", calls[0].delay)
+	}
+	// delay should be <= 125% of base (jitter ceiling: 10ms * 1.25 = 12.5ms)
+	if calls[0].delay > 13*time.Millisecond {
+		t.Errorf("first delay too long: %v", calls[0].delay)
+	}
+}
+
+func TestModel_OnRetry_NotCalledOnNonRetryable(t *testing.T) {
+	var called bool
+	inner := &authModel{}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 2,
+		BaseDelay:  1 * time.Millisecond,
+		OnRetry:    func(int, error, time.Duration) { called = true },
+	}
+	_, err := m.Generate(context.Background(), &core.Request{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if called {
+		t.Error("OnRetry should not be called for non-retryable errors")
+	}
+}
+
+func TestModel_OnRetry_NilSafe(t *testing.T) {
+	inner := &mockModel{failNextN: 2}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 1,
+		BaseDelay:  1 * time.Millisecond,
+		OnRetry:    nil,
+	}
+	_, err := m.Generate(context.Background(), &core.Request{})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	// No panic = pass
+}
+
+// headerAwareModel returns 429 with headers on first N calls, then success.
+type headerAwareModel struct {
+	calls     int
+	failNextN int
+	headers   http.Header
+}
+
+func (m *headerAwareModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	m.calls++
+	if m.failNextN > 0 {
+		m.failNextN--
+		return nil, &core.ProviderError{Status: 429, Message: "rate limited", Headers: m.headers}
+	}
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "ok"}}}}, nil
+}
+func (m *headerAwareModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *headerAwareModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *headerAwareModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *headerAwareModel) Provider() string { return "header-mock" }
+func (m *headerAwareModel) Model() string    { return "header-mock" }
+
+func TestModel_HeaderAwareDelay(t *testing.T) {
+	inner := &headerAwareModel{failNextN: 1, headers: http.Header{"Retry-After": []string{"0.1"}}}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 3,
+		BaseDelay:  1 * time.Second,
+		Multiplier: 2.0,
+	}
+
+	start := time.Now()
+	_, err := m.Generate(context.Background(), &core.Request{})
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if inner.calls != 2 {
+		t.Errorf("calls: got %d, want 2", inner.calls)
+	}
+	// With retry-after: 100ms, total wait should be ~100ms, not 1s+
+	if elapsed > 300*time.Millisecond {
+		t.Errorf("elapsed %v too long; header-aware delay not working", elapsed)
+	}
+}
+
+func TestModel_HeaderAwareDelay_UnreasonableHeader(t *testing.T) {
+	// Unreasonable retry-after (120s) should fallback to exponential backoff
+	inner := &headerAwareModel{failNextN: 1, headers: http.Header{"Retry-After": []string{"120"}}}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 3,
+		BaseDelay:  50 * time.Millisecond,
+		Multiplier: 2.0,
+	}
+
+	start := time.Now()
+	_, err := m.Generate(context.Background(), &core.Request{})
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Fallback delay is 50ms * [0.75, 1.25] = ~37-62ms. Total should be < 200ms.
+	if elapsed > 200*time.Millisecond {
+		t.Errorf("elapsed %v too long; unreasonable header should fallback", elapsed)
+	}
+}
+
+// networkErrorModel returns a net.Error on first call, then success.
+type networkErrorModel struct{ calls int }
+
+func (m *networkErrorModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	m.calls++
+	if m.calls == 1 {
+		return nil, &net.DNSError{IsTimeout: true}
+	}
+	return &core.Response{Message: core.Message{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.TextPart{Text: "ok"}}}}, nil
+}
+func (m *networkErrorModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *networkErrorModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *networkErrorModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+func (m *networkErrorModel) Provider() string { return "net-mock" }
+func (m *networkErrorModel) Model() string    { return "net-mock" }
+
+func TestModel_NetworkErrorRetry(t *testing.T) {
+	inner := &networkErrorModel{}
+	m := &Model{
+		Inner:      inner,
+		MaxRetries: 3,
+		BaseDelay:  1 * time.Millisecond,
+	}
+
+	_, err := m.Generate(context.Background(), &core.Request{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if inner.calls != 2 {
+		t.Errorf("calls: got %d, want 2 (initial + 1 retry)", inner.calls)
 	}
 }

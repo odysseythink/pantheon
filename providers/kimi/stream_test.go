@@ -235,3 +235,70 @@ func TestChatCompletionStream_InvalidJSON(t *testing.T) {
 	}
 	t.Fatal("expected error from stream")
 }
+
+
+func TestChatCompletionStream_ReasoningBoundaries(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, "data: {\"id\":\"1\",\"object\":\"chat.completion.chunk\",\"model\":\"kimi-k2\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"Let me think\"},\"finish_reason\":null}]}")
+		fmt.Fprintln(w, "data: {\"id\":\"1\",\"object\":\"chat.completion.chunk\",\"model\":\"kimi-k2\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" about this\"},\"finish_reason\":null}]}")
+		fmt.Fprintln(w, "data: {\"id\":\"1\",\"object\":\"chat.completion.chunk\",\"model\":\"kimi-k2\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"},\"finish_reason\":\"stop\"}]}")
+		fmt.Fprintln(w, "data: [DONE]")
+	}))
+	defer server.Close()
+
+	client := newClient("test-key")
+	client.BaseURL = server.URL
+	client.HTTPClient = server.Client()
+
+	stream := chatCompletionStream(context.Background(), client, "kimi-k2", &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Think"}}}},
+	})
+
+	var types []core.StreamPartType
+	var reasoningDeltas []string
+	var textDeltas []string
+	var finishReason string
+	for part, err := range stream {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		types = append(types, part.Type)
+		switch part.Type {
+		case core.StreamPartTypeReasoningDelta:
+			reasoningDeltas = append(reasoningDeltas, part.ReasoningDelta)
+		case core.StreamPartTypeTextDelta:
+			textDeltas = append(textDeltas, part.TextDelta)
+		case core.StreamPartTypeFinish:
+			finishReason = part.FinishReason
+		}
+	}
+
+	wantTypes := []core.StreamPartType{
+		core.StreamPartTypeReasoningStart,
+		core.StreamPartTypeReasoningDelta,
+		core.StreamPartTypeReasoningDelta,
+		core.StreamPartTypeReasoningEnd,
+		core.StreamPartTypeTextDelta,
+		core.StreamPartTypeFinish,
+	}
+	if len(types) != len(wantTypes) {
+		t.Fatalf("part types count mismatch: got %d, want %d\ngot: %v", len(types), len(wantTypes), types)
+	}
+	for i := range wantTypes {
+		if types[i] != wantTypes[i] {
+			t.Fatalf("part type[%d]: got %v, want %v", i, types[i], wantTypes[i])
+		}
+	}
+
+	if got := strings.Join(reasoningDeltas, ""); got != "Let me think about this" {
+		t.Errorf("reasoning deltas: got %q, want %q", got, "Let me think about this")
+	}
+	if got := strings.Join(textDeltas, ""); got != "Hello" {
+		t.Errorf("text deltas: got %q, want %q", got, "Hello")
+	}
+	if finishReason != "stop" {
+		t.Errorf("finish reason: got %q, want stop", finishReason)
+	}
+}

@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -102,6 +103,44 @@ func TestHttpClientCall_ErrorStatus(t *testing.T) {
 	}
 	if pe.Message != `{"error": "invalid request"}` {
 		t.Errorf("unexpected message: %q", pe.Message)
+	}
+}
+
+func TestHttpClientCall_CarriesHeadersOnError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "5")
+		w.Header().Set("X-Custom-Header", "value")
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"error": "rate limited"}`))
+	}))
+	defer server.Close()
+
+	_, err := HttpClientCall[map[string]string](
+		context.Background(),
+		"POST",
+		server.URL+"/test",
+		nil,
+		nil,
+		nil,
+	)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	pe, ok := err.(*ProviderError)
+	if !ok {
+		t.Fatalf("expected ProviderError, got %T", err)
+	}
+	if pe.Status != 429 {
+		t.Errorf("expected status 429, got %d", pe.Status)
+	}
+	if pe.Headers == nil {
+		t.Fatal("expected Headers to be set")
+	}
+	if pe.Headers.Get("Retry-After") != "5" {
+		t.Errorf("expected Retry-After 5, got %q", pe.Headers.Get("Retry-After"))
+	}
+	if pe.Headers.Get("X-Custom-Header") != "value" {
+		t.Errorf("expected X-Custom-Header value, got %q", pe.Headers.Get("X-Custom-Header"))
 	}
 }
 
@@ -380,5 +419,37 @@ func TestHttpClientCall_NetworkError(t *testing.T) {
 	}
 	if pe.Status != http.StatusInternalServerError {
 		t.Errorf("expected status 500, got %d", pe.Status)
+	}
+}
+
+func TestHttpClientCall_NetworkError_Unwrappable(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	addr := listener.Addr().String()
+	listener.Close()
+
+	_, err = HttpClientCall[map[string]string](
+		context.Background(),
+		"GET",
+		"http://"+addr+"/test",
+		nil,
+		nil,
+		nil,
+	)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	pe, ok := err.(*ProviderError)
+	if !ok {
+		t.Fatalf("expected ProviderError, got %T", err)
+	}
+	if pe.Err == nil {
+		t.Error("expected underlying error to be preserved")
+	}
+	var netErr net.Error
+	if !errors.As(err, &netErr) {
+		t.Error("expected network error to be unwrappable via errors.As")
 	}
 }

@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 )
 
@@ -10,11 +11,18 @@ type ProviderError struct {
 	Message string
 	Code    string
 	Status  int
+	Headers http.Header // full HTTP response headers on >= 400
+	Err     error       // underlying error (e.g. net.Error from client.Do)
 }
 
 // Error returns the error message.
 func (e *ProviderError) Error() string {
 	return e.Message
+}
+
+// Unwrap returns the underlying error for errors.As/is traversal.
+func (e *ProviderError) Unwrap() error {
+	return e.Err
 }
 
 // IsRetryable reports whether the error is likely transient and safe to retry.
@@ -49,3 +57,10 @@ var ErrNoObjectGenerated = errors.New("no object generated")
 var ErrModelNotFound = errors.New("model not found")
 // ErrUnsupportedFeature is returned when the provider does not support the requested capability.
 var ErrUnsupportedFeature = errors.New("unsupported feature")
+
+// ErrIncompleteStream is returned when a streaming response ends without
+// a finish_reason from the provider, indicating the stream was truncated.
+var ErrIncompleteStream = errors.New("stream ended without finish reason")
+
+// ErrNotImplemented is returned when a provider does not yet implement a method.
+var ErrNotImplemented = errors.New("not implemented")

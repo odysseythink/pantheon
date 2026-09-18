@@ -18,6 +18,9 @@ type judgeStubProvider struct {
 
 func (s *judgeStubProvider) Provider() string { return "stub" }
 func (s *judgeStubProvider) Model() string    { return "stub-model" }
+func (s *judgeStubProvider) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (s *judgeStubProvider) Generate(_ context.Context, _ *core.Request) (*core.Response, error) {
 	if s.err != nil {
 		return nil, s.err

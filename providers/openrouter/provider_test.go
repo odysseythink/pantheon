@@ -2,12 +2,12 @@ package openrouter
 
 import (
 	"context"
-	"net/http"
-	"testing"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"os"
-	
+	"testing"
+
 	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
@@ -75,6 +75,31 @@ func TestProviderOptions_ProviderName(t *testing.T) {
 	opts := ProviderOptions{}
 	if opts.ProviderName() != "openrouter" {
 		t.Errorf("unexpected provider name: %s", opts.ProviderName())
+	}
+}
+
+func TestParseOptions(t *testing.T) {
+	data := map[string]any{
+		"reasoning": map[string]any{"enabled": true, "effort": "high"},
+	}
+	opts, err := ParseOptions(data)
+	if err != nil {
+		t.Fatalf("ParseOptions failed: %v", err)
+	}
+	if opts.Reasoning == nil || opts.Reasoning.Enabled == nil || !*opts.Reasoning.Enabled {
+		t.Errorf("Reasoning.Enabled = %v, want true", opts.Reasoning)
+	}
+}
+
+func TestProviderMetadata(t *testing.T) {
+	m := ProviderMetadata{
+		Provider: "anthropic",
+		Usage: UsageAccounting{
+			Cost: 0.001,
+		},
+	}
+	if m.Usage.Cost != 0.001 {
+		t.Errorf("Usage.Cost = %f, want 0.001", m.Usage.Cost)
 	}
 }
 

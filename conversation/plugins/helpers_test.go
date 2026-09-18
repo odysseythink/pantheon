@@ -28,7 +28,9 @@ func (m *realModel) Stream(ctx context.Context, req *core.Request) (core.StreamR
 func (m *realModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
 }
-
+func (m *realModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (m *realModel) Provider() string { return "integration" }
 func (m *realModel) Model() string    { return m.model }
 
@@ -77,5 +79,8 @@ func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest)
 	return nil, nil
 }
 
+func (m *mockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (m *mockModel) Provider() string { return "mock" }
 func (m *mockModel) Model() string    { return "mock-model" }

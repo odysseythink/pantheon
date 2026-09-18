@@ -83,6 +83,9 @@ func contentToString(parts []core.ContentParter) string {
 		if p, ok := part.(core.TextPart); ok {
 			texts = append(texts, p.Text)
 		}
+		if p, ok := part.(core.ToolResultErrorPart); ok {
+			texts = append(texts, p.Error)
+		}
 	}
 	result := ""
 	for i, t := range texts {
@@ -94,9 +97,42 @@ func contentToString(parts []core.ContentParter) string {
 	return result
 }
 
-func toGeminiTools(tools []core.ToolDefinition) []Tool {
-	var out []Tool
+func toGeminiTools(tools []core.ToolDefinition) []any {
+	var out []any
 	for _, t := range tools {
+		if pdt, ok := core.IsProviderDefinedTool(t.ProviderTool); ok {
+			switch pdt.ID {
+			case "google.google_search":
+				out = append(out, map[string]any{"googleSearch": struct{}{}})
+			default:
+				out = append(out, t.ProviderTool)
+			}
+			continue
+		}
+		if t.ProviderTool != nil {
+			out = append(out, t.ProviderTool)
+			continue
+		}
+
+		// Merge per-tool ProviderOptions into the tool definition
+		var toolProviderOpts map[string]any
+		if t.ProviderOptions != nil {
+			if opts, ok := t.ProviderOptions.Get("google"); ok {
+				switch v := opts.(type) {
+				case *ProviderOptions:
+					// Serialize provider options as extra fields on the tool
+					// Google Gemini does not currently have per-tool options in the standard API,
+					// but we preserve them for future use.
+					if v.ThinkingConfig != nil {
+						// no-op for now
+					}
+				case ProviderOptions:
+					// no-op
+				}
+			}
+		}
+		_ = toolProviderOpts // silence unused if no fields are mapped yet
+
 		out = append(out, Tool{
 			FunctionDeclarations: []FunctionDeclaration{{
 				Name:        t.Name,

@@ -23,6 +23,8 @@ type Client struct {
 	ChatCompletionPath string // default empty means "/v1/chat/completions"
 	RerankPath         string // default empty means "/v1/rerank"
 	RerankFormat       RerankFormat
+	// Hooks allow providers to customize the behavior of the client.
+	Hooks Hooks
 }
 
 // NewClient creates a new OpenAI-compatible client for the given base URL and API key.

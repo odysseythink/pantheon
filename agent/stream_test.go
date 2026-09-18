@@ -3,8 +3,11 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/odysseythink/pantheon/core"
 )
@@ -12,6 +15,16 @@ import (
 type mockStreamModel struct {
 	streams [][]core.StreamPart
 	callIdx int
+}
+
+func streamWithWarnings(parts []core.StreamPart, warnings []core.CallWarning) []core.StreamPart {
+	if len(warnings) == 0 {
+		return parts
+	}
+	// Inject a text-delta part carrying the warnings so the mock can yield them.
+	return append([]core.StreamPart{
+		{Type: core.StreamPartTypeTextDelta, TextDelta: "", Warnings: warnings},
+	}, parts...)
 }
 
 func (m *mockStreamModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
@@ -40,9 +53,62 @@ func (m *mockStreamModel) Stream(ctx context.Context, req *core.Request) (core.S
 func (m *mockStreamModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
 }
-
+func (m *mockStreamModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (m *mockStreamModel) Provider() string { return "mock" }
 func (m *mockStreamModel) Model() string    { return "mock" }
+
+func TestRunStream_WithSystemPrompt(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Hello"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	var receivedSystemPrompt string
+	captureModel := &captureStreamModel{inner: m, onStream: func(req *core.Request) {
+		receivedSystemPrompt = req.SystemPrompt
+	}}
+
+	a := New(captureModel, WithSystemPrompt("You are a helpful assistant"))
+
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		_ = event
+	}
+
+	if receivedSystemPrompt != "You are a helpful assistant" {
+		t.Errorf("system prompt: got %q, want 'You are a helpful assistant'", receivedSystemPrompt)
+	}
+}
+
+type captureStreamModel struct {
+	inner    core.LanguageModel
+	onStream func(req *core.Request)
+}
+
+func (m *captureStreamModel) Generate(ctx context.Context, req *core.Request) (*core.Response, error) {
+	m.onStream(req)
+	return m.inner.Generate(ctx, req)
+}
+func (m *captureStreamModel) Stream(ctx context.Context, req *core.Request) (core.StreamResponse, error) {
+	m.onStream(req)
+	return m.inner.Stream(ctx, req)
+}
+func (m *captureStreamModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
+	return m.inner.GenerateObject(ctx, req)
+}
+func (m *captureStreamModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return m.inner.StreamObject(ctx, req)
+}
+func (m *captureStreamModel) Provider() string { return m.inner.Provider() }
+func (m *captureStreamModel) Model() string    { return m.inner.Model() }
 
 func TestRunStreamTextOnly(t *testing.T) {
 	m := &mockStreamModel{streams: [][]core.StreamPart{
@@ -219,6 +285,13 @@ func TestRunStreamToolNotFound(t *testing.T) {
 	if !toolResult.IsError {
 		t.Error("expected tool result to be an error when tool not found")
 	}
+	errorPart, ok := toolResult.Content[0].(core.ToolResultErrorPart)
+	if !ok {
+		t.Fatalf("expected ToolResultErrorPart, got %T", toolResult.Content[0])
+	}
+	if !strings.Contains(errorPart.Error, "not found") {
+		t.Errorf("error text: got %q, want to contain 'not found'", errorPart.Error)
+	}
 }
 
 type errorStreamModel struct{}
@@ -231,6 +304,9 @@ func (m *errorStreamModel) Stream(ctx context.Context, req *core.Request) (core.
 }
 func (m *errorStreamModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
+}
+func (m *errorStreamModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
 }
 func (m *errorStreamModel) Provider() string { return "error" }
 func (m *errorStreamModel) Model() string    { return "error-model" }
@@ -271,6 +347,9 @@ func (m *midErrorStreamModel) Stream(ctx context.Context, req *core.Request) (co
 }
 func (m *midErrorStreamModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
+}
+func (m *midErrorStreamModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
 }
 func (m *midErrorStreamModel) Provider() string { return "mid-error" }
 func (m *midErrorStreamModel) Model() string    { return "mid-error-model" }
@@ -517,8 +596,8 @@ func TestRunStreamYieldStopAtStepFinish(t *testing.T) {
 			break
 		}
 	}
-	if count != 3 { // StepStart + TextDelta + StepFinish
-		t.Errorf("count: got %d, want 3", count)
+	if count != 4 { // StepStart + TextDelta + StepResult + StepFinish
+		t.Errorf("count: got %d, want 4", count)
 	}
 }
 
@@ -551,7 +630,981 @@ func TestRunStreamYieldStopAtStepFinishAfterTool(t *testing.T) {
 			break
 		}
 	}
-	if count != 4 { // StepStart + ToolCall + ToolResult + StepFinish
-		t.Errorf("count: got %d, want 4", count)
+	if count != 5 { // StepStart + ToolCall + ToolResult + StepResult + StepFinish
+		t.Errorf("count: got %d, want 5", count)
+	}
+}
+
+// --- Stop condition integration tests for RunStream ---
+
+func TestRunStreamWithStopCondition_StepCount(t *testing.T) {
+	// Model would yield a tool call, but stop condition fires at step 0.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "tool", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(StepCountIs(0)))
+	a.RegisterTool("tool", func(ctx context.Context, args string) (string, error) {
+		return "result", nil
+	})
+
+	var toolResult *core.ToolResultPart
+	var stepFinish bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "tool", Parameters: &core.Schema{Type: "object"}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		switch event.Type {
+		case StreamEventTypeToolResult:
+			toolResult = event.ToolResult
+		case StreamEventTypeStepFinish:
+			stepFinish = true
+		}
+	}
+
+	if toolResult != nil {
+		t.Error("tool should NOT be executed when stop condition fires")
+	}
+	if !stepFinish {
+		t.Error("expected StepFinish event")
+	}
+	if m.callIdx != 1 {
+		t.Errorf("model calls: got %d, want 1", m.callIdx)
+	}
+}
+
+func TestRunStreamWithStopCondition_HasToolCall(t *testing.T) {
+	// Stream yields a tool call that matches the stop condition.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "finish", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(HasToolCall("finish")))
+	a.RegisterTool("finish", func(ctx context.Context, args string) (string, error) {
+		return "result", nil
+	})
+
+	var toolResult *core.ToolResultPart
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "finish", Parameters: &core.Schema{Type: "object"}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeToolResult {
+			toolResult = event.ToolResult
+		}
+	}
+
+	if toolResult != nil {
+		t.Error("tool should NOT be executed when HasToolCall stop condition matches")
+	}
+	if m.callIdx != 1 {
+		t.Errorf("model calls: got %d, want 1", m.callIdx)
+	}
+}
+
+func TestRunStreamWithStopCondition_FinishReason(t *testing.T) {
+	// Stream finishes with reason "stop" which matches the condition.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(FinishReasonIs("stop")))
+
+	var text string
+	var stepFinish bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		switch event.Type {
+		case StreamEventTypeTextDelta:
+			text += event.TextDelta
+		case StreamEventTypeStepFinish:
+			stepFinish = true
+		}
+	}
+
+	if text != "done" {
+		t.Errorf("text: got %q, want done", text)
+	}
+	if !stepFinish {
+		t.Error("expected StepFinish event")
+	}
+}
+
+func TestRunStreamWithStopCondition_MaxTokensUsed(t *testing.T) {
+	// Stream includes usage that exceeds the limit.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeUsage, Usage: &core.Usage{TotalTokens: 150}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(MaxTokensUsed(100)))
+
+	var stepFinish bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeStepFinish {
+			stepFinish = true
+		}
+	}
+
+	if !stepFinish {
+		t.Error("expected StepFinish event when MaxTokensUsed triggers")
+	}
+}
+
+func TestRunStreamWithStopCondition_AnyOf(t *testing.T) {
+	// Finish reason "stop" matches the AnyOf condition.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(AnyOf(
+		StepCountIs(2),
+		FinishReasonIs("stop"),
+	)))
+
+	var stepFinish bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeStepFinish {
+			stepFinish = true
+		}
+	}
+
+	if !stepFinish {
+		t.Error("expected StepFinish event")
+	}
+}
+
+func TestRunStreamWithStopCondition_AllOf(t *testing.T) {
+	// AllOf requires both step >= 1 AND finish reason "stop".
+	// Step 0: finish "length" → does NOT match → tool executes.
+	// Step 1: finish "stop" → matches → stops.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "noop", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "length"},
+		},
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	a := New(m, WithMaxSteps(5), WithStopConditions(AllOf(
+		func(step int, resp *core.Response, messages []core.Message) bool { return step >= 1 },
+		FinishReasonIs("stop"),
+	)))
+	a.RegisterTool("noop", func(ctx context.Context, args string) (string, error) {
+		return "ok", nil
+	})
+
+	var toolResults int
+	var stepFinishes int
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools:    []core.ToolDefinition{{Name: "noop", Parameters: &core.Schema{Type: "object"}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		switch event.Type {
+		case StreamEventTypeToolResult:
+			toolResults++
+		case StreamEventTypeStepFinish:
+			stepFinishes++
+		}
+	}
+
+	// Tool executed once at step 0, then stopped at step 1.
+	if toolResults != 1 {
+		t.Errorf("tool results: got %d, want 1", toolResults)
+	}
+	if stepFinishes != 2 {
+		t.Errorf("step finishes: got %d, want 2", stepFinishes)
+	}
+	if m.callIdx != 2 {
+		t.Errorf("model calls: got %d, want 2", m.callIdx)
+	}
+}
+
+// TestRunStreamProviderToolSkipped verifies that provider-defined tools
+// (ProviderTool != nil) are skipped during local execution in RunStream.
+func TestRunStreamProviderToolSkipped(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "server_tool", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	// Intentionally register a local handler with the same name — it should NOT be called.
+	called := false
+	a := New(m, WithMaxSteps(5))
+	a.RegisterTool("server_tool", func(ctx context.Context, args string) (string, error) {
+		called = true
+		return "local result", nil
+	})
+
+	var toolResults int
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Test"}}}},
+		Tools: []core.ToolDefinition{{
+			Name:         "server_tool",
+			Parameters:   &core.Schema{Type: "object"},
+			ProviderTool: map[string]any{"type": "server_tool"},
+		}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeToolResult {
+			toolResults++
+		}
+	}
+
+	if called {
+		t.Error("local handler for provider tool should NOT be called")
+	}
+	if toolResults != 0 {
+		t.Errorf("tool results: got %d, want 0", toolResults)
+	}
+}
+
+
+// --- Callback integration tests ---
+
+func TestRunStreamCallbacks_AllInvoked(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Hello"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	var stepStartStep int
+	var textDelta string
+	var stepFinishStep int
+
+	a := New(m,
+		WithOnStepStart(func(step int) error {
+			stepStartStep = step
+			return nil
+		}),
+		WithOnTextDelta(func(step int, delta string) error {
+			textDelta = delta
+			return nil
+		}),
+		WithOnStepFinish(func(step int, messages []core.Message, usage core.Usage, finishReason string, toolResults []core.ToolResultPart, providerMetadata map[string]any) error {
+			stepFinishStep = step
+			return nil
+		}),
+	)
+
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		_ = event
+	}
+
+	if stepStartStep != 1 {
+		t.Errorf("OnStepStart step: got %d, want 1", stepStartStep)
+	}
+	if textDelta != "Hello" {
+		t.Errorf("OnTextDelta delta: got %q, want Hello", textDelta)
+	}
+	if stepFinishStep != 1 {
+		t.Errorf("OnStepFinish step: got %d, want 1", stepFinishStep)
+	}
+}
+
+func TestRunStreamCallbacks_ReasoningAndTool(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "think"},
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "calc", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	var reasoningDelta string
+	var toolCallName string
+	var toolResultName string
+	var stepFinishes int
+
+	a := New(m, WithMaxSteps(5),
+		WithOnReasoningDelta(func(step int, delta string) error {
+			reasoningDelta = delta
+			return nil
+		}),
+		WithOnToolCall(func(step int, call *core.ToolCallPart) error {
+			toolCallName = call.Name
+			return nil
+		}),
+		WithOnToolResult(func(step int, result *core.ToolResultPart) error {
+			toolResultName = result.Name
+			return nil
+		}),
+		WithOnStepFinish(func(step int, messages []core.Message, usage core.Usage, finishReason string, toolResults []core.ToolResultPart, providerMetadata map[string]any) error {
+			stepFinishes++
+			return nil
+		}),
+	)
+	a.RegisterTool("calc", func(ctx context.Context, args string) (string, error) {
+		return "42", nil
+	})
+
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Calc"}}}},
+		Tools:    []core.ToolDefinition{{Name: "calc", Parameters: &core.Schema{Type: "object"}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		_ = event
+	}
+
+	if reasoningDelta != "think" {
+		t.Errorf("OnReasoningDelta: got %q, want think", reasoningDelta)
+	}
+	if toolCallName != "calc" {
+		t.Errorf("OnToolCall name: got %q, want calc", toolCallName)
+	}
+	if toolResultName != "calc" {
+		t.Errorf("OnToolResult name: got %q, want calc", toolResultName)
+	}
+	if stepFinishes != 2 {
+		t.Errorf("OnStepFinish calls: got %d, want 2", stepFinishes)
+	}
+}
+
+func TestRunStreamCallbacks_ErrorAbort(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Hello"},
+			{Type: core.StreamPartTypeTextDelta, TextDelta: " World"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	var lastErr error
+	a := New(m,
+		WithOnTextDelta(func(step int, delta string) error {
+			if delta == " World" {
+				return errors.New("abort on second delta")
+			}
+			return nil
+		}),
+		WithOnError(func(err error) {
+			lastErr = err
+		}),
+	)
+
+	var events int
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			if event == nil || event.Type != StreamEventTypeError {
+				t.Fatalf("expected error event, got %v", event)
+			}
+		}
+		events++
+		_ = event
+	}
+
+	if lastErr == nil {
+		t.Fatal("expected OnError to be called")
+	}
+	if !strings.Contains(lastErr.Error(), "abort on second delta") {
+		t.Errorf("error: got %q", lastErr.Error())
+	}
+	// Events: StepStart + TextDelta("Hello") + Error
+	if events != 3 {
+		t.Errorf("events: got %d, want 3", events)
+	}
+}
+
+func TestRunStreamCallbacks_StepStartError(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{}}
+
+	var lastErr error
+	a := New(m,
+		WithOnStepStart(func(step int) error {
+			return errors.New("step start failed")
+		}),
+		WithOnError(func(err error) {
+			lastErr = err
+		}),
+	)
+
+	var events int
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			if event == nil || event.Type != StreamEventTypeError {
+				t.Fatalf("expected error event, got %v", event)
+			}
+		}
+		events++
+	}
+
+	if lastErr == nil {
+		t.Fatal("expected OnError to be called")
+	}
+	if events != 1 {
+		t.Errorf("events: got %d, want 1", events)
+	}
+}
+
+
+func TestRunStreamWithWarnings(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Hello", Warnings: []core.CallWarning{
+				{Type: core.CallWarningTypeUnsupportedSetting, Setting: "top_p", Message: "ignored"},
+			}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var warnings []core.CallWarning
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeWarning {
+			warnings = append(warnings, event.Warnings...)
+		}
+	}
+
+	if len(warnings) != 1 {
+		t.Fatalf("warnings: got %d, want 1", len(warnings))
+	}
+	if warnings[0].Setting != "top_p" {
+		t.Errorf("warning setting: got %q, want top_p", warnings[0].Setting)
+	}
+}
+
+
+func TestRunStreamWithSource(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "According to "},
+			{Type: core.StreamPartTypeSource, Source: &core.SourcePart{SourceType: core.SourceTypeURL, ID: "src1", URL: "https://example.com", Title: "Example"}},
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "the answer is 42."},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	var source *core.SourcePart
+	a := New(m, WithOnSource(func(step int, s *core.SourcePart) error {
+		source = s
+		return nil
+	}))
+
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Search"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		_ = event
+	}
+
+	if source == nil {
+		t.Fatal("expected source callback to be invoked")
+	}
+	if source.URL != "https://example.com" {
+		t.Errorf("source URL: got %q, want https://example.com", source.URL)
+	}
+}
+
+func TestRunStream_YieldsStepResultEvents(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Hello"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var stepResults []StepResult
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeStepResult {
+			stepResults = append(stepResults, *event.StepResult)
+		}
+	}
+
+	if len(stepResults) != 1 {
+		t.Fatalf("StepResult events: got %d, want 1", len(stepResults))
+	}
+	if stepResults[0].StepNumber != 1 {
+		t.Errorf("StepNumber: got %d, want 1", stepResults[0].StepNumber)
+	}
+	if stepResults[0].Response.FinishReason != "stop" {
+		t.Errorf("FinishReason: got %q, want stop", stepResults[0].Response.FinishReason)
+	}
+}
+
+func TestRunStream_StepResultWithToolCall(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "get_weather", Arguments: `{"city":"NYC"}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Done"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+	a.RegisterTool("get_weather", func(ctx context.Context, args string) (string, error) {
+		return "sunny", nil
+	})
+
+	var stepResults []StepResult
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeStepResult {
+			stepResults = append(stepResults, *event.StepResult)
+		}
+	}
+
+	if len(stepResults) != 2 {
+		t.Fatalf("StepResult events: got %d, want 2", len(stepResults))
+	}
+
+	step1 := stepResults[0]
+	if len(step1.ToolResults) != 1 {
+		t.Errorf("Step1 ToolResults: got %d, want 1", len(step1.ToolResults))
+	}
+	if step1.ToolResults[0].Name != "get_weather" {
+		t.Errorf("Step1 ToolResult Name: got %q, want get_weather", step1.ToolResults[0].Name)
+	}
+
+	step2 := stepResults[1]
+	if len(step2.ToolResults) != 0 {
+		t.Errorf("Step2 ToolResults: got %d, want 0", len(step2.ToolResults))
+	}
+}
+
+func TestRunStream_WithOnRetry(t *testing.T) {
+	var called bool
+	onRetry := func(int, error, time.Duration) { called = true }
+
+	inner := &failingModel{}
+	a := New(inner,
+		WithMaxRetries(1),
+		WithOnRetry(onRetry),
+	)
+
+	for _, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	}) {
+		if err != nil {
+			// Expected: stream init fails after retries exhausted
+			break
+		}
+	}
+
+	if !called {
+		t.Error("expected OnRetry to be called on stream init failure")
+	}
+	if inner.calls != 2 {
+		t.Errorf("inner calls: got %d, want 2", inner.calls)
+	}
+}
+
+func TestRunStreamToolInputDeltas(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolInputStart, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "search"}},
+			{Type: core.StreamPartTypeToolInputDelta, ToolCall: &core.ToolCallPart{ID: "call_1", Arguments: `{"q":`}},
+			{Type: core.StreamPartTypeToolInputDelta, ToolCall: &core.ToolCallPart{ID: "call_1", Arguments: `"hello"`}},
+			{Type: core.StreamPartTypeToolInputDelta, ToolCall: &core.ToolCallPart{ID: "call_1", Arguments: `}`}},
+			{Type: core.StreamPartTypeToolInputEnd, ToolCall: &core.ToolCallPart{ID: "call_1"}},
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "search", Arguments: `{"q":"hello"}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+	}}
+	a := New(m,
+		WithOnToolInputStart(func(id, toolName string) error {
+			if id != "call_1" || toolName != "search" {
+				t.Errorf("OnToolInputStart got id=%q name=%q", id, toolName)
+			}
+			return nil
+		}),
+		WithOnToolInputDelta(func(id, delta string) error {
+			if id != "call_1" {
+				t.Errorf("OnToolInputDelta got id=%q", id)
+			}
+			return nil
+		}),
+		WithOnToolInputEnd(func(id string) error {
+			if id != "call_1" {
+				t.Errorf("OnToolInputEnd got id=%q", id)
+			}
+			return nil
+		}),
+	)
+
+	var eventTypes []string
+	var deltas []string
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "search"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		switch event.Type {
+		case StreamEventTypeToolInputStart, StreamEventTypeToolInputDelta, StreamEventTypeToolInputEnd, StreamEventTypeToolCall:
+			eventTypes = append(eventTypes, string(event.Type))
+		}
+		if event.Type == StreamEventTypeToolInputDelta && event.ToolCall != nil {
+			deltas = append(deltas, event.ToolCall.Arguments)
+		}
+	}
+
+	wantTypes := []string{"tool_input_start", "tool_input_delta", "tool_input_delta", "tool_input_delta", "tool_input_end", "tool_call"}
+	if len(eventTypes) != len(wantTypes) {
+		t.Fatalf("event types count mismatch: got %d, want %d", len(eventTypes), len(wantTypes))
+	}
+	for i := range wantTypes {
+		if eventTypes[i] != wantTypes[i] {
+			t.Fatalf("event type[%d]: got %q, want %q", i, eventTypes[i], wantTypes[i])
+		}
+	}
+
+	wantDeltas := []string{`{"q":`, `"hello"`, `}`}
+	if len(deltas) != len(wantDeltas) {
+		t.Fatalf("deltas count mismatch: got %d, want %d", len(deltas), len(wantDeltas))
+	}
+	for i := range wantDeltas {
+		if deltas[i] != wantDeltas[i] {
+			t.Fatalf("delta[%d]: got %q, want %q", i, deltas[i], wantDeltas[i])
+		}
+	}
+}
+
+func TestRunStreamToolInputDeltaAccumulates(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolInputStart, ToolCall: &core.ToolCallPart{ID: "c1", Name: "calc"}},
+			{Type: core.StreamPartTypeToolInputDelta, ToolCall: &core.ToolCallPart{ID: "c1", Arguments: `{"a":1`}},
+			{Type: core.StreamPartTypeToolInputDelta, ToolCall: &core.ToolCallPart{ID: "c1", Arguments: `,"b":2}`}},
+			{Type: core.StreamPartTypeToolInputEnd, ToolCall: &core.ToolCallPart{ID: "c1"}},
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "c1", Name: "calc", Arguments: `{"a":1,"b":2}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var toolCallArgs string
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "calc"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if event.Type == StreamEventTypeToolCall && event.ToolCall != nil {
+			toolCallArgs = event.ToolCall.Arguments
+		}
+	}
+
+	// The tool_call part from the mock should have the accumulated arguments
+	// (the mock provides the complete args, but the activeToolCalls map should also accumulate them)
+	if toolCallArgs != `{"a":1,"b":2}` {
+		t.Fatalf("tool call args mismatch: got %q", toolCallArgs)
+	}
+}
+
+func TestRunStreamToolInputCallbackError(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolInputStart, ToolCall: &core.ToolCallPart{ID: "c1", Name: "search"}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m, WithOnToolInputStart(func(id, toolName string) error {
+		return errors.New("start error")
+	}))
+
+	var sawError bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "x"}}}},
+	}) {
+		if event != nil && event.Type == StreamEventTypeError {
+			sawError = true
+		}
+		_ = err // err is non-nil when callback fails; loop terminates after this iteration
+	}
+	if !sawError {
+		t.Fatal("expected error event from OnToolInputStart failure")
+	}
+}
+
+func TestRunStream_ReasoningBoundaries(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningStart},
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "Let me think"},
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: " about this..."},
+			{Type: core.StreamPartTypeReasoningEnd},
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Hello!"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var eventTypes []StreamEventType
+	var startStep int
+	var endStep int
+	var endReasoning string
+	var deltas []string
+
+	a.onReasoningStart = func(step int) error {
+		startStep = step
+		return nil
+	}
+	a.onReasoningEnd = func(step int, fullReasoning string) error {
+		endStep = step
+		endReasoning = fullReasoning
+		return nil
+	}
+	a.onReasoningDelta = func(step int, delta string) error {
+		deltas = append(deltas, delta)
+		return nil
+	}
+
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		eventTypes = append(eventTypes, event.Type)
+	}
+
+	wantTypes := []StreamEventType{
+		StreamEventTypeStepStart,
+		StreamEventTypeReasoningStart,
+		StreamEventTypeReasoningDelta,
+		StreamEventTypeReasoningDelta,
+		StreamEventTypeReasoningEnd,
+		StreamEventTypeTextDelta,
+		StreamEventTypeStepResult,
+		StreamEventTypeStepFinish,
+	}
+	if !slices.Equal(eventTypes, wantTypes) {
+		t.Fatalf("event types mismatch:\ngot:  %v\nwant: %v", eventTypes, wantTypes)
+	}
+	if startStep != 1 {
+		t.Fatalf("OnReasoningStart step wrong: %d", startStep)
+	}
+	if endStep != 1 {
+		t.Fatalf("OnReasoningEnd step wrong: %d", endStep)
+	}
+	if endReasoning != "Let me think about this..." {
+		t.Fatalf("OnReasoningEnd fullReasoning wrong: %q", endReasoning)
+	}
+	wantDeltas := []string{"Let me think", " about this..."}
+	if !slices.Equal(deltas, wantDeltas) {
+		t.Fatalf("deltas mismatch:\ngot:  %v\nwant: %v", deltas, wantDeltas)
+	}
+}
+
+func TestRunStream_ReasoningBoundaries_BackwardCompat(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "Thinking..."},
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "Done!"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var eventTypes []StreamEventType
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		eventTypes = append(eventTypes, event.Type)
+	}
+
+	wantTypes := []StreamEventType{
+		StreamEventTypeStepStart,
+		StreamEventTypeReasoningDelta,
+		StreamEventTypeTextDelta,
+		StreamEventTypeStepResult,
+		StreamEventTypeStepFinish,
+	}
+	if !slices.Equal(eventTypes, wantTypes) {
+		t.Fatalf("event types mismatch:\ngot:  %v\nwant: %v", eventTypes, wantTypes)
+	}
+}
+
+func TestRunStream_ReasoningBoundaries_CallbackError(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningStart},
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "think"},
+			{Type: core.StreamPartTypeReasoningEnd},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+	a.onReasoningStart = func(step int) error {
+		return fmt.Errorf("reasoning start error")
+	}
+
+	var sawError bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}) {
+		if err != nil {
+			sawError = true
+			if err.Error() != "reasoning start error" {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			break
+		}
+		_ = event
+	}
+	if !sawError {
+		t.Fatal("expected error event")
+	}
+}
+
+func TestRunStream_ReasoningBoundaries_EndCallbackError(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningStart},
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "think"},
+			{Type: core.StreamPartTypeReasoningEnd},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+	a.onReasoningEnd = func(step int, fullReasoning string) error {
+		return fmt.Errorf("reasoning end error")
+	}
+
+	var sawError bool
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}) {
+		if err != nil {
+			sawError = true
+			if err.Error() != "reasoning end error" {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			break
+		}
+		_ = event
+	}
+	if !sawError {
+		t.Fatal("expected error event")
+	}
+}
+
+func TestRunStream_ReasoningBoundaries_DefensiveEndOnFinish(t *testing.T) {
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeReasoningStart},
+			{Type: core.StreamPartTypeReasoningDelta, ReasoningDelta: "incomplete"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+	a := New(m)
+
+	var eventTypes []StreamEventType
+	var endReasoning string
+	a.onReasoningEnd = func(step int, fullReasoning string) error {
+		endReasoning = fullReasoning
+		return nil
+	}
+
+	for event, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		eventTypes = append(eventTypes, event.Type)
+	}
+
+	wantTypes := []StreamEventType{
+		StreamEventTypeStepStart,
+		StreamEventTypeReasoningStart,
+		StreamEventTypeReasoningDelta,
+		StreamEventTypeReasoningEnd,
+		StreamEventTypeStepResult,
+		StreamEventTypeStepFinish,
+	}
+	if !slices.Equal(eventTypes, wantTypes) {
+		t.Fatalf("event types mismatch:\ngot:  %v\nwant: %v", eventTypes, wantTypes)
+	}
+	if endReasoning != "incomplete" {
+		t.Fatalf("defensive end reasoning wrong: %q", endReasoning)
 	}
 }

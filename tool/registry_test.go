@@ -109,3 +109,38 @@ func TestDefinitionsCheckFn(t *testing.T) {
 }
 
 func nilHandler(_ context.Context, _ json.RawMessage) (string, error) { return "{}", nil }
+
+type mockProviderOptions struct{}
+
+func (mockProviderOptions) ProviderName() string { return "mock" }
+
+func TestEntry_ProviderOptionsSync(t *testing.T) {
+	r := NewRegistry()
+	opts := core.ProviderOptions{}
+	opts.Set("mock", mockProviderOptions{})
+	entry := &Entry{
+		Name: "test",
+		Schema: core.ToolDefinition{
+			Name:        "test",
+			Description: "test",
+		},
+		Handler:         nilHandler,
+		ProviderOptions: opts,
+	}
+	r.Register(entry)
+
+	defs := r.Definitions(nil)
+	if len(defs) != 1 {
+		t.Fatalf("expected 1 definition, got %d", len(defs))
+	}
+	if defs[0].ProviderOptions == nil {
+		t.Fatal("ToolDefinition.ProviderOptions should be synced from Entry.ProviderOptions")
+	}
+	v, ok := defs[0].ProviderOptions.Get("mock")
+	if !ok {
+		t.Fatal("expected 'mock' key in synced ProviderOptions")
+	}
+	if v.ProviderName() != "mock" {
+		t.Errorf("unexpected provider name: got %q, want 'mock'", v.ProviderName())
+	}
+}

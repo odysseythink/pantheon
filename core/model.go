@@ -11,6 +11,9 @@ type Request struct {
 	MaxTokens       *int
 	Temperature     *float64
 	TopP            *float64
+	TopK            *int
+	FrequencyPenalty *float64
+	PresencePenalty  *float64
 	StopSequences   []string
 	ResponseFormat  *ResponseFormat
 	ProviderOptions ProviderOptions
@@ -18,10 +21,12 @@ type Request struct {
 
 // Response is the result of a single model generation call.
 type Response struct {
-	Message      Message
-	FinishReason string
-	Usage        Usage
-	Model        string
+	Message          Message
+	FinishReason     string
+	Usage            Usage
+	Model            string
+	Warnings         []CallWarning
+	ProviderMetadata map[string]any // provider-specific metadata from the raw response
 }
 
 // Usage reports token consumption for a model call.
@@ -43,8 +48,11 @@ type StreamPart struct {
 	TextDelta      string
 	ReasoningDelta string
 	ToolCall       *ToolCallPart
-	Usage          *Usage
-	FinishReason   string
+	Source         *SourcePart
+	Usage            *Usage
+	FinishReason     string
+	Warnings         []CallWarning
+	ProviderMetadata map[string]any // provider-specific metadata from the raw response
 }
 
 // StreamPartType identifies the kind of a StreamPart.
@@ -55,8 +63,20 @@ const (
 	StreamPartTypeTextDelta StreamPartType = "text_delta"
 	// StreamPartTypeReasoningDelta indicates a delta of reasoning text.
 	StreamPartTypeReasoningDelta StreamPartType = "reasoning_delta"
+	// StreamPartTypeReasoningStart indicates the start of a reasoning paragraph.
+	StreamPartTypeReasoningStart StreamPartType = "reasoning_start"
+	// StreamPartTypeReasoningEnd indicates the end of a reasoning paragraph.
+	StreamPartTypeReasoningEnd StreamPartType = "reasoning_end"
+	// StreamPartTypeToolInputStart indicates the start of a tool call argument stream.
+	StreamPartTypeToolInputStart StreamPartType = "tool_input_start"
+	// StreamPartTypeToolInputDelta indicates a delta fragment of tool call arguments.
+	StreamPartTypeToolInputDelta StreamPartType = "tool_input_delta"
+	// StreamPartTypeToolInputEnd indicates the end of a tool call argument stream.
+	StreamPartTypeToolInputEnd StreamPartType = "tool_input_end"
 	// StreamPartTypeToolCall indicates a tool call emitted by the model.
 	StreamPartTypeToolCall StreamPartType = "tool_call"
+	// StreamPartTypeSource indicates a source reference emitted by the model.
+	StreamPartTypeSource StreamPartType = "source"
 	// StreamPartTypeUsage reports token usage.
 	StreamPartTypeUsage StreamPartType = "usage"
 	// StreamPartTypeFinish signals the end of the stream with a finish reason.
@@ -89,6 +109,11 @@ type ObjectRequest struct {
 	Mode            ObjectMode
 	MaxTokens       *int
 	Temperature     *float64
+	TopP            *float64
+	TopK            *int
+	FrequencyPenalty *float64
+	PresencePenalty  *float64
+	StopSequences   []string
 	ProviderOptions ProviderOptions
 }
 
@@ -109,9 +134,11 @@ const (
 // ObjectResponse is the result of a structured object generation call.
 type ObjectResponse struct {
 	Object       map[string]any
+	RawText      string
 	FinishReason string
 	Usage        Usage
 	Model        string
+	Warnings     []CallWarning
 }
 
 // ObjectStreamResponse is an iterator of stream parts emitted during a streaming object generation call.
@@ -124,6 +151,8 @@ type ObjectStreamPart struct {
 	Object       map[string]any
 	FinishReason string
 	Usage        *Usage
+	Warnings     []CallWarning
+	Model        string
 }
 
 // ObjectStreamPartType identifies the kind of an ObjectStreamPart.

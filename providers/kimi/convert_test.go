@@ -341,8 +341,9 @@ func TestContentToString(t *testing.T) {
 	parts := []core.ContentParter{
 		core.TextPart{Text: "a"},
 		core.ToolResultPart{Content: []core.ContentParter{core.TextPart{Text: "b"}}},
+		core.ToolResultErrorPart{Error: "c"},
 	}
-	if s := contentToString(parts); s != "a\nb" {
+	if s := contentToString(parts); s != "a\nb\nc" {
 		t.Errorf("contentToString = %q", s)
 	}
 }

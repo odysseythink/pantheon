@@ -10,6 +10,12 @@ import (
 	extErrors "github.com/odysseythink/pantheon/extensions/errors"
 )
 
+// OnRetryFunc is called before each retry attempt.
+// attempt is 1-based (1 = first retry).
+// err is the error that triggered the retry.
+// delay is the duration the wrapper will wait before the next attempt.
+type OnRetryFunc func(attempt int, err error, delay time.Duration)
+
 // Model wraps a core.LanguageModel with exponential backoff retry.
 type Model struct {
 	// Inner is the LanguageModel to wrap.
@@ -20,6 +26,8 @@ type Model struct {
 	BaseDelay time.Duration
 	// Multiplier is the exponential backoff multiplier. Defaults to 2.0.
 	Multiplier float64
+	// OnRetry is called before each retry attempt.
+	OnRetry OnRetryFunc
 }
 
 // Provider returns the provider name of the inner model.
@@ -49,6 +57,12 @@ func (m *Model) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*c
 	})
 }
 
+// StreamObject retries only if the initial StreamObject call fails. Mid-stream errors are not retried.
+func (m *Model) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return retry(m, ctx, func() (core.ObjectStreamResponse, error) {
+		return m.Inner.StreamObject(ctx, req)
+	})
+}
 
 const maxDelay = 5 * time.Minute
 
@@ -71,7 +85,11 @@ func retry[T any](m *Model, ctx context.Context, fn func() (T, error)) (T, error
 		if !m.shouldRetry(err) {
 			break
 		}
-		if err := m.sleep(ctx, attempt); err != nil {
+		delay := m.computeDelay(attempt, lastErr)
+		if m.OnRetry != nil {
+			m.OnRetry(attempt+1, err, delay)
+		}
+		if err := m.sleep(ctx, delay); err != nil {
 			return zero, err
 		}
 	}
@@ -83,7 +101,7 @@ func (m *Model) shouldRetry(err error) bool {
 	return c.Retryable
 }
 
-func (m *Model) sleep(ctx context.Context, attempt int) error {
+func (m *Model) computeDelay(attempt int, lastErr error) time.Duration {
 	base := m.BaseDelay
 	if base <= 0 {
 		base = 1 * time.Second
@@ -104,6 +122,18 @@ func (m *Model) sleep(ctx context.Context, attempt int) error {
 	// Add jitter: delay * [0.75, 1.25]
 	delay = time.Duration(float64(delay) * (0.75 + rand.Float64()*0.5))
 
+	// Try to use provider-suggested delay from response headers
+	if lastErr != nil {
+		var pe *core.ProviderError
+		if errors.As(lastErr, &pe) && pe.Headers != nil {
+			return headerDelay(pe.Headers, delay)
+		}
+	}
+
+	return delay
+}
+
+func (m *Model) sleep(ctx context.Context, delay time.Duration) error {
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
 	select {

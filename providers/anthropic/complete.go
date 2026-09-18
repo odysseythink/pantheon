@@ -40,6 +40,13 @@ func (c *Client) Messages(ctx context.Context, model string, req *core.Request) 
 					BudgetTokens: ao.Thinking.BudgetTokens,
 				}
 			}
+			if ao.Effort != nil {
+				anthropicReq.Thinking = nil // effort and thinking are mutually exclusive in some contexts
+				// TODO: map effort to output_config if Anthropic API supports it
+			}
+			if ao.DisableParallelToolUse != nil && *ao.DisableParallelToolUse {
+				anthropicReq.ToolChoice = &ToolChoice{Type: "any"} // force serial tool use
+			}
 		}
 	}
 

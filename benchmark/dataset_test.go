@@ -15,6 +15,9 @@ import (
 
 type genStubProvider struct{ reply string }
 
+func (g *genStubProvider) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (g *genStubProvider) Provider() string { return "stub" }
 func (g *genStubProvider) Model() string    { return "" }
 

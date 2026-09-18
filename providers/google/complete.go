@@ -42,6 +42,10 @@ func (c *client) chatCompletion(ctx context.Context, model string, req *core.Req
 		genConfig.TopP = req.TopP
 		hasGenConfig = true
 	}
+	if req.TopK != nil {
+		genConfig.TopK = req.TopK
+		hasGenConfig = true
+	}
 	if len(req.StopSequences) > 0 {
 		genConfig.StopSequences = req.StopSequences
 		hasGenConfig = true

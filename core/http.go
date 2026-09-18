@@ -109,6 +109,7 @@ func HttpClientCallWithClient[T any](
 		return empty_resp, &ProviderError{
 			Message: fmt.Sprintf("call http url %s[%s] failed:%v", call_url, method, err),
 			Status:  http.StatusInternalServerError,
+			Err:     err,
 		}
 	}
 	{
@@ -122,6 +123,7 @@ func HttpClientCallWithClient[T any](
 		return empty_resp, &ProviderError{
 			Message: string(bodyData),
 			Status:  resp.StatusCode,
+			Headers: resp.Header.Clone(),
 		}
 	}
 	err = json.NewDecoder(resp.Body).Decode(&empty_resp)

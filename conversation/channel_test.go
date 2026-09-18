@@ -26,7 +26,9 @@ func (m *selectorModel) Stream(ctx context.Context, req *core.Request) (core.Str
 func (m *selectorModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
 }
-
+func (m *selectorModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (m *selectorModel) Provider() string {
 	return "selector"
 }

@@ -100,6 +100,36 @@ func TestObjectStreamPart_Struct(t *testing.T) {
 	}
 }
 
+func TestResponse_ProviderMetadata(t *testing.T) {
+	resp := Response{
+		Message:          Message{Role: MESSAGE_ROLE_ASSISTANT, Content: []ContentParter{TextPart{Text: "Hello"}}},
+		FinishReason:     "stop",
+		Usage:            Usage{PromptTokens: 5, CompletionTokens: 3, TotalTokens: 8},
+		Model:            "gpt-4",
+		ProviderMetadata: map[string]any{"cost": 0.001},
+	}
+	if resp.ProviderMetadata == nil {
+		t.Fatal("ProviderMetadata should not be nil")
+	}
+	if resp.ProviderMetadata["cost"] != 0.001 {
+		t.Errorf("unexpected ProviderMetadata value")
+	}
+}
+
+func TestStreamPart_ProviderMetadata(t *testing.T) {
+	sp := StreamPart{
+		Type:             StreamPartTypeTextDelta,
+		TextDelta:        "hello",
+		ProviderMetadata: map[string]any{"chunk": 1},
+	}
+	if sp.ProviderMetadata == nil {
+		t.Fatal("ProviderMetadata should not be nil")
+	}
+	if sp.ProviderMetadata["chunk"] != 1 {
+		t.Errorf("unexpected ProviderMetadata value")
+	}
+}
+
 func TestResponseFormat_Struct(t *testing.T) {
 	rf := ResponseFormat{
 		Type:       ResponseFormatTypeJSONSchema,

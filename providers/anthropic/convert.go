@@ -63,6 +63,9 @@ func contentToString(parts []core.ContentParter) string {
 		if p, ok := part.(core.TextPart); ok {
 			texts = append(texts, p.Text)
 		}
+		if p, ok := part.(core.ToolResultErrorPart); ok {
+			texts = append(texts, p.Error)
+		}
 	}
 	result := ""
 	for i, t := range texts {
@@ -75,14 +78,57 @@ func contentToString(parts []core.ContentParter) string {
 }
 
 // ToAnthropicTools converts core tool definitions to Anthropic format.
-func ToAnthropicTools(tools []core.ToolDefinition) []Tool {
-	var out []Tool
+func ToAnthropicTools(tools []core.ToolDefinition) []any {
+	var out []any
 	for _, t := range tools {
-		out = append(out, Tool{
+		if pdt, ok := core.IsProviderDefinedTool(t.ProviderTool); ok {
+			switch pdt.ID {
+			case "anthropic.web_search":
+				out = append(out, map[string]any{"type": "web_search_20250305"})
+			default:
+				out = append(out, t.ProviderTool)
+			}
+			continue
+		}
+		if t.ProviderTool != nil {
+			out = append(out, t.ProviderTool)
+			continue
+		}
+		tool := Tool{
 			Name:        t.Name,
 			Description: t.Description,
 			InputSchema: t.Parameters,
-		})
+		}
+		// Merge per-tool ProviderOptions
+		if t.ProviderOptions != nil {
+			if opts, ok := t.ProviderOptions.Get("anthropic"); ok {
+				switch v := opts.(type) {
+				case *ProviderCacheControlOptions:
+					toolMap := map[string]any{
+						"name":         tool.Name,
+						"description":  tool.Description,
+						"input_schema": tool.InputSchema,
+						"cache_control": map[string]any{
+							"type": v.CacheControl.Type,
+						},
+					}
+					out = append(out, toolMap)
+					continue
+				case ProviderCacheControlOptions:
+					toolMap := map[string]any{
+						"name":         tool.Name,
+						"description":  tool.Description,
+						"input_schema": tool.InputSchema,
+						"cache_control": map[string]any{
+							"type": v.CacheControl.Type,
+						},
+					}
+					out = append(out, toolMap)
+					continue
+				}
+			}
+		}
+		out = append(out, tool)
 	}
 	return out
 }

@@ -4,7 +4,7 @@ import "github.com/odysseythink/pantheon/core"
 
 type GenerateContentRequest struct {
 	Contents          []Content         `json:"contents"`
-	Tools             []Tool            `json:"tools,omitempty"`
+	Tools             []any             `json:"tools,omitempty"`
 	ToolConfig        *ToolConfig       `json:"toolConfig,omitempty"`
 	SystemInstruction *Content          `json:"systemInstruction,omitempty"`
 	GenerationConfig  *GenerationConfig `json:"generationConfig,omitempty"`
@@ -59,6 +59,7 @@ type FunctionCallingConfig struct {
 type GenerationConfig struct {
 	Temperature      *float64     `json:"temperature,omitempty"`
 	TopP             *float64     `json:"topP,omitempty"`
+	TopK             *int         `json:"topK,omitempty"`
 	MaxOutputTokens  *int         `json:"maxOutputTokens,omitempty"`
 	StopSequences    []string     `json:"stopSequences,omitempty"`
 	ResponseMimeType string       `json:"responseMimeType,omitempty"`

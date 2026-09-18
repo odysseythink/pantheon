@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 
 	"github.com/odysseythink/pantheon/core"
 )
@@ -26,6 +27,8 @@ const (
 	KindInvalidRequest Kind = "invalid_request"
 	// KindUnknown indicates an unrecognized error type.
 	KindUnknown Kind = "unknown"
+	// KindNetwork indicates a network-level error (DNS, TCP, etc.).
+	KindNetwork Kind = "network"
 )
 
 // Classification describes an error's kind and whether retrying might succeed.
@@ -48,6 +51,15 @@ func Classify(err error) Classification {
 	// Unexpected EOF during streaming is retryable.
 	if errors.Is(err, io.ErrUnexpectedEOF) {
 		return Classification{Kind: KindServerError, Retryable: true}
+	}
+
+	// Network-level errors (DNS, TCP timeouts, etc.)
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		if netErr.Timeout() || netErr.Temporary() {
+			return Classification{Kind: KindNetwork, Retryable: true}
+		}
+		return Classification{Kind: KindNetwork, Retryable: false}
 	}
 
 	// Provider errors are classified by HTTP status.

@@ -97,6 +97,8 @@ func contentToString(parts []core.ContentParter) string {
 			if s := contentToString(p.Content); s != "" {
 				texts = append(texts, s)
 			}
+		case core.ToolResultErrorPart:
+			texts = append(texts, p.Error)
 		}
 	}
 	return joinTexts(texts)
@@ -109,6 +111,8 @@ func contentToOpenAI(parts []core.ContentParter) (any, error) {
 			return p.Text, nil
 		case core.ToolResultPart:
 			return contentToString(p.Content), nil
+		case core.ToolResultErrorPart:
+			return p.Error, nil
 		}
 	}
 	var out []ContentParter
@@ -116,6 +120,8 @@ func contentToOpenAI(parts []core.ContentParter) (any, error) {
 		switch p := part.(type) {
 		case core.TextPart:
 			out = append(out, ContentParter{Type: "text", Text: p.Text})
+		case core.ToolResultErrorPart:
+			out = append(out, ContentParter{Type: "text", Text: p.Error})
 		case core.ImagePart:
 			out = append(out, ContentParter{
 				Type: "image_url",
@@ -157,9 +163,37 @@ func joinTexts(texts []string) string {
 }
 
 // ToOpenAITools converts core tool definitions to OpenAI format.
-func ToOpenAITools(tools []core.ToolDefinition) []Tool {
-	var out []Tool
+// If a tool has ProviderTool set, it is passed through as-is (provider-native).
+func ToOpenAITools(tools []core.ToolDefinition) []any {
+	var out []any
 	for _, t := range tools {
+		if pdt, ok := core.IsProviderDefinedTool(t.ProviderTool); ok {
+			switch pdt.ID {
+			case "openai.web_search_preview":
+				out = append(out, map[string]any{"type": "web_search_preview"})
+			default:
+				out = append(out, t.ProviderTool) // unknown ID: fallback to opaque
+			}
+			continue
+		}
+		if t.ProviderTool != nil {
+			out = append(out, t.ProviderTool)
+			continue
+		}
+		// Merge per-tool ProviderOptions (placeholder for future use)
+		if t.ProviderOptions != nil {
+			if opts, ok := t.ProviderOptions.Get("openai"); ok {
+				_ = opts
+			}
+			if opts, ok := t.ProviderOptions.Get("openaicompat"); ok {
+				switch v := opts.(type) {
+				case *ProviderOptions:
+					_ = v
+				case ProviderOptions:
+					_ = v
+				}
+			}
+		}
 		out = append(out, Tool{
 			Type: "function",
 			Function: Function{

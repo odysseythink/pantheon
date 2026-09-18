@@ -34,6 +34,11 @@ func (m *mockModel) GenerateObject(ctx context.Context, req *core.ObjectRequest)
 	return nil, nil
 }
 
+// StreamObject implements core.LanguageModel.
+func (m *mockModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
+
 func (m *mockModel) Provider() string { return "mock" }
 func (m *mockModel) Model() string    { return "mock-model" }
 
@@ -51,7 +56,9 @@ func (e *errorModel) Stream(ctx context.Context, req *core.Request) (core.Stream
 func (e *errorModel) GenerateObject(ctx context.Context, req *core.ObjectRequest) (*core.ObjectResponse, error) {
 	return nil, nil
 }
-
+func (e *errorModel) StreamObject(ctx context.Context, req *core.ObjectRequest) (core.ObjectStreamResponse, error) {
+	return nil, core.ErrNotImplemented
+}
 func (e *errorModel) Provider() string { return "error" }
 func (e *errorModel) Model() string    { return "error-model" }
 
@@ -395,10 +402,11 @@ func TestRenderTranscript(t *testing.T) {
 		{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hello"}}},
 		{Role: core.MESSAGE_ROLE_ASSISTANT, Content: []core.ContentParter{core.ToolCallPart{ID: "1", Name: "search", Arguments: "{}"}}},
 		{Role: core.MESSAGE_ROLE_TOOL, Content: []core.ContentParter{core.ToolResultPart{ToolCallID: "1", Name: "search", Content: []core.ContentParter{core.TextPart{Text: "result"}}}}},
+		{Role: core.MESSAGE_ROLE_TOOL, Content: []core.ContentParter{core.ToolResultErrorPart{Error: "failed"}}},
 	}
 	out := renderTranscript(msgs)
 	lines := strings.Split(strings.TrimSpace(out), "\n")
-	if len(lines) != 3 {
+	if len(lines) != 4 {
 		t.Fatalf("expected 3 lines, got %d: %q", len(lines), out)
 	}
 	if !strings.Contains(lines[0], "1. user: hello") {
@@ -409,6 +417,9 @@ func TestRenderTranscript(t *testing.T) {
 	}
 	if !strings.Contains(lines[2], "3. tool: [tool_result]") {
 		t.Errorf("line 2 unexpected: %q", lines[2])
+	}
+	if !strings.Contains(lines[3], "4. tool: [tool_result_error: failed]") {
+		t.Errorf("line 3 unexpected: %q", lines[3])
 	}
 }
 
@@ -438,6 +449,7 @@ func TestContentToString(t *testing.T) {
 		core.ToolResultPart{ToolCallID: "c1", Name: "search", Content: []core.ContentParter{core.TextPart{Text: "found"}}},
 		core.ImagePart{URL: "http://example.com/img.png"},
 		core.ReasoningPart{Text: "thinking..."},
+		core.ToolResultErrorPart{Error: "failed"},
 	}
 	got := contentToString(parts)
 	wantParts := []string{
@@ -446,6 +458,7 @@ func TestContentToString(t *testing.T) {
 		"[tool_result c1]",
 		"[image]",
 		"[reasoning: thinking...]",
+		"[tool_result_error: failed]",
 	}
 	for _, w := range wantParts {
 		if !strings.Contains(got, w) {
@@ -568,4 +581,44 @@ func TestNewCompressor_Args(t *testing.T) {
 	if c.keepLastN != 10 {
 		t.Errorf("keepLastN = %d, want 10", c.keepLastN)
 	}
+}
+
+
+func TestUpdateFromResponseRecordsUsage(t *testing.T) {
+	c := NewDefaultCompressor(DefaultCompressionConfig(), nil)
+	c.UpdateModel("gpt-4", 8192)
+
+	usage1 := core.Usage{PromptTokens: 100, CompletionTokens: 50, TotalTokens: 150}
+	err := c.UpdateFromResponse(usage1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// After first call, thresholdTokens should be initialized
+	if c.thresholdTokens == 0 {
+		t.Fatal("expected thresholdTokens to be initialized after first UpdateFromResponse")
+	}
+
+	usage2 := core.Usage{PromptTokens: 200, CompletionTokens: 100, TotalTokens: 300}
+	err = c.UpdateFromResponse(usage2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Total recorded usage should be accumulated
+	if c.state.totalPromptTokens != 300 {
+		t.Fatalf("expected totalPromptTokens=300, got %d", c.state.totalPromptTokens)
+	}
+	if c.state.totalCompletionTokens != 150 {
+		t.Fatalf("expected totalCompletionTokens=150, got %d", c.state.totalCompletionTokens)
+	}
+}
+
+
+func TestUpdateFromResponseCalledByAgent(t *testing.T) {
+	// This is a lightweight check that the agent package compiles with the
+	// new call sites. Full behavioral test lives in agent_test.go.
+	// We verify the method exists on the interface.
+	var eng ContextEngine = NewDefaultCompressor(DefaultCompressionConfig(), nil)
+	_ = eng.UpdateFromResponse(core.Usage{PromptTokens: 10})
 }

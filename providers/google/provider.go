@@ -10,6 +10,9 @@ import (
 	"github.com/odysseythink/pantheon/utils/catwalk"
 )
 
+// Name is the provider name.
+const Name = "google"
+
 type Provider struct {
 	client *client
 }
@@ -41,7 +44,7 @@ func WithHTTPClient(httpClient *http.Client) Option {
 }
 
 // Name returns the provider name.
-func (p *Provider) Name() string { return "google" }
+func (p *Provider) Name() string { return Name }
 
 // Models returns the list of available models from the Google provider.
 func (p *Provider) Models(ctx context.Context) ([]core.Model, error) {
@@ -58,8 +61,54 @@ func (p *Provider) EmbeddingModel(ctx context.Context, modelID string) (embed.Em
 	return &EmbeddingModel{provider: p, client: p.client, model: modelID}, nil
 }
 
-// ProviderOptions holds Google-specific request options.
-type ProviderOptions struct{}
+// ThinkingLevel controls the amount of thinking a model does.
+type ThinkingLevel = string
+
+const (
+	ThinkingLevelLow     ThinkingLevel = "LOW"
+	ThinkingLevelMedium  ThinkingLevel = "MEDIUM"
+	ThinkingLevelHigh    ThinkingLevel = "HIGH"
+	ThinkingLevelMinimal ThinkingLevel = "MINIMAL"
+)
+
+// ThinkingConfig represents thinking configuration for the Google provider.
+type ThinkingConfig struct {
+	ThinkingBudget  *int64  `json:"thinking_budget,omitempty"`
+	IncludeThoughts *bool   `json:"include_thoughts,omitempty"`
+	ThinkingLevel   *string `json:"thinking_level,omitempty"`
+}
+
+// ReasoningMetadata represents reasoning metadata for the Google provider.
+type ReasoningMetadata struct {
+	Signature string `json:"signature"`
+	ToolID    string `json:"tool_id"`
+}
 
 // ProviderName returns the provider name for these options.
-func (ProviderOptions) ProviderName() string { return "google" }
+func (ReasoningMetadata) ProviderName() string { return Name }
+
+// SafetySetting represents safety settings for the Google provider.
+type SafetySetting struct {
+	Category  string `json:"category"`
+	Threshold string `json:"threshold"`
+}
+
+// ProviderOptions represents additional options for the Google provider.
+type ProviderOptions struct {
+	ThinkingConfig *ThinkingConfig `json:"thinking_config,omitempty"`
+	CachedContent  string          `json:"cached_content,omitempty"`
+	SafetySettings []SafetySetting `json:"safety_settings,omitempty"`
+	Threshold      string          `json:"threshold,omitempty"`
+}
+
+// ProviderName returns the provider name for these options.
+func (ProviderOptions) ProviderName() string { return Name }
+
+// ParseOptions parses provider options from a map for Google.
+func ParseOptions(data map[string]any) (*ProviderOptions, error) {
+	var options ProviderOptions
+	if err := core.ParseOptions(data, &options); err != nil {
+		return nil, err
+	}
+	return &options, nil
+}

@@ -33,6 +33,9 @@ func (m *mockLanguageModel) Stream(ctx context.Context, req *Request) (StreamRes
 func (m *mockLanguageModel) GenerateObject(ctx context.Context, req *ObjectRequest) (*ObjectResponse, error) {
 	return nil, nil
 }
+func (m *mockLanguageModel) StreamObject(ctx context.Context, req *ObjectRequest) (ObjectStreamResponse, error) {
+	return nil, ErrNotImplemented
+}
 func (m *mockLanguageModel) Provider() string { return "mock" }
 func (m *mockLanguageModel) Model() string    { return "mock-model" }
 

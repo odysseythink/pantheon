@@ -79,6 +79,10 @@ func (m Message) Text() string {
 					texts = append(texts, tp.Text)
 				}
 			}
+		case ToolResultErrorPart:
+			texts = append(texts, pt.Error)
+		case SourcePart:
+			// Source parts are metadata, not text content.
 		}
 	}
 	return strings.Join(texts, "\n")
@@ -153,15 +157,20 @@ func NewTextContent(text string) []ContentParter {
 
 // ReasoningPart is content produced by a reasoning model.
 type ReasoningPart struct {
-	Text      string `json:"text"`
-	Signature string `json:"signature,omitempty"`
+	Text            string          `json:"text"`
+	Signature       string          `json:"signature,omitempty"`
+	ProviderOptions ProviderOptions `json:"provider_options,omitempty"`
 }
 
 func (ReasoningPart) contentPart() {}
 
 // MarshalJSON serializes ReasoningPart to JSON.
 func (p ReasoningPart) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{"type": "reasoning", "text": p.Text, "signature": p.Signature})
+	aux := map[string]any{"type": "reasoning", "text": p.Text, "signature": p.Signature}
+	if p.ProviderOptions != nil && len(p.ProviderOptions) > 0 {
+		aux["provider_options"] = p.ProviderOptions
+	}
+	return json.Marshal(aux)
 }
 
 // ImagePart is an image provided to the model.
@@ -227,13 +236,31 @@ type ToolResultPart struct {
 	Name       string          `json:"name"`
 	Content    []ContentParter `json:"content"`
 	IsError    bool            `json:"is_error"`
+	StopTurn   bool            `json:"stop_turn,omitempty"`
+	Metadata   string          `json:"metadata,omitempty"` // opaque JSON-encoded metadata for client-side use
 }
 
 func (ToolResultPart) contentPart() {}
 
 // MarshalJSON serializes ToolResultPart to JSON.
 func (p ToolResultPart) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{"type": "tool_result", "tool_call_id": p.ToolCallID, "name": p.Name, "content": p.Content, "is_error": p.IsError})
+	m := map[string]any{"type": "tool_result", "tool_call_id": p.ToolCallID, "name": p.Name, "content": p.Content, "is_error": p.IsError}
+	if p.Metadata != "" {
+		m["metadata"] = p.Metadata
+	}
+	return json.Marshal(m)
+}
+
+// ToolResultErrorPart represents a structured error output from a tool execution.
+type ToolResultErrorPart struct {
+	Error string `json:"error"`
+}
+
+func (ToolResultErrorPart) contentPart() {}
+
+// MarshalJSON serializes ToolResultErrorPart to JSON.
+func (p ToolResultErrorPart) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{"type": "tool_result_error", "error": p.Error})
 }
 
 func unmarshalContentPart(raw []byte) (ContentParter, error) {
@@ -286,6 +313,18 @@ func unmarshalContentPart(raw []byte) (ContentParter, error) {
 			return nil, err
 		}
 		return p, nil
+	case "tool_result_error":
+		var p ToolResultErrorPart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
+	case "source":
+		var p SourcePart
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return nil, err
+		}
+		return p, nil
 	default:
 		return nil, fmt.Errorf("unknown content part type: %q", typ.Type)
 	}
@@ -322,6 +361,38 @@ func NewTextMessage(role MessageRoleType, text string) Message {
 		Content: NewTextContent(text),
 	}
 }
+
+// SourceType represents the type of source.
+type SourceType string
+
+const (
+	// SourceTypeURL represents a URL source.
+	SourceTypeURL SourceType = "url"
+	// SourceTypeDocument represents a document source.
+	SourceTypeDocument SourceType = "document"
+)
+
+// SourcePart represents a source reference used to generate the response.
+type SourcePart struct {
+	SourceType SourceType `json:"source_type"`
+	ID         string     `json:"id"`
+	URL        string     `json:"url,omitempty"`
+	Title      string     `json:"title,omitempty"`
+}
+
+// MarshalJSON serializes SourcePart to JSON with omitempty for optional fields.
+func (p SourcePart) MarshalJSON() ([]byte, error) {
+	type alias SourcePart // prevent recursion
+	return json.Marshal(struct {
+		Type string `json:"type"`
+		*alias
+	}{
+		Type:  "source",
+		alias: (*alias)(&p),
+	})
+}
+
+func (SourcePart) contentPart() {}
 
 // NewToolResultContent creates a ToolResultPart wrapped as a full message.
 func NewToolResultContent(toolCallID, name, result string) Message {

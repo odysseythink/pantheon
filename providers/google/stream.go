@@ -51,6 +51,10 @@ func (c *client) chatCompletionStream(ctx context.Context, model string, req *co
 			genConfig.TopP = req.TopP
 			hasGenConfig = true
 		}
+		if req.TopK != nil {
+			genConfig.TopK = req.TopK
+			hasGenConfig = true
+		}
 		if len(req.StopSequences) > 0 {
 			genConfig.StopSequences = req.StopSequences
 			hasGenConfig = true
@@ -164,8 +168,37 @@ func (c *client) chatCompletionStream(ctx context.Context, model string, req *co
 						Arguments: string(args),
 					}
 					toolCallIndex++
-					sp := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: currentToolCall}
-					if !yield(sp, nil) {
+
+					// Simulate lifecycle: start → delta → end → call
+					spStart := &core.StreamPart{
+						Type: core.StreamPartTypeToolInputStart,
+						ToolCall: &core.ToolCallPart{
+							ID:   currentToolCall.ID,
+							Name: currentToolCall.Name,
+						},
+					}
+					if !yield(spStart, nil) {
+						return
+					}
+					spDelta := &core.StreamPart{
+						Type: core.StreamPartTypeToolInputDelta,
+						ToolCall: &core.ToolCallPart{
+							ID:        currentToolCall.ID,
+							Arguments: currentToolCall.Arguments,
+						},
+					}
+					if !yield(spDelta, nil) {
+						return
+					}
+					spEnd := &core.StreamPart{
+						Type:     core.StreamPartTypeToolInputEnd,
+						ToolCall: &core.ToolCallPart{ID: currentToolCall.ID},
+					}
+					if !yield(spEnd, nil) {
+						return
+					}
+					spCall := &core.StreamPart{Type: core.StreamPartTypeToolCall, ToolCall: currentToolCall}
+					if !yield(spCall, nil) {
 						return
 					}
 					currentToolCall = nil
