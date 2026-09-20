@@ -5,11 +5,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
+	"github.com/odysseythink/mlog"
 	"github.com/odysseythink/pantheon/core"
 )
 
@@ -53,9 +53,11 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 			yield(nil, err)
 			return
 		}
-		fmt.Printf("[stream] request body messages count=%d\n", len(openaiReq.Messages))
-		for i, m := range openaiReq.Messages {
-			fmt.Printf("[stream] request msg[%d] role=%s tool_calls=%d\n", i, m.Role, len(m.ToolCalls))
+		if core.VerboseHTTP() {
+			mlog.Debugf("[stream] request body messages count=%d", len(openaiReq.Messages))
+			for i, m := range openaiReq.Messages {
+				mlog.Debugf("[stream] request msg[%d] role=%s tool_calls=%d", i, m.Role, len(m.ToolCalls))
+			}
 		}
 		httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
 		if err != nil {
@@ -73,7 +75,9 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 		defer resp.Body.Close()
 
 		// TODO: debug log
-		fmt.Printf("[openaicompat stream] url=%s status=%d\n", url, resp.StatusCode)
+		if core.VerboseHTTP() {
+			mlog.Debugf("[openaicompat stream] url=%s status=%d", url, resp.StatusCode)
+		}
 
 		if resp.StatusCode >= 400 {
 			body, _ := io.ReadAll(resp.Body)

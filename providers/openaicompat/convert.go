@@ -3,6 +3,7 @@ package openaicompat
 import (
 	"fmt"
 
+	"github.com/odysseythink/mlog"
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/types"
 )
@@ -29,10 +30,18 @@ func ToOpenAIMessages(msgs []core.Message, systemPrompt string) ([]Message, erro
 		}
 		om, err := toOpenAIMessage(m)
 		if err != nil {
-			fmt.Printf("[ToOpenAIMessages] msg[%d] role=%s ERROR: %v\n", i, m.Role, err)
+			if core.VerboseHTTP() {
+				mlog.Debugf("[ToOpenAIMessages] msg[%d] role=%s ERROR: %v", i, m.Role, err)
+			}
 			return nil, err
 		}
-		fmt.Printf("[ToOpenAIMessages] msg[%d] role=%s tool_call_id=%s content_type=%T content=%v\n", i, om.Role, om.ToolCallID, om.Content, om.Content)
+		// 只输出结构信息，不输出 content：
+		// content 里是业务文档正文（提示词全文、base64 图片），
+		// 无条件打印到标准输出会造成业务数据泄露。
+		if core.VerboseHTTP() {
+			mlog.Debugf("[ToOpenAIMessages] msg[%d] role=%s tool_call_id=%s content_type=%T",
+				i, om.Role, om.ToolCallID, om.Content)
+		}
 		out = append(out, om)
 	}
 	return out, nil

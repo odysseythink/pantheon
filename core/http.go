@@ -94,15 +94,11 @@ func HttpClientCallWithClient[T any](
 		}
 	}
 
-	dump, err := httputil.DumpRequestOut(request, true)
-	if err != nil {
-		mlog.Errorf("call http url %s[%s] httputil.DumpRequestOut failed:%v", call_url, method, err)
-		return empty_resp, &ProviderError{
-			Message: fmt.Sprintf("call http url %s[%s] httputil.DumpRequestOut failed:%v", call_url, method, err),
-			Status:  http.StatusInternalServerError,
-		}
+	// 调试输出是尽力而为的旁路：dump 失败绝不应影响请求本身，
+	// 更不能把一个本该正常发出的请求变成错误返回。
+	if VerboseHTTP() {
+		dumpRequest(request)
 	}
-	mlog.Debugf("------request=%s", string(dump))
 	resp, err := client.Do(request)
 	if err != nil {
 		mlog.Errorf("call http url %s[%s] failed:%v", call_url, method, err)
@@ -112,9 +108,11 @@ func HttpClientCallWithClient[T any](
 			Err:     err,
 		}
 	}
-	{
-		dump, _ = httputil.DumpResponse(resp, true)
-		mlog.Debugf("------response=%s", string(dump))
+	if VerboseHTTP() {
+		// 这些内容含业务数据（模型返回的解析结果），故默认不输出。
+		if dump, derr := httputil.DumpResponse(resp, true); derr == nil {
+			mlog.Debugf("------response=%s", string(dump))
+		}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
@@ -137,3 +135,42 @@ func HttpClientCallWithClient[T any](
 
 	return empty_resp, nil
 }
+
+// sensitiveHeaders 需要在调试日志中脱敏的请求头。
+//
+// Authorization 里是 API 密钥；其余是常见 provider 的密钥头。
+// 日志会被采集、归档、复制到工单中，密钥一旦落盘等同泄露。
+var sensitiveHeaders = []string{
+	"Authorization",
+	"Proxy-Authorization",
+	"Api-Key",
+	"X-Api-Key",
+	"X-Goog-Api-Key",
+}
+
+// dumpRequest 输出请求原文，凭证头会被临时脱敏。
+//
+// 注意不要改成对 req.Clone() 做 dump：Clone 是浅拷贝，Clone 与原请求的
+// Body 指向同一个 reader，而 DumpRequestOut 会把它读干，
+// 结果导致真正要发出的请求体为空。
+// 因此这里临时替换凭证头，dump 完立即恢复。
+func dumpRequest(req *http.Request) {
+	var saved map[string]string
+	for _, h := range sensitiveHeaders {
+		if v := req.Header.Get(h); v != "" {
+			if saved == nil {
+				saved = make(map[string]string, len(sensitiveHeaders))
+			}
+			saved[h] = v
+			req.Header.Set(h, redactedPlaceholder)
+		}
+	}
+	if dump, err := httputil.DumpRequestOut(req, true); err == nil {
+		mlog.Debugf("------request=%s", string(dump))
+	}
+	for h, v := range saved {
+		req.Header.Set(h, v)
+	}
+}
+
+const redactedPlaceholder = "***REDACTED***"
