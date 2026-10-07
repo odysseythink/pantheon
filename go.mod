@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.40.0
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.0
+	github.com/larksuite/oapi-sdk-go/v3 v3.12.0
 	github.com/nlpodyssey/cybertron v0.2.1
 	github.com/nlpodyssey/spago v1.1.0
 	github.com/odysseythink/mlog v0.2.3
@@ -26,8 +27,11 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/eclipse/paho.mqtt.golang v1.5.1
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/flatbuffers v23.5.26+incompatible // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/websocket v1.5.3
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
