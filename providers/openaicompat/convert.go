@@ -13,7 +13,7 @@ func ToOpenAIMessages(msgs []core.Message, systemPrompt string) ([]Message, erro
 	if systemPrompt != "" {
 		out = append(out, Message{Role: "system", Content: systemPrompt})
 	}
-	for i, m := range msgs {
+	for _, m := range msgs {
 		// RoleTool 消息中包含多个 ToolResultPart 时，拆分成多条 tool 消息
 		if m.Role == core.MESSAGE_ROLE_TOOL {
 			for _, part := range m.Content {
@@ -29,10 +29,8 @@ func ToOpenAIMessages(msgs []core.Message, systemPrompt string) ([]Message, erro
 		}
 		om, err := toOpenAIMessage(m)
 		if err != nil {
-			fmt.Printf("[ToOpenAIMessages] msg[%d] role=%s ERROR: %v\n", i, m.Role, err)
 			return nil, err
 		}
-		fmt.Printf("[ToOpenAIMessages] msg[%d] role=%s tool_call_id=%s content_type=%T content=%v\n", i, om.Role, om.ToolCallID, om.Content, om.Content)
 		out = append(out, om)
 	}
 	return out, nil
@@ -67,6 +65,9 @@ func toOpenAIMessage(m core.Message) (Message, error) {
 						Arguments: p.Arguments,
 					},
 				})
+			case core.ReasoningPart:
+				// Reasoning (chain-of-thought) must not be replayed to
+				// OpenAI-compatible APIs; drop it silently.
 			default:
 				return Message{}, fmt.Errorf("openai: unsupported content part in assistant message: %T", part)
 			}
