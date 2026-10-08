@@ -76,6 +76,9 @@ func toOpenAIMessage(m core.Message) (Message, error) {
 						Arguments: p.Arguments,
 					},
 				})
+			case core.ReasoningPart:
+				// Reasoning (chain-of-thought) must not be replayed to
+				// OpenAI-compatible APIs; drop it silently.
 			default:
 				return Message{}, fmt.Errorf("openai: unsupported content part in assistant message: %T", part)
 			}

@@ -74,7 +74,6 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 		}
 		defer resp.Body.Close()
 
-		// TODO: debug log
 		if core.VerboseHTTP() {
 			mlog.Debugf("[openaicompat stream] url=%s status=%d", url, resp.StatusCode)
 		}

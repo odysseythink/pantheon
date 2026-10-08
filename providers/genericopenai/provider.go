@@ -41,6 +41,24 @@ func WithBaseURL(url string) Option {
 	}
 }
 
+// WithChatCompletionPath overrides the chat completions request path.
+// Defaults to "/v1/chat/completions". Set to "/chat/completions" when the
+// base URL already includes the version segment (e.g. "https://host/v1").
+func WithChatCompletionPath(path string) Option {
+	return func(p *Provider) {
+		p.client.ChatCompletionPath = path
+	}
+}
+
+// WithHeaders sets extra HTTP headers sent with every request.
+func WithHeaders(headers map[string]string) Option {
+	return func(p *Provider) {
+		for k, v := range headers {
+			p.client.Headers[k] = v
+		}
+	}
+}
+
 // WithHTTPClient sets a custom HTTP client.
 func WithHTTPClient(client *http.Client) Option {
 	return func(p *Provider) {

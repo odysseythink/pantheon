@@ -1,0 +1,532 @@
+// Package memory — daily / weekly / monthly digest generator over
+// Episodes (pipeline/episode/digest.py).
+//
+// Aggregation strategy:
+//
+//   - daily (the primary mode): all Episodes within one UTC calendar
+//     day, rendered into a markdown diary entry.
+//   - weekly / monthly (roll-ups): aggregate the already-generated
+//     day-level digests within the period; fall back to reading
+//     episodes directly when no daily digests exist yet.
+//
+// The digest uses the heavy LLM tier. Without an LLM we fall back to a
+// deterministic plain-text roll-up so the feature still produces
+// SOMETHING — better than silently doing nothing.
+package memory
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// DigestPromptVersion is the prompt version tag stored on DigestRecords.
+const DigestPromptVersion = "digest/v2"
+
+// DigestResult is the outcome of generating one digest.
+type DigestResult struct {
+	Digest       *DigestRecord
+	EpisodeCount int
+	FilePath     string
+	UsedLLM      bool
+}
+
+// ---------------------------------------------------------------------------
+// Period helpers
+// ---------------------------------------------------------------------------
+
+// DayKey returns the ISO date key (e.g. "2026-06-26") for when.
+func DayKey(when time.Time) string { return AsUtc(when).Format("2006-01-02") }
+
+// DayBounds returns [00:00 UTC, next-day 00:00 UTC) covering when.
+func DayBounds(when time.Time) (time.Time, time.Time) {
+	u := AsUtc(when)
+	start := time.Date(u.Year(), u.Month(), u.Day(), 0, 0, 0, 0, time.UTC)
+	return start, start.AddDate(0, 0, 1)
+}
+
+// isoWeekday mirrors Python date.isoweekday(): Monday=1 .. Sunday=7.
+func isoWeekday(t time.Time) int {
+	w := int(AsUtc(t).Weekday())
+	if w == 0 {
+		return 7
+	}
+	return w
+}
+
+// IsoWeekKey returns the ISO week key (e.g. "2026-W26") for when.
+func IsoWeekKey(when time.Time) string {
+	y, w := AsUtc(when).ISOWeek()
+	return fmt.Sprintf("%04d-W%02d", y, w)
+}
+
+// IsoWeekBounds returns [Monday 00:00, NextMonday 00:00) (UTC) covering
+// when. We snap to Monday midnight UTC so digest periods are stable
+// across DST shifts.
+func IsoWeekBounds(when time.Time) (time.Time, time.Time) {
+	u := AsUtc(when)
+	monday := u.AddDate(0, 0, -(isoWeekday(u) - 1))
+	start := time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, time.UTC)
+	return start, start.AddDate(0, 0, 7)
+}
+
+// fromISOCalendar mirrors Python datetime.fromisocalendar(year, week,
+// day=1): the Monday of the given ISO week.
+func fromISOCalendar(year, week int) time.Time {
+	// Jan 4 is always in ISO week 1.
+	jan4 := time.Date(year, 1, 4, 0, 0, 0, 0, time.UTC)
+	week1Monday := jan4.AddDate(0, 0, -(isoWeekday(jan4) - 1))
+	return week1Monday.AddDate(0, 0, (week-1)*7)
+}
+
+// MonthKey returns the month key (e.g. "2026-06") for when.
+func MonthKey(when time.Time) string {
+	u := AsUtc(when)
+	return fmt.Sprintf("%04d-%02d", u.Year(), int(u.Month()))
+}
+
+// MonthBounds returns [1st 00:00 UTC, next-month 1st 00:00 UTC).
+func MonthBounds(when time.Time) (time.Time, time.Time) {
+	u := AsUtc(when)
+	start := time.Date(u.Year(), u.Month(), 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 1, 0) // AddDate normalizes month 12 → next year
+	return start, end
+}
+
+// ---------------------------------------------------------------------------
+// Markdown rendering
+// ---------------------------------------------------------------------------
+
+var emotionEmoji = map[EpisodeEmotion]string{
+	EpisodeEmotionNeutral:    "·",
+	EpisodeEmotionHappy:      "😄",
+	EpisodeEmotionSad:        "😢",
+	EpisodeEmotionAngry:      "😠",
+	EpisodeEmotionAnxious:    "😰",
+	EpisodeEmotionExcited:    "🤩",
+	EpisodeEmotionFrustrated: "😤",
+	EpisodeEmotionGrateful:   "🙏",
+	EpisodeEmotionTired:      "😴",
+	EpisodeEmotionReflective: "🤔",
+}
+
+// periodKindTitle mirrors Python period_kind.title().
+func periodKindTitle(kind DigestPeriod) string {
+	switch kind {
+	case DigestPeriodDaily:
+		return "Daily"
+	case DigestPeriodWeekly:
+		return "Weekly"
+	case DigestPeriodMonthly:
+		return "Monthly"
+	default:
+		return string(kind)
+	}
+}
+
+// fallbackMarkdown is the deterministic markdown when no LLM is
+// available.
+//
+// For roll-up periods with subDigests: concatenates the daily digests'
+// markdown bodies under per-day headings. Otherwise: groups episodes by
+// their first topic (or "其他"), listing them chronologically with the
+// verbatim quote and emotion emoji.
+func fallbackMarkdown(periodKind DigestPeriod, periodKey string, episodes []*Episode, subDigests []*DigestRecord) string {
+	titleKind := periodKindTitle(periodKind)
+
+	// Roll-up over already-generated daily digests.
+	if len(subDigests) > 0 {
+		sorted := make([]*DigestRecord, len(subDigests))
+		copy(sorted, subDigests)
+		sort.Slice(sorted, func(i, j int) bool { return sorted[i].PeriodStart.Before(sorted[j].PeriodStart) })
+		lines := []string{
+			fmt.Sprintf("# %s %s Digest", periodKey, titleKind),
+			"",
+			fmt.Sprintf("_Roll-up of %d daily digest(s) — generated by deterministic fallback (no LLM)._", len(sorted)),
+			"",
+		}
+		for _, d := range sorted {
+			lines = append(lines, "## "+d.PeriodKey, "", strings.TrimSpace(d.Markdown), "")
+		}
+		return strings.Join(lines, "\n")
+	}
+
+	if len(episodes) == 0 {
+		return fmt.Sprintf("# %s %s Digest\n\n_No episodes captured this period._\n", periodKey, titleKind)
+	}
+
+	// Daily-style by-topic grouping (also reused by weekly/monthly
+	// fallback when no sub-digests exist yet).
+	byTopic := map[string][]*Episode{}
+	var topicOrder []string // Python dict preserves insertion order; keys() output is sorted anyway
+	for _, ep := range episodes {
+		topic := "其他"
+		if len(ep.Topics) > 0 && ep.Topics[0] != "" {
+			topic = ep.Topics[0]
+		}
+		if _, seen := byTopic[topic]; !seen {
+			topicOrder = append(topicOrder, topic)
+		}
+		byTopic[topic] = append(byTopic[topic], ep)
+	}
+
+	lines := []string{
+		fmt.Sprintf("# %s %s Digest", periodKey, titleKind),
+		"",
+		fmt.Sprintf("_%d episode(s) — generated by deterministic fallback (no LLM)._", len(episodes)),
+		"",
+	}
+
+	topics := make([]string, len(topicOrder))
+	copy(topics, topicOrder)
+	sort.Strings(topics)
+	for _, topic := range topics {
+		eps := byTopic[topic]
+		lines = append(lines, "## "+topic, "")
+		for _, ep := range eps {
+			emoji := emotionEmoji[ep.Emotion]
+			if emoji == "" {
+				emoji = "·"
+			}
+			day := AsUtc(ep.OccurredAt).Format("01-02 15:04")
+			people := ""
+			if len(ep.People) > 0 {
+				people = " · 👥 " + strings.Join(ep.People, ", ")
+			}
+			lines = append(lines,
+				fmt.Sprintf("- **%s** %s %s%s", day, emoji, ep.Summary, people),
+				fmt.Sprintf("  - > %s", ep.VerbatimQuote))
+		}
+		lines = append(lines, "")
+	}
+
+	// Emotion timeline (episodes in input order).
+	var timeline []string
+	for _, ep := range episodes {
+		emoji := emotionEmoji[ep.Emotion]
+		if emoji == "" {
+			emoji = "·"
+		}
+		timeline = append(timeline, AsUtc(ep.OccurredAt).Format("01-02")+emoji)
+	}
+	lines = append(lines, "## 情绪轨迹", "", strings.Join(timeline, " → "), "")
+
+	return strings.Join(lines, "\n")
+}
+
+// ---------------------------------------------------------------------------
+// LLM-backed markdown
+// ---------------------------------------------------------------------------
+
+// dailyDigestPromptTemplate mirrors _DAILY_PROMPT. Placeholders:
+// {period_key}, {episodes_json}.
+const dailyDigestPromptTemplate = `You are a Personal Diary writer. Read this user's diary entries
+(Episodes) for ONE DAY and write a concise, human-readable markdown
+diary entry.
+
+Output style:
+- Tone: warm, observational, second-person ("你今天..." / "今天你..."),
+  match the language of the source entries.
+- Structure (in this order):
+  1. ` + "`" + `# {period_key} Daily Digest` + "`" + ` (h1 title — period_key is the date).
+  2. A 1-2 line opening summary ("今天一共 N 条记录，整体心情偏...").
+  3. ` + "`" + `## 主题` + "`" + ` sections grouped by topic (家庭/工作/健康/朋友/项目/...)
+     — within each, list entries in chronological order with HH:MM,
+     summary, and a quote indented underneath.
+  4. ` + "`" + `## 情绪轨迹` + "`" + ` (only if 2+ entries) showing the time-of-day
+     emotion arc as a single line of "HH:MM<emoji>" arrows.
+  5. ` + "`" + `## 值得一提` + "`" + ` (optional) — 1-2 bullet points the user might
+     want to revisit.
+- Use these emojis for emotion: neutral=·, happy=😄, sad=😢, angry=😠,
+  anxious=😰, excited=🤩, frustrated=😤, grateful=🙏, tired=😴,
+  reflective=🤔.
+- Do NOT invent facts. Stick to what the entries actually say. You may
+  group / re-summarize but every claim must be backed by an entry.
+- Output markdown only. No JSON, no commentary, no fences.
+
+INPUT (episodes for {period_key}):
+{episodes_json}
+
+OUTPUT MARKDOWN:
+`
+
+// rollupDigestPromptTemplate mirrors _ROLLUP_PROMPT. Placeholders:
+// {period_kind_title}, {period_key}, {daily_digests_json}.
+const rollupDigestPromptTemplate = `You are a Personal Diary Roll-up writer. The user already has
+day-level diary entries; your job is to read them and produce a
+higher-level {period_kind_title} retrospective in markdown.
+
+Output style:
+- Tone: warm, reflective, third-person ("用户这周/本月..." or
+  "你这周..."), match the language of the source entries.
+- Structure (in this order):
+  1. ` + "`" + `# {period_key} {period_kind_title} Digest` + "`" + ` (h1 title).
+  2. A 2-3 line opening that captures the period's overall arc
+     ("本周整体心情起伏较大，前半段...，后半段...").
+  3. ` + "`" + `## 主线故事` + "`" + ` — 2-4 bullet points pulling out the recurring
+     threads or major events that span multiple days.
+  4. ` + "`" + `## 情绪轨迹` + "`" + ` — one line of "MM-DD<emoji>" arrows summarizing
+     the dominant emotion of each day.
+  5. ` + "`" + `## 值得一提` + "`" + ` (optional) — 1-3 bullet points the user might
+     want to revisit (recurring conflicts, unresolved feelings,
+     wins worth celebrating).
+- Use these emojis for emotion: neutral=·, happy=😄, sad=😢, angry=😠,
+  anxious=😰, excited=🤩, frustrated=😤, grateful=🙏, tired=😴,
+  reflective=🤔.
+- Do NOT invent facts beyond what the daily digests state. You may
+  abstract / synthesize, but every claim must trace back to an entry.
+- Output markdown only. No JSON, no commentary, no fences.
+
+INPUT (daily digests for {period_key}):
+{daily_digests_json}
+
+OUTPUT MARKDOWN:
+`
+
+// episodePromptPayload is one episode entry embedded into the digest
+// prompt (field order mirrors the Python dict literal).
+type episodePromptPayload struct {
+	OccurredAt string   `json:"occurred_at"`
+	Summary    string   `json:"summary"`
+	Quote      string   `json:"quote"`
+	Emotion    string   `json:"emotion"`
+	Intensity  int      `json:"intensity"`
+	People     []string `json:"people"`
+	Topics     []string `json:"topics"`
+}
+
+func episodesForPromptJSON(episodes []*Episode) string {
+	payload := make([]episodePromptPayload, 0, len(episodes))
+	for _, ep := range episodes {
+		payload = append(payload, episodePromptPayload{
+			OccurredAt: pythonISOFormat(ep.OccurredAt),
+			Summary:    ep.Summary,
+			Quote:      ep.VerbatimQuote,
+			Emotion:    string(ep.Emotion),
+			Intensity:  ep.Intensity,
+			People:     ep.People,
+			Topics:     ep.Topics,
+		})
+	}
+	return jsonDumpsPlain(payload, "  ")
+}
+
+func dailyDigestsForPromptJSON(subDigests []*DigestRecord) string {
+	sorted := make([]*DigestRecord, len(subDigests))
+	copy(sorted, subDigests)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].PeriodStart.Before(sorted[j].PeriodStart) })
+	type payload struct {
+		Date     string `json:"date"`
+		Markdown string `json:"markdown"`
+	}
+	list := make([]payload, 0, len(sorted))
+	for _, d := range sorted {
+		list = append(list, payload{Date: d.PeriodKey, Markdown: d.Markdown})
+	}
+	return jsonDumpsPlain(list, "  ")
+}
+
+// llmMarkdown calls the heavy LLM; returns "" on failure (caller falls
+// back). For roll-up periods with existing daily digests we feed the
+// digests; otherwise episodes go through the daily template.
+func llmDigestMarkdown(llm LLMClient, periodKind DigestPeriod, periodKey string, episodes []*Episode, subDigests []*DigestRecord) string {
+	temp := 0.3
+	var prompt string
+	if periodKind != DigestPeriodDaily && len(subDigests) > 0 {
+		prompt = strings.ReplaceAll(rollupDigestPromptTemplate, "{period_kind_title}", periodKindTitle(periodKind))
+		prompt = strings.ReplaceAll(prompt, "{period_key}", periodKey)
+		prompt = strings.ReplaceAll(prompt, "{daily_digests_json}", dailyDigestsForPromptJSON(subDigests))
+	} else {
+		prompt = strings.ReplaceAll(dailyDigestPromptTemplate, "{period_key}", periodKey)
+		prompt = strings.ReplaceAll(prompt, "{episodes_json}", episodesForPromptJSON(episodes))
+	}
+	out, err := llm.CallLLM(context.Background(), prompt, &LLMCallOptions{Tier: LLMTierHeavy, Temperature: &temp})
+	if err != nil {
+		slog.Warn("digest LLM call failed", "err", err)
+		return ""
+	}
+	text := stripPythonFences(out)
+	return text
+}
+
+// ---------------------------------------------------------------------------
+// Public entrypoint
+// ---------------------------------------------------------------------------
+
+// DigestOptions carries the optional arguments of generate_digest.
+type DigestOptions struct {
+	// When resolves the period containing that timestamp. Defaults to
+	// now when neither When nor PeriodKey is set.
+	When *time.Time
+	// PeriodKey addresses a specific period directly ("2026-06-26",
+	// "2026-W26", "2026-06").
+	PeriodKey string
+	// LLM, when non-nil, is used to render the markdown (heavy tier);
+	// on any failure the deterministic fallback takes over.
+	LLM LLMClient
+	// OutputDir, when non-empty, additionally writes the markdown to
+	// <dir>/daily/<key>.md for daily, <dir>/<key>.md otherwise.
+	OutputDir string
+}
+
+// GenerateDigest generates (or regenerates) one digest. Idempotent:
+// running again overwrites both the DB row and the exported file.
+func GenerateDigest(ctx context.Context, mem *Memory, periodKind DigestPeriod, opts DigestOptions) (*DigestResult, error) {
+	cur := time.Now().UTC()
+	if opts.When != nil {
+		cur = AsUtc(*opts.When)
+	}
+
+	// Resolve period bounds + key.
+	var start, end time.Time
+	var periodKey string
+	switch periodKind {
+	case DigestPeriodDaily:
+		if opts.PeriodKey != "" {
+			anchor, err := time.ParseInLocation("2006-01-02", opts.PeriodKey, time.UTC)
+			if err != nil {
+				return nil, fmt.Errorf("invalid daily period_key %s: %w", pythonQuote(opts.PeriodKey), err)
+			}
+			start, end = DayBounds(anchor)
+			periodKey = opts.PeriodKey
+		} else {
+			start, end = DayBounds(cur)
+			periodKey = DayKey(cur)
+		}
+	case DigestPeriodWeekly:
+		if opts.PeriodKey != "" {
+			parts := strings.Split(opts.PeriodKey, "-W")
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid weekly period_key %s", pythonQuote(opts.PeriodKey))
+			}
+			y, err1 := strconv.Atoi(parts[0])
+			w, err2 := strconv.Atoi(parts[1])
+			if err1 != nil || err2 != nil {
+				return nil, fmt.Errorf("invalid weekly period_key %s", pythonQuote(opts.PeriodKey))
+			}
+			anchor := fromISOCalendar(y, w)
+			start, end = IsoWeekBounds(anchor)
+			periodKey = opts.PeriodKey
+		} else {
+			start, end = IsoWeekBounds(cur)
+			periodKey = IsoWeekKey(cur)
+		}
+	case DigestPeriodMonthly:
+		if opts.PeriodKey != "" {
+			parts := strings.Split(opts.PeriodKey, "-")
+			if len(parts) != 2 {
+				return nil, fmt.Errorf("invalid monthly period_key %s", pythonQuote(opts.PeriodKey))
+			}
+			y, err1 := strconv.Atoi(parts[0])
+			m, err2 := strconv.Atoi(parts[1])
+			if err1 != nil || err2 != nil || m < 1 || m > 12 {
+				return nil, fmt.Errorf("invalid monthly period_key %s", pythonQuote(opts.PeriodKey))
+			}
+			anchor := time.Date(y, time.Month(m), 1, 0, 0, 0, 0, time.UTC)
+			start, end = MonthBounds(anchor)
+			periodKey = opts.PeriodKey
+		} else {
+			start, end = MonthBounds(cur)
+			periodKey = MonthKey(cur)
+		}
+	default:
+		return nil, fmt.Errorf("unknown period_kind %s", pythonQuote(string(periodKind)))
+	}
+
+	episodes, err := mem.ListEpisodesInRange(ctx, start, end, 2000)
+	if err != nil {
+		return nil, err
+	}
+
+	// For roll-up periods, prefer to summarize the already-generated
+	// daily digests rather than re-chewing all episodes.
+	var subDigests []*DigestRecord
+	if periodKind == DigestPeriodWeekly || periodKind == DigestPeriodMonthly {
+		daily := DigestPeriodDaily
+		allDaily, err := mem.ListDigests(ctx, &daily, 400)
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range allDaily {
+			if !d.PeriodStart.Before(start) && d.PeriodStart.Before(end) {
+				subDigests = append(subDigests, d)
+			}
+		}
+	}
+
+	// Render markdown.
+	var markdown string
+	usedLLM := false
+	hasInput := len(episodes) > 0 || len(subDigests) > 0
+	if opts.LLM != nil && hasInput {
+		var subs []*DigestRecord
+		if periodKind != DigestPeriodDaily {
+			subs = subDigests
+		}
+		markdown = llmDigestMarkdown(opts.LLM, periodKind, periodKey, episodes, subs)
+		if markdown != "" {
+			usedLLM = true
+		}
+	}
+	if markdown == "" {
+		var subs []*DigestRecord
+		if periodKind != DigestPeriodDaily {
+			subs = subDigests
+		}
+		markdown = fallbackMarkdown(periodKind, periodKey, episodes, subs)
+	}
+
+	now := time.Now().UTC()
+	episodeIDs := make([]string, 0, len(episodes))
+	for _, ep := range episodes {
+		episodeIDs = append(episodeIDs, ep.ID)
+	}
+	digest := &DigestRecord{
+		ID:          newUUID(),
+		PeriodKind:  periodKind,
+		PeriodKey:   periodKey,
+		PeriodStart: start,
+		PeriodEnd:   end,
+		Markdown:    markdown,
+		EpisodeIDs:  episodeIDs,
+		LLMVersion:  DigestPromptVersion,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := mem.UpsertDigest(ctx, digest); err != nil {
+		return nil, err
+	}
+
+	filePath := ""
+	if opts.OutputDir != "" {
+		// Daily files go under journals/daily/, weekly/monthly stay at
+		// the top-level so directory listings stay scannable.
+		targetDir := opts.OutputDir
+		if periodKind == DigestPeriodDaily {
+			targetDir = filepath.Join(opts.OutputDir, string(periodKind))
+		}
+		if err := os.MkdirAll(targetDir, 0o755); err != nil {
+			return nil, err
+		}
+		filePath = filepath.Join(targetDir, periodKey+".md")
+		if err := os.WriteFile(filePath, []byte(markdown), 0o644); err != nil {
+			return nil, err
+		}
+		slog.Info("memory.trigger digest",
+			"ns", mem.Namespace(), "kind", string(periodKind), "key", periodKey,
+			"eps", len(episodes), "sub", len(subDigests), "file", filePath)
+	}
+
+	return &DigestResult{
+		Digest:       digest,
+		EpisodeCount: len(episodes),
+		FilePath:     filePath,
+		UsedLLM:      usedLLM,
+	}, nil
+}

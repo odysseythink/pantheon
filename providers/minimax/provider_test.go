@@ -36,7 +36,10 @@ func TestProvider_Models(t *testing.T) {
 	catwalk.SetBaseURL(srv.URL)
 	defer catwalk.SetBaseURL(origURL)
 
-	p, err := New(apiKey)
+	// Clear the default base URL so Models() takes the catwalk branch
+	// (mocked above); the vendor default would hit the real API and the
+	// mock would never be consulted.
+	p, err := New(apiKey, WithBaseURL(""))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -495,6 +496,14 @@ func (a *Agent) shouldStop(step int, resp *core.Response, messages []core.Messag
 	return false
 }
 
+// StopTurnError is a sentinel a tool function may return to end the current
+// agent turn after the containing step. The returned content is delivered as
+// a normal (non-error) tool result, and no further model steps run. Useful
+// for interactive control flows such as human-in-the-loop pauses.
+type StopTurnError struct{ Content string }
+
+func (e *StopTurnError) Error() string { return e.Content }
+
 func (a *Agent) executeTool(ctx context.Context, tc core.ToolCallPart) (core.ToolResponse, error) {
 	if a.registry != nil {
 		result, err := a.registry.Dispatch(ctx, tc.Name, json.RawMessage(tc.Arguments))
@@ -509,6 +518,10 @@ func (a *Agent) executeTool(ctx context.Context, tc core.ToolCallPart) (core.Too
 	}
 	result, err := executeTool(ctx, tc.Name, tc.Arguments, fn)
 	if err != nil {
+		var stop *StopTurnError
+		if errors.As(err, &stop) {
+			return core.ToolResponse{Content: stop.Content, StopTurn: true}, nil
+		}
 		return core.ToolResponse{Content: err.Error(), IsError: true}, nil
 	}
 	return core.ToolResponse{Content: result}, nil
