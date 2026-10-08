@@ -190,6 +190,107 @@ func TestRunStreamWithTool(t *testing.T) {
 	}
 }
 
+func TestRunStreamMergesTextDeltasIntoSingleHistoryPart(t *testing.T) {
+	// Regression: each streamed delta used to be appended as its own TextPart.
+	// Providers that flatten assistant content (openaicompat joinTexts
+	// inserts a newline between parts) then replayed the history with a
+	// newline between every token,
+	// teaching the model to emit newlines between tokens.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "我先"},
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "查一下"},
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "资料"},
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "call_1", Name: "read_file", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+		{
+			{Type: core.StreamPartTypeTextDelta, TextDelta: "结论"},
+			{Type: core.StreamPartTypeFinish, FinishReason: "stop"},
+		},
+	}}
+
+	var step2Req *core.Request
+	callCount := 0
+	capture := &captureStreamModel{inner: m, onStream: func(req *core.Request) {
+		callCount++
+		if callCount == 2 {
+			step2Req = req
+		}
+	}}
+
+	a := New(capture, WithMaxSteps(5))
+	a.RegisterTool("read_file", func(ctx context.Context, args string) (string, error) {
+		return "ok", nil
+	})
+
+	for _, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hi"}}}},
+		Tools:    []core.ToolDefinition{{Name: "read_file", Parameters: &core.Schema{Type: "object"}}},
+	}) {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+	}
+
+	if step2Req == nil {
+		t.Fatal("expected a second step request")
+	}
+	var assistant *core.Message
+	for i := range step2Req.Messages {
+		if step2Req.Messages[i].Role == core.MESSAGE_ROLE_ASSISTANT {
+			assistant = &step2Req.Messages[i]
+		}
+	}
+	if assistant == nil {
+		t.Fatal("step-2 request is missing the assistant message")
+	}
+	var textParts []core.TextPart
+	for _, part := range assistant.Content {
+		if tp, ok := part.(core.TextPart); ok {
+			textParts = append(textParts, tp)
+		}
+	}
+	if len(textParts) != 1 {
+		t.Fatalf("assistant text parts: got %d, want 1 merged part", len(textParts))
+	}
+	if textParts[0].Text != "我先查一下资料" {
+		t.Errorf("merged text: got %q, want %q", textParts[0].Text, "我先查一下资料")
+	}
+}
+
+func TestRunStreamMaxStepsErrorIsMatchable(t *testing.T) {
+	// The loop never stops calling tools, so the step budget runs out; the
+	// surfaced error must errors.Is-match ErrMaxSteps so callers can wrap up
+	// gracefully instead of showing a raw failure.
+	m := &mockStreamModel{streams: [][]core.StreamPart{
+		{
+			{Type: core.StreamPartTypeToolCall, ToolCall: &core.ToolCallPart{ID: "c1", Name: "ping", Arguments: `{}`}},
+			{Type: core.StreamPartTypeFinish, FinishReason: "tool_calls"},
+		},
+	}}
+	a := New(m, WithMaxSteps(1))
+	a.RegisterTool("ping", func(ctx context.Context, args string) (string, error) {
+		return "pong", nil
+	})
+
+	var gotErr error
+	for _, err := range a.RunStream(context.Background(), &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "hi"}}}},
+		Tools:    []core.ToolDefinition{{Name: "ping", Parameters: &core.Schema{Type: "object"}}},
+	}) {
+		if err != nil {
+			gotErr = err
+		}
+	}
+	if gotErr == nil {
+		t.Fatal("expected a max-steps error")
+	}
+	if !errors.Is(gotErr, ErrMaxSteps) {
+		t.Fatalf("error %v does not match ErrMaxSteps", gotErr)
+	}
+}
+
 func TestRunStreamReasoningDelta(t *testing.T) {
 	m := &mockStreamModel{streams: [][]core.StreamPart{
 		{
@@ -908,7 +1009,6 @@ func TestRunStreamProviderToolSkipped(t *testing.T) {
 	}
 }
 
-
 // --- Callback integration tests ---
 
 func TestRunStreamCallbacks_AllInvoked(t *testing.T) {
@@ -1102,7 +1202,6 @@ func TestRunStreamCallbacks_StepStartError(t *testing.T) {
 	}
 }
 
-
 func TestRunStreamWithWarnings(t *testing.T) {
 	m := &mockStreamModel{streams: [][]core.StreamPart{
 		{
@@ -1133,7 +1232,6 @@ func TestRunStreamWithWarnings(t *testing.T) {
 		t.Errorf("warning setting: got %q, want top_p", warnings[0].Setting)
 	}
 }
-
 
 func TestRunStreamWithSource(t *testing.T) {
 	m := &mockStreamModel{streams: [][]core.StreamPart{

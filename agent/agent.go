@@ -17,16 +17,22 @@ import (
 // Agent orchestrates a LanguageModel with tool execution.
 type OnToolInputStartFunc func(id, toolName string) error
 type OnToolInputDeltaFunc func(id, delta string) error
-type OnToolInputEndFunc   func(id string) error
+type OnToolInputEndFunc func(id string) error
+
+// ErrMaxSteps marks the "agent loop exhausted its step budget with tool calls
+// still pending" condition. Callers can errors.Is-match it to gracefully wrap
+// up (e.g. ask the model for a closing summary) instead of surfacing a raw
+// failure.
+var ErrMaxSteps = errors.New("agent reached max steps without completion")
 
 type Agent struct {
-	model          core.LanguageModel
-	maxSteps       int
-	stopConditions []StopCondition
-	toolRegistry   map[string]ToolFunc
-	registry       *tool.Registry
-	contextEngine    compression.ContextEngine
-	memoryProviders  *compression.MemoryProviderRegistry
+	model           core.LanguageModel
+	maxSteps        int
+	stopConditions  []StopCondition
+	toolRegistry    map[string]ToolFunc
+	registry        *tool.Registry
+	contextEngine   compression.ContextEngine
+	memoryProviders *compression.MemoryProviderRegistry
 
 	// callbacks
 	onStepStart      OnStepStartFunc
@@ -474,7 +480,7 @@ func (a *Agent) Run(ctx context.Context, req *core.Request) (*Result, error) {
 	}
 
 	if lastHadToolCalls {
-		return nil, fmt.Errorf("agent reached max steps (%d) without completion", a.maxSteps)
+		return nil, fmt.Errorf("%w (%d)", ErrMaxSteps, a.maxSteps)
 	}
 
 	return &Result{

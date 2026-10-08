@@ -192,7 +192,22 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 				}
 				switch part.Type {
 				case core.StreamPartTypeTextDelta:
-					assistantMsg.Content = append(assistantMsg.Content, core.TextPart{Text: part.TextDelta})
+					// Merge streaming deltas into one TextPart: they are fragments of a
+					// single text block. One part per delta makes providers that flatten
+					// content (e.g. openaicompat joinTexts) insert separators between
+					// every token when the message is replayed as history, which teaches
+					// the model to emit newlines between tokens.
+					merged := false
+					if n := len(assistantMsg.Content); n > 0 {
+						if tp, ok := assistantMsg.Content[n-1].(core.TextPart); ok {
+							tp.Text += part.TextDelta
+							assistantMsg.Content[n-1] = tp
+							merged = true
+						}
+					}
+					if !merged {
+						assistantMsg.Content = append(assistantMsg.Content, core.TextPart{Text: part.TextDelta})
+					}
 					if a.onTextDelta != nil {
 						if err := a.onTextDelta(step+1, part.TextDelta); err != nil {
 							a.invokeError(yield, err)
@@ -219,7 +234,18 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 					if reasoningActive {
 						reasoningText.WriteString(part.ReasoningDelta)
 					}
-					assistantMsg.Content = append(assistantMsg.Content, core.ReasoningPart{Text: part.ReasoningDelta})
+					// Same merge as text deltas: reasoning fragments belong to one part.
+					mergedReasoning := false
+					if n := len(assistantMsg.Content); n > 0 {
+						if rp, ok := assistantMsg.Content[n-1].(core.ReasoningPart); ok {
+							rp.Text += part.ReasoningDelta
+							assistantMsg.Content[n-1] = rp
+							mergedReasoning = true
+						}
+					}
+					if !mergedReasoning {
+						assistantMsg.Content = append(assistantMsg.Content, core.ReasoningPart{Text: part.ReasoningDelta})
+					}
 					if a.onReasoningDelta != nil {
 						if err := a.onReasoningDelta(step+1, part.ReasoningDelta); err != nil {
 							a.invokeError(yield, err)
@@ -527,7 +553,7 @@ func (a *Agent) RunStream(ctx context.Context, req *core.Request) StreamResponse
 		}
 
 		if lastHadToolCalls {
-			a.invokeError(yield, fmt.Errorf("agent reached max steps (%d) without completion", a.maxSteps))
+			a.invokeError(yield, fmt.Errorf("%w (%d)", ErrMaxSteps, a.maxSteps))
 		}
 	}
 }
