@@ -14,9 +14,18 @@ import (
 // ToolFunc is the signature for executable tools.
 type ToolFunc func(ctx context.Context, args string) (string, error)
 
-// executeTool runs a tool with panic recovery and timeout.
-func executeTool(ctx context.Context, name string, args string, fn ToolFunc) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+// DefaultToolTimeout caps a single tool execution unless the agent sets
+// WithToolTimeout. Tools that manage their own deadline (e.g. host shell
+// exec) still need the agent-level cap raised to take effect.
+const DefaultToolTimeout = 30 * time.Second
+
+// executeTool runs a tool with panic recovery and timeout. A zero timeout
+// falls back to DefaultToolTimeout.
+func executeTool(ctx context.Context, name string, args string, fn ToolFunc, timeout time.Duration) (string, error) {
+	if timeout <= 0 {
+		timeout = DefaultToolTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	resultCh := make(chan struct {

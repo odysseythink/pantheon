@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"time"
+
 	"github.com/odysseythink/pantheon/agent/compression"
 	"github.com/odysseythink/pantheon/core"
 	"github.com/odysseythink/pantheon/extensions/retry"
@@ -18,6 +20,15 @@ func WithMaxSteps(n int) Option {
 			n = 10
 		}
 		a.maxSteps = n
+	}
+}
+
+// WithToolTimeout caps the wall-clock time of a single tool execution
+// (default DefaultToolTimeout, 30s). Raise it for agents whose tools manage
+// their own longer deadlines, e.g. host shell execution.
+func WithToolTimeout(d time.Duration) Option {
+	return func(a *Agent) {
+		a.toolTimeout = d
 	}
 }
 

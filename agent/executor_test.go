@@ -13,7 +13,7 @@ func TestExecuteToolSuccess(t *testing.T) {
 		return "result: " + args, nil
 	}
 
-	res, err := executeTool(context.Background(), "test", "hello", fn)
+	res, err := executeTool(context.Background(), "test", "hello", fn, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestExecuteToolError(t *testing.T) {
 		return "", expectedErr
 	}
 
-	res, err := executeTool(context.Background(), "test", "", fn)
+	res, err := executeTool(context.Background(), "test", "", fn, 0)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -45,7 +45,7 @@ func TestExecuteToolPanicRecovery(t *testing.T) {
 		panic("intentional panic")
 	}
 
-	res, err := executeTool(context.Background(), "test", "", fn)
+	res, err := executeTool(context.Background(), "test", "", fn, 0)
 	if err == nil {
 		t.Fatal("expected error after panic")
 	}
@@ -73,7 +73,7 @@ func TestExecuteToolTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	res, err := executeTool(ctx, "slow", "", fn)
+	res, err := executeTool(ctx, "slow", "", fn, 0)
 	if err == nil {
 		t.Fatal("expected timeout error")
 	}
@@ -101,7 +101,7 @@ func TestExecuteToolRespectsContextCancellation(t *testing.T) {
 		cancel()
 	}()
 
-	res, err := executeTool(ctx, "cancelable", "", fn)
+	res, err := executeTool(ctx, "cancelable", "", fn, 0)
 	if err == nil {
 		t.Fatal("expected cancellation error")
 	}

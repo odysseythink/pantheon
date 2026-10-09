@@ -76,6 +76,9 @@ type Agent struct {
 	// Retry
 	maxRetries *int
 	onRetry    retry.OnRetryFunc
+
+	// toolTimeout caps a single tool execution (default DefaultToolTimeout).
+	toolTimeout time.Duration
 }
 
 // New creates a new Agent.
@@ -84,11 +87,19 @@ func New(model core.LanguageModel, opts ...Option) *Agent {
 		model:        model,
 		maxSteps:     10,
 		toolRegistry: make(map[string]ToolFunc),
+		toolTimeout:  DefaultToolTimeout,
 	}
 	for _, o := range opts {
 		o(a)
 	}
 	return a
+}
+
+// ToolTimeout reports the per-tool execution cap (default DefaultToolTimeout,
+// overridable with WithToolTimeout). Exposed so embedders can verify their
+// agents allow long-running tools such as host shell commands.
+func (a *Agent) ToolTimeout() time.Duration {
+	return a.toolTimeout
 }
 
 // RegisterTool registers an executable tool by name.
@@ -522,7 +533,8 @@ func (a *Agent) executeTool(ctx context.Context, tc core.ToolCallPart) (core.Too
 	if !ok {
 		return core.ToolResponse{Content: fmt.Sprintf("tool %q not found", tc.Name), IsError: true}, nil
 	}
-	result, err := executeTool(ctx, tc.Name, tc.Arguments, fn)
+	ctx = withToolCallID(ctx, tc.ID)
+	result, err := executeTool(ctx, tc.Name, tc.Arguments, fn, a.toolTimeout)
 	if err != nil {
 		var stop *StopTurnError
 		if errors.As(err, &stop) {
