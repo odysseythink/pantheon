@@ -12,6 +12,13 @@ const (
 	RerankFormatOpenAICompatible RerankFormat = "openai"
 	RerankFormatCohereV2         RerankFormat = "cohere"
 	RerankFormatJina             RerankFormat = "jina"
+	// RerankFormatDashScope is Alibaba Cloud Model Studio's native rerank
+	// protocol (gte-rerank-v2, qwen3-vl-rerank, ...): POST
+	// {BaseURL}/api/v1/services/rerank/text-rerank/text-rerank with an
+	// input/parameters-shaped body. Qwen's qwen3-rerank is NOT this format;
+	// it is served by the OpenAI-compatible endpoint (use RerankPath
+	// "/compatible-api/v1/reranks" with RerankFormatOpenAICompatible).
+	RerankFormatDashScope RerankFormat = "dashscope"
 )
 
 // Client is a generic OpenAI-compatible HTTP client.
@@ -21,6 +28,7 @@ type Client struct {
 	HTTPClient         *http.Client
 	Headers            map[string]string
 	ChatCompletionPath string // default empty means "/v1/chat/completions"
+	EmbeddingPath      string // default empty means "/v1/embeddings"
 	RerankPath         string // default empty means "/v1/rerank"
 	RerankFormat       RerankFormat
 	// Hooks allow providers to customize the behavior of the client.

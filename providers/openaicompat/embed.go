@@ -47,10 +47,16 @@ func (c *Client) CreateEmbeddings(ctx context.Context, model string, texts []str
 		c.Headers["Authorization"] = "Bearer " + c.APIKey
 	}
 
-	resp, err := core.HttpClientCall[EmbeddingResponse](
+	path := c.EmbeddingPath
+	if path == "" {
+		path = "/v1/embeddings"
+	}
+
+	resp, err := core.HttpClientCallWithClient[EmbeddingResponse](
+		c.HTTPClient,
 		ctx,
 		"POST",
-		c.BaseURL+"/v1/embeddings",
+		c.BaseURL+path,
 		nil,
 		req,
 		c.Headers,

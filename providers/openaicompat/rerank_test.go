@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/odysseythink/pantheon/extensions/rerank"
 )
@@ -162,5 +163,110 @@ func TestCreateRerank_EmptyDocuments(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error for empty documents")
+	}
+}
+
+// TestCreateRerank_DashScopeNative covers Alibaba Cloud Model Studio's native
+// rerank protocol (gte-rerank-v2, qwen3-vl-rerank, ...): a different endpoint
+// and an input/parameters-shaped body, with results nested under "output".
+// Reference: https://help.aliyun.com/zh/model-studio/text-rerank-api
+func TestCreateRerank_DashScopeNative(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/services/rerank/text-rerank/text-rerank" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if auth := r.Header.Get("Authorization"); auth != "Bearer test-key" {
+			t.Errorf("unexpected auth: %s", auth)
+		}
+		var req struct {
+			Model string `json:"model"`
+			Input struct {
+				Query     string   `json:"query"`
+				Documents []string `json:"documents"`
+			} `json:"input"`
+			Parameters struct {
+				TopN            int  `json:"top_n"`
+				ReturnDocuments bool `json:"return_documents"`
+			} `json:"parameters"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.Model != "gte-rerank-v2" {
+			t.Errorf("unexpected model: %s", req.Model)
+		}
+		if req.Input.Query != "test query" || len(req.Input.Documents) != 2 {
+			t.Errorf("unexpected input: %+v", req.Input)
+		}
+		if req.Parameters.TopN != 2 {
+			t.Errorf("unexpected top_n: %d", req.Parameters.TopN)
+		}
+
+		json.NewEncoder(w).Encode(map[string]any{
+			"output": map[string]any{
+				"results": []map[string]any{
+					{"index": 1, "relevance_score": 0.95},
+					{"index": 0, "relevance_score": 0.85},
+				},
+			},
+			"request_id": "req-1",
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+	client.RerankFormat = RerankFormatDashScope
+
+	resp, err := client.CreateRerank(context.Background(), "gte-rerank-v2", &rerank.RerankRequest{
+		Query:     "test query",
+		Documents: []string{"doc a", "doc b"},
+		TopN:      2,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.Results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(resp.Results))
+	}
+	if resp.Results[0].Index != 1 || resp.Results[0].RelevanceScore != 0.95 {
+		t.Errorf("result[0]: got %+v", resp.Results[0])
+	}
+}
+
+// TestCreateRerank_DashScopeNativeError: DashScope signals failures with a
+// top-level code/message envelope even on 200; the client must surface it.
+func TestCreateRerank_DashScopeNativeError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"code":    "InvalidParameter",
+			"message": "model not found",
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-key")
+	client.RerankFormat = RerankFormatDashScope
+
+	_, err := client.CreateRerank(context.Background(), "bad-model", &rerank.RerankRequest{
+		Query:     "q",
+		Documents: []string{"d"},
+	})
+	if err == nil {
+		t.Fatal("expected error for DashScope error envelope")
+	}
+}
+
+func TestCreateRerank_HonorsHTTPClient(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		json.NewEncoder(w).Encode(map[string]any{"results": []any{}})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "k")
+	client.HTTPClient = &http.Client{Timeout: time.Millisecond}
+	_, err := client.CreateRerank(context.Background(), "m", &rerank.RerankRequest{
+		Query: "q", Documents: []string{"d"},
+	})
+	if err == nil {
+		t.Fatal("expected timeout error")
 	}
 }
