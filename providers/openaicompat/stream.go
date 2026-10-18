@@ -110,23 +110,30 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 				yield(nil, err)
 				return
 			}
-			if len(chunk.Choices) == 0 {
-				if chunk.Usage != nil {
-					sp := &core.StreamPart{
-						Type: core.StreamPartTypeUsage,
-						Usage: &core.Usage{
-							PromptTokens:     chunk.Usage.PromptTokens,
-							CompletionTokens: chunk.Usage.CompletionTokens,
-							TotalTokens:      chunk.Usage.TotalTokens,
-						},
-					}
-					if c.Hooks.PostProcessStreamPart != nil {
-						c.Hooks.PostProcessStreamPart(sp, &chunk)
-					}
-					if !yield(sp, nil) {
-						return
-					}
+			// Usage arrives in one of two shapes: a dedicated trailing chunk with
+			// an empty choices array (OpenAI's documented `include_usage`
+			// behavior), or attached to the last content chunk that also carries
+			// finish_reason (DeepSeek and some compatible gateways do this).
+			// Gating on `len(choices) == 0` only handled the first shape, so the
+			// second silently lost its usage — downstream token budgets then ran
+			// with no provider-reported prompt_tokens at all.
+			if chunk.Usage != nil {
+				sp := &core.StreamPart{
+					Type: core.StreamPartTypeUsage,
+					Usage: &core.Usage{
+						PromptTokens:     chunk.Usage.PromptTokens,
+						CompletionTokens: chunk.Usage.CompletionTokens,
+						TotalTokens:      chunk.Usage.TotalTokens,
+					},
 				}
+				if c.Hooks.PostProcessStreamPart != nil {
+					c.Hooks.PostProcessStreamPart(sp, &chunk)
+				}
+				if !yield(sp, nil) {
+					return
+				}
+			}
+			if len(chunk.Choices) == 0 {
 				continue
 			}
 

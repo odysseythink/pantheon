@@ -412,3 +412,51 @@ func TestChatCompletionStream_ReasoningBoundaries(t *testing.T) {
 		t.Errorf("finish reason: got %q, want stop", finishReason)
 	}
 }
+
+// DeepSeek 等兼容网关把 usage 挂在最后一个带 finish_reason 的 chunk 上，
+// choices 非空。按 OpenAI 的「专用尾帧（choices 为空）」判断会把这份 usage
+// 整个丢掉 —— 上游拿不到 prompt_tokens，任何按真值校准的预算逻辑都失去锚点。
+func TestChatCompletionStream_UsageOnFinishChunk(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher := w.(http.Flusher)
+		chunks := []ChatCompletionResponse{
+			{Model: "deepseek-chat", Choices: []Choice{{Delta: Message{Content: "Hi"}}}},
+			{
+				Model:   "deepseek-chat",
+				Choices: []Choice{{Delta: Message{Content: ""}, FinishReason: ptr("stop")}},
+				Usage:   &Usage{PromptTokens: 1234, CompletionTokens: 56, TotalTokens: 1290},
+			},
+		}
+		for _, c := range chunks {
+			data, _ := json.Marshal(c)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		}
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "sk-test")
+	stream := c.ChatCompletionStream(context.Background(), "deepseek-chat", &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "Hi"}}}},
+	})
+
+	var usage *core.Usage
+	for part, err := range stream {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		if part.Type == core.StreamPartTypeUsage {
+			usage = part.Usage
+		}
+	}
+	if usage == nil {
+		t.Fatal("usage part missing when usage rides on the finish chunk")
+	}
+	if usage.PromptTokens != 1234 || usage.CompletionTokens != 56 || usage.TotalTokens != 1290 {
+		t.Fatalf("usage = %+v, want 1234/56/1290", usage)
+	}
+}
