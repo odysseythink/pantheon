@@ -41,6 +41,11 @@ type FlowStep struct {
 	Parallel []FlowStep `yaml:"parallel,omitempty"`
 	// Output binds the step result to a name for later interpolation.
 	Output string `yaml:"output,omitempty"`
+	// Schema (agent steps only, ody-rs M2.4) constrains the reply: the
+	// executor injects the JSON-schema requirements into the prompt tail,
+	// parses the reply as JSON, validates it against the schema subset, and
+	// retries up to flow.SchemaMaxAttempts before failing the step.
+	Schema map[string]any `yaml:"schema,omitempty"`
 }
 
 // Kind reports which of the three step shapes is set ("agent", "pipeline",
@@ -120,6 +125,9 @@ func validateStep(s FlowStep) error {
 	}
 	if s.Each != "" && s.Pipeline == "" {
 		return fmt.Errorf("each is only valid on pipeline steps")
+	}
+	if s.Schema != nil && s.Agent == "" {
+		return fmt.Errorf("schema is only valid on agent steps")
 	}
 	for i, sub := range s.Parallel {
 		if err := validateStep(sub); err != nil {

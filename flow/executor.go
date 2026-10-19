@@ -20,6 +20,11 @@ import (
 // cannot flood the provider.
 const BatchLimit = 32
 
+// SchemaMaxAttempts bounds schema-constrained agents (ody-rs M2.4): the
+// initial try plus retries after parse/validation failures, each retry
+// carrying the previous failure reason in its prompt.
+const SchemaMaxAttempts = 3
+
 // RunAgentFunc runs one prompt through an agent and returns its text
 // output. agentName is informational (progress reporting, logging).
 type RunAgentFunc func(ctx context.Context, prompt string) (string, error)
@@ -54,14 +59,29 @@ type Executor struct {
 	OnStep   func(StepEvent)
 }
 
-var interpolationRe = regexp.MustCompile(`\$\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}`)
+var interpolationRe = regexp.MustCompile(`\$\{\{\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)*)\s*\}\}`)
+
+// itemRefRe is the single-brace form ${item} / ${item.path} — resolved only
+// inside a pipeline each template (ody-rs interp.rs); elsewhere single-brace
+// text stays literal so shell-style ${VAR} in prompts is untouched.
+var itemRefRe = regexp.MustCompile(`\$\{\s*(item(?:\.[A-Za-z0-9_]+)*)\s*\}`)
 
 // Run executes the plan with input bound as ${{ input }}.
 func (e *Executor) Run(ctx context.Context, plan *skills.FlowPlan, input string) (*Result, error) {
+	return e.RunWithArgs(ctx, plan, input, nil)
+}
+
+// RunWithArgs is Run plus structured trigger inputs (ody-rs args root): the
+// args map is pre-bound so templates can address ${{ args.key }} with full
+// path support. A nil map binds an empty object.
+func (e *Executor) RunWithArgs(ctx context.Context, plan *skills.FlowPlan, input string, args map[string]any) (*Result, error) {
 	if e == nil || e.RunAgent == nil {
 		return nil, fmt.Errorf("flow: Executor.RunAgent is required")
 	}
-	bindings := map[string]any{"input": input}
+	if args == nil {
+		args = map[string]any{}
+	}
+	bindings := map[string]any{"input": input, "args": args}
 	res := &Result{Outputs: map[string]any{}}
 	var last any
 	for _, phase := range plan.Phases {
@@ -108,7 +128,11 @@ func (e *Executor) dispatch(ctx context.Context, phaseID string, index int, step
 		if err != nil {
 			return nil, err
 		}
-		return e.RunAgent(ctx, prompt)
+		raw, err := e.runAgentText(ctx, prompt, step.Schema)
+		if err != nil {
+			return nil, err
+		}
+		return parseAgentOutput(raw), nil
 
 	case "pipeline":
 		items, err := evalItems(step.Pipeline, bindings)
@@ -124,12 +148,13 @@ func (e *Executor) dispatch(ctx context.Context, phaseID string, index int, step
 			if err != nil {
 				return nil, err
 			}
-			e.emit(phaseID, index, "pipeline", StepStarted, item)
+			detail := renderValue(item)
+			e.emit(phaseID, index, "pipeline", StepStarted, detail)
 			out, err := e.RunAgent(ctx, prompt)
 			if err != nil {
-				return nil, fmt.Errorf("pipeline item %q: %w", item, err)
+				return nil, fmt.Errorf("pipeline item %q: %w", detail, err)
 			}
-			e.emit(phaseID, index, "pipeline", StepFinished, item)
+			e.emit(phaseID, index, "pipeline", StepFinished, detail)
 			results = append(results, out)
 		}
 		return results, nil
@@ -187,45 +212,119 @@ func (e *Executor) runParallel(ctx context.Context, phaseID string, step skills.
 	return nil, nil
 }
 
-// render substitutes ${{ name }} references in tmpl. extra carries
-// step-local bindings (e.g. item in a pipeline) and shadows bindings.
+// render substitutes ${{ name }} / ${{ name.path }} references in tmpl.
+// extra carries step-local bindings (e.g. item in a pipeline) and shadows
+// bindings; inside a pipeline each template the single-brace ${item} /
+// ${item.path} form resolves against the current item as well.
 func render(tmpl string, bindings, extra map[string]any) (string, error) {
-	var missing string
+	var rerr error
 	out := interpolationRe.ReplaceAllStringFunc(tmpl, func(match string) string {
-		name := interpolationRe.FindStringSubmatch(match)[1]
-		value, ok := extra[name]
-		if !ok {
-			value, ok = bindings[name]
-		}
-		if !ok {
-			missing = name
+		value, err := resolveExpr(interpolationRe.FindStringSubmatch(match)[1], bindings, extra)
+		if err != nil {
+			rerr = err
 			return match
 		}
 		return renderValue(value)
 	})
-	if missing != "" {
-		return "", fmt.Errorf("undefined binding %q", missing)
+	if rerr != nil {
+		return "", rerr
+	}
+	item, ok := extra["item"]
+	if !ok {
+		return out, nil
+	}
+	out = itemRefRe.ReplaceAllStringFunc(out, func(match string) string {
+		segments := strings.Split(itemRefRe.FindStringSubmatch(match)[1], ".")
+		value, err := resolvePath(item, segments[1:])
+		if err != nil {
+			rerr = err
+			return match
+		}
+		return renderValue(value)
+	})
+	if rerr != nil {
+		return "", rerr
 	}
 	return out, nil
 }
 
+// resolveExpr resolves a dotted ${{ }} expression: the first segment names
+// the binding (extra shadows bindings, so the pipeline item wins), the rest
+// walk into structured values.
+func resolveExpr(expr string, bindings, extra map[string]any) (any, error) {
+	segments := strings.Split(expr, ".")
+	root, ok := extra[segments[0]]
+	if !ok {
+		root, ok = bindings[segments[0]]
+	}
+	if !ok {
+		return nil, fmt.Errorf("undefined binding %q", segments[0])
+	}
+	value, err := resolvePath(root, segments[1:])
+	if err != nil {
+		return nil, fmt.Errorf("binding %q: %w", segments[0], err)
+	}
+	return value, nil
+}
+
+// resolvePath walks dot-separated segments: object keys on maps, numeric
+// indices on arrays (ody-rs parse_path allows digits in any segment).
+func resolvePath(root any, segments []string) (any, error) {
+	current := root
+	for _, seg := range segments {
+		switch c := current.(type) {
+		case map[string]any:
+			v, ok := c[seg]
+			if !ok {
+				return nil, fmt.Errorf("missing path %q", seg)
+			}
+			current = v
+		case []any:
+			v, err := arrayIndex(c, seg)
+			if err != nil {
+				return nil, err
+			}
+			current = v
+		case []string:
+			v, err := arrayIndex(c, seg)
+			if err != nil {
+				return nil, err
+			}
+			current = v
+		default:
+			return nil, fmt.Errorf("missing path %q", seg)
+		}
+	}
+	return current, nil
+}
+
+func arrayIndex[S ~[]E, E any](arr S, seg string) (E, error) {
+	var zero E
+	idx := 0
+	for _, r := range seg {
+		if r < '0' || r > '9' {
+			return zero, fmt.Errorf("missing path %q", seg)
+		}
+		idx = idx*10 + int(r-'0')
+	}
+	if idx >= len(arr) {
+		return zero, fmt.Errorf("missing path %q", seg)
+	}
+	return arr[idx], nil
+}
+
 // evalItems resolves a pipeline expression to its item list. A whole
-// ${{ binding }} reference resolves the binding directly; arrays pass
-// through, strings parse as a JSON array and fall back to non-empty lines.
-func evalItems(expr string, bindings map[string]any) ([]string, error) {
+// ${{ binding }} reference resolves the binding directly (paths included);
+// arrays pass through keeping element structure (so ${{ item.x }} works),
+// strings parse as a JSON array and fall back to non-empty lines.
+func evalItems(expr string, bindings map[string]any) ([]any, error) {
 	trimmed := strings.TrimSpace(expr)
 	if m := interpolationRe.FindStringSubmatch(trimmed); m != nil && m[0] == trimmed {
-		value, ok := bindings[m[1]]
-		if !ok {
-			return nil, fmt.Errorf("undefined binding %q", m[1])
+		value, err := resolveExpr(m[1], bindings, nil)
+		if err != nil {
+			return nil, err
 		}
-		switch v := value.(type) {
-		case []string:
-			return v, nil
-		case string:
-			return splitItems(v), nil
-		}
-		return nil, fmt.Errorf("binding %q is not a list", m[1])
+		return itemsOf(value, m[1])
 	}
 	rendered, err := render(expr, bindings, nil)
 	if err != nil {
@@ -234,18 +333,101 @@ func evalItems(expr string, bindings map[string]any) ([]string, error) {
 	return splitItems(rendered), nil
 }
 
-func splitItems(s string) []string {
-	var arr []string
-	if json.Unmarshal([]byte(strings.TrimSpace(s)), &arr) == nil {
+func splitItems(s string) []any {
+	var arr []any
+	if json.Unmarshal([]byte(strings.TrimSpace(s)), &arr) == nil && arr != nil {
 		return arr
 	}
-	var lines []string
+	var lines []any
 	for _, line := range strings.Split(s, "\n") {
 		if line = strings.TrimSpace(line); line != "" {
 			lines = append(lines, line)
 		}
 	}
 	return lines
+}
+
+// runAgentText runs one agent prompt, applying M2.4 schema semantics: with
+// a schema the JSON requirements are injected at the prompt tail and each
+// validation failure feeds its reason back into the retry prompt. Without a
+// schema the loop runs exactly once and behaves like the pre-schema path.
+func (e *Executor) runAgentText(ctx context.Context, prompt string, schema map[string]any) (string, error) {
+	if schema != nil {
+		prompt += schemaPromptSuffix(schema)
+	}
+	var lastReason string
+	for attempt := 0; attempt < SchemaMaxAttempts; attempt++ {
+		attemptPrompt := prompt
+		if lastReason != "" {
+			attemptPrompt = prompt + "\n\nYour previous reply failed validation: " + lastReason + "\nReply again with corrected JSON only."
+		}
+		raw, err := e.RunAgent(ctx, attemptPrompt)
+		if err != nil {
+			return "", err
+		}
+		if schema == nil {
+			return raw, nil
+		}
+		if _, verr := validateAgentOutput(raw, schema); verr == nil {
+			return raw, nil
+		} else {
+			lastReason = verr.Error()
+		}
+	}
+	return "", fmt.Errorf("schema validation failed after %d attempts: %s", SchemaMaxAttempts, lastReason)
+}
+
+// validateAgentOutput requires a schema-constrained reply to be valid JSON
+// satisfying the schema subset, and returns the parsed value.
+func validateAgentOutput(raw string, schema map[string]any) (any, error) {
+	var value any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &value); err != nil {
+		return nil, fmt.Errorf("reply is not valid JSON: %v", err)
+	}
+	if err := validateAgainstSchema(value, schema); err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+// parseAgentOutput stores agent results as parsed JSON when possible, else
+// as the raw string (ody-rs parse_agent_output) — structured values are what
+// makes ${{ name.path }} interpolation useful across steps.
+func parseAgentOutput(raw string) any {
+	var value any
+	if err := json.Unmarshal([]byte(raw), &value); err == nil {
+		return value
+	}
+	return raw
+}
+
+// itemsOf normalizes a pipeline source binding into the item list: arrays
+// pass through keeping element structure (a JSON object item stays an
+// object, so ${{ item.name }} resolves), strings parse as a JSON array and
+// fall back to non-empty lines.
+func itemsOf(value any, name string) ([]any, error) {
+	switch v := value.(type) {
+	case []any:
+		return v, nil
+	case []string:
+		items := make([]any, len(v))
+		for i, element := range v {
+			items[i] = element
+		}
+		return items, nil
+	case string:
+		return splitItems(v), nil
+	}
+	return nil, fmt.Errorf("binding %q is not a list", name)
+}
+
+// prettyJSON renders a value as indented JSON for prompt injection.
+func prettyJSON(v any) string {
+	raw, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return string(raw)
 }
 
 // renderValue renders a binding as prompt text: strings verbatim, arrays

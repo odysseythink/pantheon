@@ -134,3 +134,37 @@ func TestFlowPlanValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestFlowSkillLoadsStepSchema(t *testing.T) {
+	yaml := `phases:
+  - id: main
+    steps:
+      - agent: researcher
+        output: findings
+        schema:
+          type: object
+          required: [name]
+`
+	s, err := ParseSkillFile(writeFlowSkill(t, &yaml))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	schema := s.Flow.Phases[0].Steps[0].Schema
+	if schema == nil || schema["type"] != "object" {
+		t.Fatalf("schema = %+v, want the parsed map", schema)
+	}
+}
+
+func TestFlowSkillSchemaOnNonAgentStepFails(t *testing.T) {
+	yaml := `phases:
+  - id: main
+    steps:
+      - pipeline: "${{ findings }}"
+        each: writer
+        schema:
+          type: object
+`
+	if _, err := ParseSkillFile(writeFlowSkill(t, &yaml)); err == nil {
+		t.Fatal("schema on a pipeline step must fail to load")
+	}
+}
