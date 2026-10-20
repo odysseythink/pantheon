@@ -32,6 +32,7 @@ func (c *Client) ChatCompletion(ctx context.Context, model string, req *core.Req
 		openaiReq.ResponseFormat = toOpenAIResponseFormat(req.ResponseFormat)
 	}
 	adaptRequestForReasoning(&openaiReq, model)
+	applyProviderOptions(&openaiReq, req)
 	if c.Hooks.PrepareRequest != nil {
 		c.Hooks.PrepareRequest(&openaiReq, model, req)
 	}

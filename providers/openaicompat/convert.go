@@ -229,10 +229,10 @@ func ToCoreResponse(resp *ChatCompletionResponse, model string) (*core.Response,
 	if text, ok := choice.Message.Content.(string); ok && text != "" {
 		msg.Content = append(msg.Content, core.TextPart{Text: text})
 	}
-	if choice.Message.ReasoningContent != "" {
-		msg.Content = append(msg.Content, core.ReasoningPart{Text: choice.Message.ReasoningContent})
+	if reasoning := choice.Message.GetReasoningContent(); reasoning != "" {
+		msg.Content = append(msg.Content, core.ReasoningPart{Text: reasoning})
 		if text, ok := choice.Message.Content.(string); !ok || text == "" {
-			msg.Content = append(msg.Content, core.TextPart{Text: choice.Message.ReasoningContent})
+			msg.Content = append(msg.Content, core.TextPart{Text: reasoning})
 		}
 	}
 	for _, tc := range choice.Message.ToolCalls {

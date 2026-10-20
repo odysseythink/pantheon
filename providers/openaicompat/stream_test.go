@@ -321,7 +321,6 @@ func TestChatCompletionStream_ToolInputDeltas(t *testing.T) {
 	}
 }
 
-
 func TestChatCompletionStream_ReasoningBoundaries(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -410,6 +409,73 @@ func TestChatCompletionStream_ReasoningBoundaries(t *testing.T) {
 	}
 	if finishReason != "stop" {
 		t.Errorf("finish reason: got %q, want stop", finishReason)
+	}
+}
+
+// vLLM 的 reasoning parser（如 gemma4）把思考增量放在 delta.reasoning 而不是
+// delta.reasoning_content（2026-10-20 odyBox 思考过程不上屏案：kb-router 全透传，
+// 是这里把字段丢了）。两个字段任一出现都必须驱动 ReasoningStart/Delta/End。
+func TestChatCompletionStream_ReasoningFieldAlias(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected Flusher")
+		}
+		// 原始 JSON 帧：与 vLLM gemma4 parser 的实际输出逐字节一致。
+		raw := []string{
+			`{"id":"chatcmpl-x","object":"chat.completion.chunk","created":1,"model":"kb-small","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}`,
+			`{"id":"chatcmpl-x","object":"chat.completion.chunk","created":1,"model":"kb-small","choices":[{"index":0,"delta":{"reasoning":"The"},"finish_reason":null}]}`,
+			`{"id":"chatcmpl-x","object":"chat.completion.chunk","created":1,"model":"kb-small","choices":[{"index":0,"delta":{"reasoning":" user"},"finish_reason":null}]}`,
+			`{"id":"chatcmpl-x","object":"chat.completion.chunk","created":1,"model":"kb-small","choices":[{"index":0,"delta":{"content":"81"},"finish_reason":"stop"}]}`,
+		}
+		for _, line := range raw {
+			fmt.Fprintf(w, "data: %s\n\n", line)
+			flusher.Flush()
+		}
+		fmt.Fprint(w, "data: [DONE]\n\n")
+		flusher.Flush()
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL, "sk-test")
+	stream := c.ChatCompletionStream(context.Background(), "kb-small", &core.Request{
+		Messages: []core.Message{{Role: core.MESSAGE_ROLE_USER, Content: []core.ContentParter{core.TextPart{Text: "9*9=?"}}}},
+	})
+
+	var types []core.StreamPartType
+	var gotReasoning, gotText string
+	for part, err := range stream {
+		if err != nil {
+			t.Fatalf("stream error: %v", err)
+		}
+		types = append(types, part.Type)
+		switch part.Type {
+		case core.StreamPartTypeReasoningDelta:
+			gotReasoning += part.ReasoningDelta
+		case core.StreamPartTypeTextDelta:
+			gotText += part.TextDelta
+		}
+	}
+
+	if gotReasoning != "The user" {
+		t.Errorf("reasoning deltas from `reasoning` field: got %q, want %q", gotReasoning, "The user")
+	}
+	if gotText != "81" {
+		t.Errorf("text deltas: got %q, want %q", gotText, "81")
+	}
+	var sawStart, sawEnd bool
+	for _, ty := range types {
+		if ty == core.StreamPartTypeReasoningStart {
+			sawStart = true
+		}
+		if ty == core.StreamPartTypeReasoningEnd {
+			sawEnd = true
+		}
+	}
+	if !sawStart || !sawEnd {
+		t.Errorf("reasoning boundaries missing: start=%v end=%v types=%v", sawStart, sawEnd, types)
 	}
 }
 

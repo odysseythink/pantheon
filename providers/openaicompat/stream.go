@@ -41,6 +41,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 			openaiReq.ToolChoice = toOpenAIToolChoice(req.ToolChoice)
 		}
 		adaptRequestForReasoning(&openaiReq, model)
+		applyProviderOptions(&openaiReq, req)
 		if c.Hooks.PrepareRequest != nil {
 			c.Hooks.PrepareRequest(&openaiReq, model, req)
 		}
@@ -165,7 +166,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 			}
 
 			delta := chunk.Choices[0].Delta
-			if delta.ReasoningContent != "" {
+			if reasoningText := delta.GetReasoningContent(); reasoningText != "" {
 				if !reasoningActive {
 					reasoningActive = true
 					sp := &core.StreamPart{
@@ -180,7 +181,7 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 				}
 				sp := &core.StreamPart{
 					Type:           core.StreamPartTypeReasoningDelta,
-					ReasoningDelta: delta.ReasoningContent,
+					ReasoningDelta: reasoningText,
 				}
 				if c.Hooks.PostProcessStreamPart != nil {
 					c.Hooks.PostProcessStreamPart(sp, &chunk)

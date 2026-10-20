@@ -36,3 +36,38 @@ func ParseOptions(data map[string]any) (*ProviderOptions, error) {
 	}
 	return &options, nil
 }
+
+// applyProviderOptions copies the openaicompat ProviderOptions carried by the
+// core request onto the outgoing chat completion body: reasoning_effort and
+// user map to their dedicated fields, ExtraBody keys merge at the top level.
+func applyProviderOptions(req *ChatCompletionRequest, coreReq *core.Request) {
+	if coreReq == nil || coreReq.ProviderOptions == nil {
+		return
+	}
+	opts, ok := coreReq.ProviderOptions.Get(Name)
+	if !ok {
+		return
+	}
+	apply := func(po ProviderOptions) {
+		if po.ReasoningEffort != nil {
+			req.ReasoningEffort = *po.ReasoningEffort
+		}
+		if po.User != nil {
+			req.User = *po.User
+		}
+		if len(po.ExtraBody) > 0 {
+			if req.ExtraBody == nil {
+				req.ExtraBody = map[string]any{}
+			}
+			for k, v := range po.ExtraBody {
+				req.ExtraBody[k] = v
+			}
+		}
+	}
+	switch po := opts.(type) {
+	case ProviderOptions:
+		apply(po)
+	case *ProviderOptions:
+		apply(*po)
+	}
+}
