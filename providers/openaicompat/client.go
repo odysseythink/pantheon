@@ -2,7 +2,14 @@ package openaicompat
 
 import (
 	"net/http"
+	"time"
 )
+
+// DefaultStreamIdleTimeout bounds how long a streaming chat completion may go
+// without ANY byte arriving (headers included) before the stream fails with
+// ErrStreamStalled. 2 minutes comfortably covers loaded gateways and
+// long-thinking pre-token phases while still rescuing silently dead flows.
+const DefaultStreamIdleTimeout = 2 * time.Minute
 
 // RerankFormat defines the API format for rerank requests.
 type RerankFormat string
@@ -31,8 +38,18 @@ type Client struct {
 	EmbeddingPath      string // default empty means "/v1/embeddings"
 	RerankPath         string // default empty means "/v1/rerank"
 	RerankFormat       RerankFormat
+	// StreamIdleTimeout bounds silence on streaming chat completions; any byte
+	// (headers included) resets the clock. <= 0 means DefaultStreamIdleTimeout.
+	StreamIdleTimeout time.Duration
 	// Hooks allow providers to customize the behavior of the client.
 	Hooks Hooks
+}
+
+func (c *Client) streamIdleTimeout() time.Duration {
+	if c.StreamIdleTimeout <= 0 {
+		return DefaultStreamIdleTimeout
+	}
+	return c.StreamIdleTimeout
 }
 
 // NewClient creates a new OpenAI-compatible client for the given base URL and API key.

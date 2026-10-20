@@ -5,9 +5,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/odysseythink/mlog"
 	"github.com/odysseythink/pantheon/core"
@@ -59,7 +61,13 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 				mlog.Debugf("[stream] request msg[%d] role=%s tool_calls=%d", i, m.Role, len(m.ToolCalls))
 			}
 		}
-		httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(data))
+		// The watchdog clock covers the header wait too: a flow killed by a
+		// middlebox never delivers headers, and http.DefaultClient has no
+		// timeout of its own (2026-10-20 跨网段断流挂死案).
+		idle := c.streamIdleTimeout()
+		reqCtx, cancelReq := context.WithCancel(ctx)
+		defer cancelReq()
+		httpReq, err := http.NewRequestWithContext(reqCtx, "POST", url, bytes.NewReader(data))
 		if err != nil {
 			yield(nil, err)
 			return
@@ -67,27 +75,46 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 		c.setHeaders(httpReq)
 		httpReq.Header.Set("Accept", "text/event-stream")
 
-		resp, err := c.HTTPClient.Do(httpReq)
+		type doOutcome struct {
+			resp *http.Response
+			err  error
+		}
+		done := make(chan doOutcome, 1)
+		go func() {
+			r, e := c.HTTPClient.Do(httpReq)
+			done <- doOutcome{r, e}
+		}()
+		var resp *http.Response
+		select {
+		case out := <-done:
+			resp, err = out.resp, out.err
+		case <-time.After(idle):
+			cancelReq()
+			<-done // reap the goroutine; it returns promptly once ctx is canceled
+			yield(nil, fmt.Errorf("%w (waiting for response headers, idle %s)", ErrStreamStalled, idle))
+			return
+		}
 		if err != nil {
 			yield(nil, err)
 			return
 		}
-		defer resp.Body.Close()
+		body := newStallWatchdog(resp.Body, idle)
+		defer body.Close()
 
 		if core.VerboseHTTP() {
 			mlog.Debugf("[openaicompat stream] url=%s status=%d", url, resp.StatusCode)
 		}
 
 		if resp.StatusCode >= 400 {
-			body, _ := io.ReadAll(resp.Body)
+			errBody, _ := io.ReadAll(body)
 			yield(nil, &core.ProviderError{
-				Message: string(body),
+				Message: string(errBody),
 				Status:  resp.StatusCode,
 			})
 			return
 		}
 
-		scanner := bufio.NewScanner(resp.Body)
+		scanner := bufio.NewScanner(body)
 		scanner.Buffer(make([]byte, 4096), 1024*1024)
 		var toolCalls map[int]*core.ToolCallPart
 		var finishReasonSeen bool
@@ -275,6 +302,10 @@ func (c *Client) ChatCompletionStream(ctx context.Context, model string, req *co
 					return
 				}
 			}
+		}
+		if body.expired.Load() {
+			yield(nil, fmt.Errorf("%w (mid-stream, idle %s)", ErrStreamStalled, idle))
+			return
 		}
 		if err := scanner.Err(); err != nil {
 			yield(nil, err)
