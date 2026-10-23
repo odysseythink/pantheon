@@ -8,11 +8,16 @@
 
 - 上游：`github.com/cloudwego/eino`
 - 快照时间：2026-10-19
-- 版本定位：**v0.9.21 之后的 master**（与 v0.9.21 的差异已核对：新增
-  `schema.Message.FileID` 媒体输入、`adk/middlewares/{reduction,patchtoolcalls}`、
-  `compose/agentic_tools_node`、`adk/wrappers.go` 等改动；go.mod 依赖集与 v0.9.21 一致）
-- 精确基线对应的上游 commit 待补：若后续需要逐 commit 比对，应从上游 tag/commit 重新
-  拉取一次快照做 diff 校准。
+- **精确基线：`v0.9.22` = `0a5ca53b9d3bf7b661dccc863465ec568a421eea`**
+  （feat(schema): support provider file references in media messages, 2026-10-19）
+  与 v0.9.21 的差异即 v0.9.22 全量：`schema.Message.FileID` 媒体输入、
+  `adk/middlewares/{reduction,patchtoolcalls}` 改动、`compose/agentic_tools_node`、
+  `adk/wrappers.go`；go.mod 依赖集与 v0.9.21 一致。
+- **diff 校准（2026-10-23）**：从上游 `v0.9.22` 重新导出快照，将本目录 Go 文件的
+  导入路径反替换回 `github.com/cloudwego/eino` 后与上游**逐字节一致**
+  （差异仅剩已声明项：go.mod/go.sum 删除、doc.go 包注释、README 等元数据与
+  `scripts/`/`examples/`/`ext/` 附属目录删除）。后续同步上游可直接以此为基线
+  做三方向 diff。
 
 ## 并入 pantheon 的改动（2026-10-23）
 
@@ -22,9 +27,10 @@
    `github.com/odysseythink/pantheon/harness`，共 **784 处 / 272 个文件**
    （本目录 732 处，odyBox `backend/` 52 处）。113 处为 `internal/...` 自引用。
 3. `doc.go` 的包名由 `eino` 改为 `harness`，包注释重写。
-4. 删除上游独立仓库的元数据：`README.md`、`README.zh_CN.md`、`llms.txt`、
-   `CONTRIBUTING.md`、`CODE_OF_CONDUCT.md`、`.golangci.yaml`、`.licenserc.yaml`、
-   `_typos.toml`、`scripts/`。`.gitignore` 精简为 Go 项目通用规则。
+4. 删除上游独立仓库的元数据与附属目录：`README.md`、`README.zh_CN.md`、
+   `llms.txt`、`CONTRIBUTING.md`、`CODE_OF_CONDUCT.md`、`.golangci.yaml`、
+   `.licenserc.yaml`、`_typos.toml`、`scripts/`、`examples/`、`ext/`。
+   `.gitignore` 精简为 Go 项目通用规则。
 5. 保留 `LICENSE-APACHE` 与每个源文件头部的 Apache-2.0 版权声明，未改动。
 
 ## 许可
