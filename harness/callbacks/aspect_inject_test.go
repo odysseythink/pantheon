@@ -25,8 +25,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cloudwego/eino/internal/callbacks"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/internal/callbacks"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func TestAspectInject(t *testing.T) {

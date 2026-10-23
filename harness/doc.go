@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
-// Package eino provides building blocks for agent workflows,
-// tools, and composable graph utilities.
-package eino
+// Package harness is odyBox's in-house agent framework, forked from
+// CloudWeGo eino (Apache-2.0, see LICENSE-APACHE). It provides building
+// blocks for agent workflows, tools, and composable graph utilities.
+//
+// Local divergences from the upstream baseline are recorded in FORK.md.
+package harness

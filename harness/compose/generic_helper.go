@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cloudwego/eino/internal/generic"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/internal/generic"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func newGenericHelper[I, O any]() *genericHelper {

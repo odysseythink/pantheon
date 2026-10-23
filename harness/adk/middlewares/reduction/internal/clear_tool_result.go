@@ -20,8 +20,8 @@ package internal
 import (
 	"context"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // ClearToolResultConfig configures the tool result clearing middleware.

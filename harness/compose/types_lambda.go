@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // Invoke is the type of the invokable lambda function.

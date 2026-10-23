@@ -21,8 +21,8 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/cloudwego/eino/components"
-	"github.com/cloudwego/eino/internal/generic"
+	"github.com/odysseythink/pantheon/harness/components"
+	"github.com/odysseythink/pantheon/harness/internal/generic"
 )
 
 // the info of most original executable object directly provided by the user

@@ -26,7 +26,7 @@
 // Concrete implementations (VikingDB, Milvus, Elasticsearch, …) live in
 // eino-ext:
 //
-//	github.com/cloudwego/eino-ext/components/indexer/
+//	github.com/odysseythink/pantheon/harness-ext/components/indexer/
 //
 // # Vector Dimension Consistency
 //

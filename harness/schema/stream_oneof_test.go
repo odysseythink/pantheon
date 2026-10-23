@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func recvAll(t *testing.T, sr *schema.StreamReader[string]) ([]string, []error) {

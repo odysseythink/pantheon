@@ -24,9 +24,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudwego/eino/components/document"
-	"github.com/cloudwego/eino/components/indexer"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components/document"
+	"github.com/odysseythink/pantheon/harness/components/indexer"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 type testIndexer struct{}

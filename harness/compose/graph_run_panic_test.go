@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func TestRunnerRunPreservesOriginalPanic(t *testing.T) {

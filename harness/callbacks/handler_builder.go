@@ -19,7 +19,7 @@ package callbacks
 import (
 	"context"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // HandlerBuilder constructs a [Handler] by registering callback functions for

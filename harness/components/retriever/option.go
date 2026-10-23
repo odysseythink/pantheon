@@ -16,7 +16,7 @@
 
 package retriever
 
-import "github.com/cloudwego/eino/components/embedding"
+import "github.com/odysseythink/pantheon/harness/components/embedding"
 
 // Options is the options for the retriever.
 type Options struct {

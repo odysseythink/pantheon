@@ -24,8 +24,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // Config defines the configuration for the agentsmd middleware.

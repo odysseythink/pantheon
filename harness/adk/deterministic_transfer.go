@@ -22,9 +22,9 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/cloudwego/eino/components"
-	"github.com/cloudwego/eino/internal/safe"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components"
+	"github.com/odysseythink/pantheon/harness/internal/safe"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func init() {

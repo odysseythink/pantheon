@@ -16,7 +16,7 @@
 
 package host
 
-import "github.com/cloudwego/eino/flow/agent"
+import "github.com/odysseythink/pantheon/harness/flow/agent"
 
 type options struct {
 	agentCallbacks []MultiAgentCallback

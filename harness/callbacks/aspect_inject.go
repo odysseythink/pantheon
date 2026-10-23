@@ -19,9 +19,9 @@ package callbacks
 import (
 	"context"
 
-	"github.com/cloudwego/eino/components"
-	"github.com/cloudwego/eino/internal/callbacks"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components"
+	"github.com/odysseythink/pantheon/harness/internal/callbacks"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // OnStart Fast inject callback input / output aspect for component developer

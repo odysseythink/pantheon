@@ -22,9 +22,9 @@ import (
 
 	"github.com/bytedance/sonic"
 
-	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/internal/generic"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components/tool"
+	"github.com/odysseythink/pantheon/harness/internal/generic"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // StreamFunc is the function type for the streamable tool.

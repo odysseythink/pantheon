@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartystreets/goconvey/convey"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func TestOptions(t *testing.T) {

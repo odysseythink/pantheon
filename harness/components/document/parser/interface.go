@@ -20,7 +20,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // Parser converts raw content from an [io.Reader] into [schema.Document] values.

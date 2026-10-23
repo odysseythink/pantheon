@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cloudwego/eino/adk/internal"
+	"github.com/odysseythink/pantheon/harness/adk/internal"
 )
 
 const (

@@ -23,8 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cloudwego/eino/internal"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/internal"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 type tStreamConcatItemForTest struct {

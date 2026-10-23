@@ -22,7 +22,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cloudwego/eino/internal/generic"
+	"github.com/odysseythink/pantheon/harness/internal/generic"
 )
 
 // AddressSegmentType defines the type of a segment in an execution address.

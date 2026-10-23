@@ -20,7 +20,7 @@ package filesystem
 import (
 	"context"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // FileInfo represents basic file metadata information.

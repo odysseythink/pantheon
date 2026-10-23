@@ -26,9 +26,9 @@ import (
 
 	"github.com/bytedance/sonic"
 
-	"github.com/cloudwego/eino/adk/internal"
-	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk/internal"
+	"github.com/odysseythink/pantheon/harness/components/tool"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func newTaskListTool(backend Backend, baseDir string, lock *sync.Mutex) *taskListTool {

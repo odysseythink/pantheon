@@ -19,7 +19,7 @@ package indexer
 import (
 	"context"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // Indexer stores documents (and optionally their vector embeddings) in a

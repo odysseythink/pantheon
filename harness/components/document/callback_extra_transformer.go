@@ -17,8 +17,8 @@
 package document
 
 import (
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // TransformerCallbackInput is the input for the transformer callback.

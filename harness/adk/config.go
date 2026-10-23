@@ -16,7 +16,7 @@
 
 package adk
 
-import "github.com/cloudwego/eino/adk/internal"
+import "github.com/odysseythink/pantheon/harness/adk/internal"
 
 // Language represents the language setting for the ADK built-in prompts.
 type Language = internal.Language

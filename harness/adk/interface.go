@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cloudwego/eino/components"
-	"github.com/cloudwego/eino/internal/core"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components"
+	"github.com/odysseythink/pantheon/harness/internal/core"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // ComponentOfAgent is the component type identifier for ADK agents in callbacks.
@@ -463,7 +463,7 @@ type TypedAgent[M MessageType] interface {
 	Run(ctx context.Context, input *TypedAgentInput[M], options ...AgentRunOption) *AsyncIterator[*TypedAgentEvent[M]]
 }
 
-//go:generate  mockgen -destination ../internal/mock/adk/Agent_mock.go --package adk github.com/cloudwego/eino/adk Agent,ResumableAgent
+//go:generate  mockgen -destination ../internal/mock/adk/Agent_mock.go --package adk github.com/odysseythink/pantheon/harness/adk Agent,ResumableAgent
 type Agent = TypedAgent[*schema.Message]
 
 // OnSubAgents is the interface for agents that support sub-agent registration and transfer.

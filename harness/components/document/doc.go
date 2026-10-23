@@ -27,7 +27,7 @@
 //
 // Concrete implementations live in eino-ext:
 //
-//	github.com/cloudwego/eino-ext/components/document/
+//	github.com/odysseythink/pantheon/harness-ext/components/document/
 //
 // # Document Metadata
 //

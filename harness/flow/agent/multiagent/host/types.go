@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/flow/agent"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	"github.com/odysseythink/pantheon/harness/compose"
+	"github.com/odysseythink/pantheon/harness/flow/agent"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // MultiAgent is a host multi-agent system.

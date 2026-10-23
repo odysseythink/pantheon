@@ -34,7 +34,7 @@ package supervisor
 import (
 	"context"
 
-	"github.com/cloudwego/eino/adk"
+	"github.com/odysseythink/pantheon/harness/adk"
 )
 
 // Config is the configuration for creating a supervisor-based multi-agent system.

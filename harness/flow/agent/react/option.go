@@ -19,14 +19,14 @@ package react
 import (
 	"context"
 
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/flow/agent"
-	"github.com/cloudwego/eino/internal"
-	"github.com/cloudwego/eino/schema"
-	ub "github.com/cloudwego/eino/utils/callbacks"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	"github.com/odysseythink/pantheon/harness/components/tool"
+	"github.com/odysseythink/pantheon/harness/compose"
+	"github.com/odysseythink/pantheon/harness/flow/agent"
+	"github.com/odysseythink/pantheon/harness/internal"
+	"github.com/odysseythink/pantheon/harness/schema"
+	ub "github.com/odysseythink/pantheon/harness/utils/callbacks"
 )
 
 // WithToolOptions returns an agent option that specifies tool.Option for the tools in agent.

@@ -17,8 +17,8 @@
 package model
 
 import (
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // TokenUsage is the token usage for the model.

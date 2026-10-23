@@ -26,7 +26,7 @@
 // Concrete implementations (VikingDB, Milvus, Elasticsearch, …) live in
 // eino-ext:
 //
-//	github.com/cloudwego/eino-ext/components/retriever/
+//	github.com/odysseythink/pantheon/harness-ext/components/retriever/
 //
 // # Relationship to Indexer
 //

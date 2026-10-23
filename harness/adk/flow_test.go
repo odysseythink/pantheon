@@ -24,9 +24,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/cloudwego/eino/callbacks"
-	mockModel "github.com/cloudwego/eino/internal/mock/components/model"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	mockModel "github.com/odysseythink/pantheon/harness/internal/mock/components/model"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func strPtr(s string) *string { return &s }

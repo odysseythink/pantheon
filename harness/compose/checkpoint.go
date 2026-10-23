@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cloudwego/eino/internal/core"
-	"github.com/cloudwego/eino/internal/serialization"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/internal/core"
+	"github.com/odysseythink/pantheon/harness/internal/serialization"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func init() {

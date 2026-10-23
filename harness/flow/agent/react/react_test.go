@@ -28,13 +28,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/flow/agent"
-	mockModel "github.com/cloudwego/eino/internal/mock/components/model"
-	"github.com/cloudwego/eino/schema"
-	template "github.com/cloudwego/eino/utils/callbacks"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	"github.com/odysseythink/pantheon/harness/components/tool"
+	"github.com/odysseythink/pantheon/harness/compose"
+	"github.com/odysseythink/pantheon/harness/flow/agent"
+	mockModel "github.com/odysseythink/pantheon/harness/internal/mock/components/model"
+	"github.com/odysseythink/pantheon/harness/schema"
+	template "github.com/odysseythink/pantheon/harness/utils/callbacks"
 )
 
 func TestReact(t *testing.T) {

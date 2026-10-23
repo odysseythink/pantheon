@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cloudwego/eino/compose"
+	"github.com/odysseythink/pantheon/harness/compose"
 )
 
 func TestAgentCancelFunc_MultiCall_EscalateToImmediate(t *testing.T) {

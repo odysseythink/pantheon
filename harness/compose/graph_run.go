@@ -23,9 +23,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/cloudwego/eino/internal"
-	"github.com/cloudwego/eino/internal/core"
-	"github.com/cloudwego/eino/internal/serialization"
+	"github.com/odysseythink/pantheon/harness/internal"
+	"github.com/odysseythink/pantheon/harness/internal/core"
+	"github.com/odysseythink/pantheon/harness/internal/serialization"
 )
 
 type chanCall struct {

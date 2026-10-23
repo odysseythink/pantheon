@@ -19,7 +19,7 @@ package compose
 import (
 	"context"
 
-	"github.com/cloudwego/eino/internal/core"
+	"github.com/odysseythink/pantheon/harness/internal/core"
 )
 
 // GetInterruptState provides a type-safe way to check for and retrieve the persisted state from a previous interruption.

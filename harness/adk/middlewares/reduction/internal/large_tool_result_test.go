@@ -24,9 +24,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudwego/eino/adk/filesystem"
-	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk/filesystem"
+	"github.com/odysseythink/pantheon/harness/compose"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // mockBackend is a simple in-memory backend for testing

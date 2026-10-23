@@ -20,18 +20,18 @@ package callbacks
 import (
 	"context"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components"
-	"github.com/cloudwego/eino/components/document"
-	"github.com/cloudwego/eino/components/embedding"
-	"github.com/cloudwego/eino/components/indexer"
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/components/prompt"
-	"github.com/cloudwego/eino/components/retriever"
-	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/components"
+	"github.com/odysseythink/pantheon/harness/components/document"
+	"github.com/odysseythink/pantheon/harness/components/embedding"
+	"github.com/odysseythink/pantheon/harness/components/indexer"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	"github.com/odysseythink/pantheon/harness/components/prompt"
+	"github.com/odysseythink/pantheon/harness/components/retriever"
+	"github.com/odysseythink/pantheon/harness/components/tool"
+	"github.com/odysseythink/pantheon/harness/compose"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // NewHandlerHelper creates a new component template handler builder.

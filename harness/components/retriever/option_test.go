@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartystreets/goconvey/convey"
 
-	"github.com/cloudwego/eino/internal/mock/components/embedding"
+	"github.com/odysseythink/pantheon/harness/internal/mock/components/embedding"
 )
 
 func TestOptions(t *testing.T) {

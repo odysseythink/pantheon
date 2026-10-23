@@ -25,11 +25,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/components/tool"
-	mockModel "github.com/cloudwego/eino/internal/mock/components/model"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	"github.com/odysseythink/pantheon/harness/components/tool"
+	mockModel "github.com/odysseythink/pantheon/harness/internal/mock/components/model"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 type myInterruptState struct {

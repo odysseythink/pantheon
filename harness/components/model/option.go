@@ -16,7 +16,7 @@
 
 package model
 
-import "github.com/cloudwego/eino/schema"
+import "github.com/odysseythink/pantheon/harness/schema"
 
 // Options is the common options for the model.
 type Options struct {

@@ -22,9 +22,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components/retriever"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/components/retriever"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 type mockRetriever struct {

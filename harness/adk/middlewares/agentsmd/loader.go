@@ -27,8 +27,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/cloudwego/eino/adk/filesystem"
-	"github.com/cloudwego/eino/adk/internal"
+	"github.com/odysseythink/pantheon/harness/adk/filesystem"
+	"github.com/odysseythink/pantheon/harness/adk/internal"
 )
 
 // importRegex matches @path/to/file anywhere in text.

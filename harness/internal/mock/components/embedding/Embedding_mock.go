@@ -29,7 +29,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	embedding "github.com/cloudwego/eino/components/embedding"
+	embedding "github.com/odysseythink/pantheon/harness/components/embedding"
 	gomock "go.uber.org/mock/gomock"
 )
 

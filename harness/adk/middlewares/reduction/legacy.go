@@ -16,7 +16,7 @@
 
 package reduction
 
-import "github.com/cloudwego/eino/adk/middlewares/reduction/internal"
+import "github.com/odysseythink/pantheon/harness/adk/middlewares/reduction/internal"
 
 // Package reduction provides historical compatibility exports for reduction middleware APIs.
 //
@@ -51,14 +51,14 @@ var (
 	//  2. Offloading: Writes large individual tool results to the filesystem and
 	//     returns a summary message guiding the LLM to read the full content.
 	//
-	// NOTE: If you are using the filesystem middleware (github.com/cloudwego/eino/adk/middlewares/filesystem),
+	// NOTE: If you are using the filesystem middleware (github.com/odysseythink/pantheon/harness/adk/middlewares/filesystem),
 	// this functionality is already included by default. Set Config.WithoutLargeToolResultOffloading = true
 	// in the filesystem middleware if you want to use this middleware separately instead.
 	//
 	// NOTE: This middleware only handles offloading results to the filesystem.
 	// You MUST also provide a read_file tool to your agent, otherwise the agent
 	// will not be able to read the offloaded content. You can either:
-	//   - Use the filesystem middleware (github.com/cloudwego/eino/adk/middlewares/filesystem)
+	//   - Use the filesystem middleware (github.com/odysseythink/pantheon/harness/adk/middlewares/filesystem)
 	//     which provides the read_file tool automatically, OR
 	//   - Implement your own read_file tool that reads from the same Backend
 	//

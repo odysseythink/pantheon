@@ -22,8 +22,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/cloudwego/eino/internal"
-	"github.com/cloudwego/eino/internal/safe"
+	"github.com/odysseythink/pantheon/harness/internal"
+	"github.com/odysseythink/pantheon/harness/internal/safe"
 )
 
 type channel interface {

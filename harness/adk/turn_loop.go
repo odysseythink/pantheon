@@ -27,7 +27,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cloudwego/eino/internal/safe"
+	"github.com/odysseythink/pantheon/harness/internal/safe"
 )
 
 type stopPhase uint8

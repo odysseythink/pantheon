@@ -19,8 +19,8 @@ package agent
 import (
 	"errors"
 
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // ChatModelWithTools returns a chat model configured with tool schemas.

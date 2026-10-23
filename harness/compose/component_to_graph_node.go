@@ -17,13 +17,13 @@
 package compose
 
 import (
-	"github.com/cloudwego/eino/components"
-	"github.com/cloudwego/eino/components/document"
-	"github.com/cloudwego/eino/components/embedding"
-	"github.com/cloudwego/eino/components/indexer"
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/components/prompt"
-	"github.com/cloudwego/eino/components/retriever"
+	"github.com/odysseythink/pantheon/harness/components"
+	"github.com/odysseythink/pantheon/harness/components/document"
+	"github.com/odysseythink/pantheon/harness/components/embedding"
+	"github.com/odysseythink/pantheon/harness/components/indexer"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	"github.com/odysseythink/pantheon/harness/components/prompt"
+	"github.com/odysseythink/pantheon/harness/components/retriever"
 )
 
 func toComponentNode[I, O, TOption any](

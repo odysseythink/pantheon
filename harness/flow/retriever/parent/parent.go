@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudwego/eino/components/retriever"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components/retriever"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // Config configures the parent retriever.

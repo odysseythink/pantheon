@@ -19,7 +19,7 @@ package tool
 import (
 	"context"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // BaseTool provides the metadata that a ChatModel uses to decide whether and

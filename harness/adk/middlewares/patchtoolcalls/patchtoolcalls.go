@@ -21,9 +21,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/adk/internal"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk"
+	"github.com/odysseythink/pantheon/harness/adk/internal"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // PatchedToolResult is the value returned by PatchedToolResultGenerator.

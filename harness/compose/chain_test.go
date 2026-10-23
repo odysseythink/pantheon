@@ -25,13 +25,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/cloudwego/eino/components/prompt"
-	"github.com/cloudwego/eino/internal/mock/components/document"
-	"github.com/cloudwego/eino/internal/mock/components/embedding"
-	"github.com/cloudwego/eino/internal/mock/components/indexer"
-	"github.com/cloudwego/eino/internal/mock/components/model"
-	"github.com/cloudwego/eino/internal/mock/components/retriever"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components/prompt"
+	"github.com/odysseythink/pantheon/harness/internal/mock/components/document"
+	"github.com/odysseythink/pantheon/harness/internal/mock/components/embedding"
+	"github.com/odysseythink/pantheon/harness/internal/mock/components/indexer"
+	"github.com/odysseythink/pantheon/harness/internal/mock/components/model"
+	"github.com/odysseythink/pantheon/harness/internal/mock/components/retriever"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func TestChain(t *testing.T) {

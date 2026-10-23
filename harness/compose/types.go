@@ -17,7 +17,7 @@
 package compose
 
 import (
-	"github.com/cloudwego/eino/components"
+	"github.com/odysseythink/pantheon/harness/components"
 )
 
 type component = components.Component

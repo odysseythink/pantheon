@@ -19,10 +19,10 @@ package internal
 import (
 	"context"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/adk/filesystem"
-	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk"
+	"github.com/odysseythink/pantheon/harness/adk/filesystem"
+	"github.com/odysseythink/pantheon/harness/compose"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // Backend defines the interface provided by the user to implement file storage.
@@ -90,14 +90,14 @@ type ToolResultConfig struct {
 //  2. Offloading: Writes large individual tool results to the filesystem and
 //     returns a summary message guiding the LLM to read the full content.
 //
-// NOTE: If you are using the filesystem middleware (github.com/cloudwego/eino/adk/middlewares/filesystem),
+// NOTE: If you are using the filesystem middleware (github.com/odysseythink/pantheon/harness/adk/middlewares/filesystem),
 // this functionality is already included by default. Set Config.WithoutLargeToolResultOffloading = true
 // in the filesystem middleware if you want to use this middleware separately instead.
 //
 // NOTE: This middleware only handles offloading results to the filesystem.
 // You MUST also provide a read_file tool to your agent, otherwise the agent
 // will not be able to read the offloaded content. You can either:
-//   - Use the filesystem middleware (github.com/cloudwego/eino/adk/middlewares/filesystem)
+//   - Use the filesystem middleware (github.com/odysseythink/pantheon/harness/adk/middlewares/filesystem)
 //     which provides the read_file tool automatically, OR
 //   - Implement your own read_file tool that reads from the same Backend
 func NewToolResultMiddleware(ctx context.Context, cfg *ToolResultConfig) (adk.AgentMiddleware, error) {

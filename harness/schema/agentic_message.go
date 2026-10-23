@@ -29,10 +29,10 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/eino-contrib/jsonschema"
 
-	"github.com/cloudwego/eino/internal"
-	"github.com/cloudwego/eino/schema/claude"
-	"github.com/cloudwego/eino/schema/gemini"
-	"github.com/cloudwego/eino/schema/openai"
+	"github.com/odysseythink/pantheon/harness/internal"
+	"github.com/odysseythink/pantheon/harness/schema/claude"
+	"github.com/odysseythink/pantheon/harness/schema/gemini"
+	"github.com/odysseythink/pantheon/harness/schema/openai"
 )
 
 type ContentBlockType string

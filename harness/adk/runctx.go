@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // runSession CheckpointSchema: persisted via serialization.RunCtx (gob).

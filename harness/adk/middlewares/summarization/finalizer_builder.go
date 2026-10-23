@@ -24,8 +24,8 @@ import (
 
 	"github.com/bytedance/sonic"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // DefaultFinalize is the default TypedFinalizeFunc implementation, providing the same

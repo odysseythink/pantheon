@@ -16,7 +16,7 @@
 
 package document
 
-import "github.com/cloudwego/eino/components/document/parser"
+import "github.com/odysseythink/pantheon/harness/components/document/parser"
 
 // LoaderOptions configures document loaders, including parser options.
 type LoaderOptions struct {

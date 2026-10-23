@@ -19,9 +19,9 @@ package prompt
 import (
 	"context"
 
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/components"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // FromAgenticMessages creates a new DefaultAgenticChatTemplate from the given templates and format type.

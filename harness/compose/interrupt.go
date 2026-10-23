@@ -23,8 +23,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/cloudwego/eino/internal/core"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/internal/core"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // WithInterruptBeforeNodes instructs to interrupt before the given nodes.

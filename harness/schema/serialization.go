@@ -20,8 +20,8 @@ import (
 	"encoding/gob"
 	"reflect"
 
-	"github.com/cloudwego/eino/internal/generic"
-	"github.com/cloudwego/eino/internal/serialization"
+	"github.com/odysseythink/pantheon/harness/internal/generic"
+	"github.com/odysseythink/pantheon/harness/internal/serialization"
 )
 
 func init() {

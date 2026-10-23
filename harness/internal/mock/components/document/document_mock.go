@@ -24,8 +24,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	document "github.com/cloudwego/eino/components/document"
-	schema "github.com/cloudwego/eino/schema"
+	document "github.com/odysseythink/pantheon/harness/components/document"
+	schema "github.com/odysseythink/pantheon/harness/schema"
 	gomock "go.uber.org/mock/gomock"
 )
 

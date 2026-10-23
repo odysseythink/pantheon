@@ -25,7 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudwego/eino/internal"
+	"github.com/odysseythink/pantheon/harness/internal"
 )
 
 func triggeredGraphCancel(timeout *time.Duration) *graphCancelSignal {
@@ -128,7 +128,7 @@ func TestTaskManagerPreHandlerFailureClosesFinished(t *testing.T) {
 }
 
 // TestReceiveWithListening_ZeroTimeout_WinsAgainstDelayedTaskCompletion
-// covers https://github.com/cloudwego/eino/issues/1148 at the compose level.
+// covers https://github.com/odysseythink/pantheon/harness/issues/1148 at the compose level.
 // It mirrors the real production timing that triggers the bug: the cancel
 // signal is delivered synchronously (a single buffered channel send, as
 // sendImmediateInterrupt does), while the task's own completion is delayed

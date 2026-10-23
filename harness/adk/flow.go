@@ -24,11 +24,11 @@ import (
 	"runtime/debug"
 	"strings"
 
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/compose"
-	icb "github.com/cloudwego/eino/internal/callbacks"
-	"github.com/cloudwego/eino/internal/safe"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/compose"
+	icb "github.com/odysseythink/pantheon/harness/internal/callbacks"
+	"github.com/odysseythink/pantheon/harness/internal/safe"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 type HistoryEntry struct {

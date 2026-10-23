@@ -23,9 +23,9 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/cloudwego/eino/internal/core"
-	"github.com/cloudwego/eino/internal/safe"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/internal/core"
+	"github.com/odysseythink/pantheon/harness/internal/safe"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func errorIterator[M MessageType](err error) *AsyncIterator[*TypedAgentEvent[M]] {

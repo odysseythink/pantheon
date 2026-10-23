@@ -22,7 +22,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cloudwego/eino/internal/callbacks"
+	"github.com/odysseythink/pantheon/harness/internal/callbacks"
 )
 
 func TestAppendGlobalHandlers(t *testing.T) {

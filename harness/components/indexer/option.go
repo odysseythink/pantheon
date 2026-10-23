@@ -16,7 +16,7 @@
 
 package indexer
 
-import "github.com/cloudwego/eino/components/embedding"
+import "github.com/odysseythink/pantheon/harness/components/embedding"
 
 // Options is the options for the indexer.
 type Options struct {

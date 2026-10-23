@@ -19,7 +19,7 @@ package document
 import (
 	"context"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // Source identifies the external location of a document.

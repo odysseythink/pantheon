@@ -27,10 +27,10 @@ import (
 
 	"github.com/slongfield/pyfmt"
 
-	"github.com/cloudwego/eino/adk/filesystem"
-	"github.com/cloudwego/eino/adk/internal"
-	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk/filesystem"
+	"github.com/odysseythink/pantheon/harness/adk/internal"
+	"github.com/odysseythink/pantheon/harness/compose"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 const (

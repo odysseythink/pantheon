@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/cloudwego/eino/internal/core"
+	"github.com/odysseythink/pantheon/harness/internal/core"
 )
 
 // Interrupt pauses tool execution and signals the orchestration layer to checkpoint.

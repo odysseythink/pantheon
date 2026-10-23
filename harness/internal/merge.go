@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cloudwego/eino/internal/generic"
+	"github.com/odysseythink/pantheon/harness/internal/generic"
 )
 
 var mergeFuncs = map[reflect.Type]any{}

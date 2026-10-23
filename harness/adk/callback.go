@@ -19,9 +19,9 @@ package adk
 import (
 	"context"
 
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components"
-	icb "github.com/cloudwego/eino/internal/callbacks"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/components"
+	icb "github.com/odysseythink/pantheon/harness/internal/callbacks"
 )
 
 // AgentCallbackInput represents the input passed to agent callbacks during OnStart.

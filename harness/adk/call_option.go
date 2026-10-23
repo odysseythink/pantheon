@@ -16,7 +16,7 @@
 
 package adk
 
-import "github.com/cloudwego/eino/callbacks"
+import "github.com/odysseythink/pantheon/harness/callbacks"
 
 type options struct {
 	sharedParentSession  bool

@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartystreets/goconvey/convey"
 
-	"github.com/cloudwego/eino/components/document/parser"
+	"github.com/odysseythink/pantheon/harness/components/document/parser"
 )
 
 func TestImplSpecificOpts(t *testing.T) {

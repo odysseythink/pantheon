@@ -17,7 +17,7 @@
 package embedding
 
 import (
-	"github.com/cloudwego/eino/callbacks"
+	"github.com/odysseythink/pantheon/harness/callbacks"
 )
 
 // TokenUsage is the token usage for the embedding.

@@ -17,8 +17,8 @@
 package prompt
 
 import (
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // CallbackInput is the input for the callback.

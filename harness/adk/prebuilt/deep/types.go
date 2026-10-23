@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/components/tool"
+	"github.com/odysseythink/pantheon/harness/adk"
+	"github.com/odysseythink/pantheon/harness/components/tool"
 )
 
 const (

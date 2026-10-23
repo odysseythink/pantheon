@@ -19,7 +19,7 @@ package model
 import (
 	"context"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // messageType is the sealed type constraint for message types used in BaseModel.
@@ -67,7 +67,7 @@ type BaseModel[M messageType] interface {
 // Note: a [schema.StreamReader] can only be read once. If multiple consumers
 // need the stream, it must be copied before reading.
 //
-//go:generate  mockgen -destination ../../internal/mock/components/model/ChatModel_mock.go --package model github.com/cloudwego/eino/components/model BaseChatModel,ChatModel,ToolCallingChatModel
+//go:generate  mockgen -destination ../../internal/mock/components/model/ChatModel_mock.go --package model github.com/odysseythink/pantheon/harness/components/model BaseChatModel,ChatModel,ToolCallingChatModel
 type BaseChatModel = BaseModel[*schema.Message]
 
 // Deprecated: Use [ToolCallingChatModel] instead.

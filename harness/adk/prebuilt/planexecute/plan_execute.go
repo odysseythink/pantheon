@@ -26,12 +26,12 @@ import (
 
 	"github.com/bytedance/sonic"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/components/prompt"
-	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/internal/safe"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	"github.com/odysseythink/pantheon/harness/components/prompt"
+	"github.com/odysseythink/pantheon/harness/compose"
+	"github.com/odysseythink/pantheon/harness/internal/safe"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func init() {
@@ -260,7 +260,7 @@ const (
 type PlannerConfig struct {
 	// ChatModelWithFormattedOutput is a model pre-configured to output in the Plan format.
 	// Create this by configuring a model to output structured data directly.
-	// See example: https://github.com/cloudwego/eino-ext/blob/main/components/model/openai/examples/structured/structured.go
+	// See example: https://github.com/odysseythink/pantheon/harness-ext/blob/main/components/model/openai/examples/structured/structured.go
 	ChatModelWithFormattedOutput model.BaseChatModel
 
 	// ToolCallingChatModel is a model that supports tool calling capabilities.

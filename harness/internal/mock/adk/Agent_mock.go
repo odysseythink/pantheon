@@ -29,7 +29,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	adk "github.com/cloudwego/eino/adk"
+	adk "github.com/odysseythink/pantheon/harness/adk"
 	gomock "go.uber.org/mock/gomock"
 )
 

@@ -29,12 +29,12 @@ import (
 
 	"github.com/bytedance/sonic"
 
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components"
-	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/internal/core"
-	"github.com/cloudwego/eino/internal/safe"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/components"
+	"github.com/odysseythink/pantheon/harness/components/tool"
+	"github.com/odysseythink/pantheon/harness/internal/core"
+	"github.com/odysseythink/pantheon/harness/internal/safe"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 type toolsNodeOptions struct {

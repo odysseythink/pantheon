@@ -24,7 +24,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/cloudwego/eino/adk/filesystem"
+	"github.com/odysseythink/pantheon/harness/adk/filesystem"
 )
 
 const skillFileName = "SKILL.md"

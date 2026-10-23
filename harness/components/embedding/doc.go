@@ -25,7 +25,7 @@
 //
 // Concrete implementations (OpenAI, Ark, Ollama, …) live in eino-ext:
 //
-//	github.com/cloudwego/eino-ext/components/embedding/
+//	github.com/odysseythink/pantheon/harness-ext/components/embedding/
 //
 // # Output Format
 //

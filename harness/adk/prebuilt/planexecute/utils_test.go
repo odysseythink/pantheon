@@ -19,7 +19,7 @@ package planexecute
 import (
 	"context"
 
-	"github.com/cloudwego/eino/adk"
+	"github.com/odysseythink/pantheon/harness/adk"
 )
 
 type outputSessionKVsAgent struct {

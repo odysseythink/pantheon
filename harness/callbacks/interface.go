@@ -17,7 +17,7 @@
 package callbacks
 
 import (
-	"github.com/cloudwego/eino/internal/callbacks"
+	"github.com/odysseythink/pantheon/harness/internal/callbacks"
 )
 
 // RunInfo describes the entity that triggered a callback. Always nil-check

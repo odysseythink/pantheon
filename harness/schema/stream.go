@@ -26,7 +26,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/cloudwego/eino/internal/safe"
+	"github.com/odysseythink/pantheon/harness/internal/safe"
 )
 
 // ErrNoValue is a sentinel returned from the convert function passed to

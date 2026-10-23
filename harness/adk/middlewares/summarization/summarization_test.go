@@ -28,10 +28,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/components/model"
-	mockModel "github.com/cloudwego/eino/internal/mock/components/model"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	mockModel "github.com/odysseythink/pantheon/harness/internal/mock/components/model"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 func intPtr(v int) *int {

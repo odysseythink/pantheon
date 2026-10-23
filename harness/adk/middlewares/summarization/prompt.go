@@ -19,7 +19,7 @@ package summarization
 import (
 	"regexp"
 
-	"github.com/cloudwego/eino/adk/internal"
+	"github.com/odysseythink/pantheon/harness/adk/internal"
 )
 
 var allUserMessagesTagRegex = regexp.MustCompile(`(?s)<all_user_messages>.*</all_user_messages>`)

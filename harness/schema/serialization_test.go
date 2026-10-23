@@ -26,7 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cloudwego/eino/internal/serialization"
+	"github.com/odysseythink/pantheon/harness/internal/serialization"
 )
 
 type testStruct struct{}
@@ -42,12 +42,12 @@ func TestGetTypeName(t *testing.T) {
 		{
 			name:     "named type from current package",
 			input:    reflect.TypeOf(testStruct{}),
-			expected: "github.com/cloudwego/eino/schema.testStruct",
+			expected: "github.com/odysseythink/pantheon/harness/schema.testStruct",
 		},
 		{
 			name:     "pointer to named type from current package",
 			input:    reflect.TypeOf(&testStruct{}),
-			expected: "*github.com/cloudwego/eino/schema.testStruct",
+			expected: "*github.com/odysseythink/pantheon/harness/schema.testStruct",
 		},
 		{
 			name:     "unnamed map type",
@@ -82,12 +82,12 @@ func TestGetTypeName(t *testing.T) {
 		{
 			name:     "local named type",
 			input:    reflect.TypeOf(localNamedType{}),
-			expected: "github.com/cloudwego/eino/schema.localNamedType",
+			expected: "github.com/odysseythink/pantheon/harness/schema.localNamedType",
 		},
 		{
 			name:     "pointer to local named type",
 			input:    reflect.TypeOf(&localNamedType{}),
-			expected: "*github.com/cloudwego/eino/schema.localNamedType",
+			expected: "*github.com/odysseythink/pantheon/harness/schema.localNamedType",
 		},
 	}
 

@@ -25,8 +25,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // deltaThenStuckChatModel mimics an HTTP SSE provider that emits one delta,
@@ -71,7 +71,7 @@ func (m *deltaThenStuckChatModel) Stream(_ context.Context, _ []*schema.Message,
 func (m *deltaThenStuckChatModel) BindTools(_ []*schema.ToolInfo) error { return nil }
 
 // TestWithCancel_CancelImmediate_MidStream_AlwaysCheckpoints reproduces
-// https://github.com/cloudwego/eino/issues/1148: a CancelImmediate raced
+// https://github.com/odysseythink/pantheon/harness/issues/1148: a CancelImmediate raced
 // against a streaming ChatModel that has already emitted a chunk and is
 // blocked on the next Recv() must deterministically surface *adk.CancelError
 // (never a raw StreamCanceledError) and must always persist a checkpoint.

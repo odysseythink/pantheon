@@ -20,7 +20,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/cloudwego/eino/components"
+	"github.com/odysseythink/pantheon/harness/components"
 )
 
 // GraphNodeInfo the info which end users pass in when they are adding nodes to graph.

@@ -27,10 +27,10 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/cloudwego/eino/adk"
-	"github.com/cloudwego/eino/adk/internal"
-	"github.com/cloudwego/eino/components/tool"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/adk"
+	"github.com/odysseythink/pantheon/harness/adk/internal"
+	"github.com/odysseythink/pantheon/harness/components/tool"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // Config is the configuration for the tool search middleware.

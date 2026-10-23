@@ -33,8 +33,8 @@ import (
 	"github.com/nikolalohinski/gonja/parser"
 	"github.com/slongfield/pyfmt"
 
-	"github.com/cloudwego/eino/internal"
-	"github.com/cloudwego/eino/internal/generic"
+	"github.com/odysseythink/pantheon/harness/internal"
+	"github.com/odysseythink/pantheon/harness/internal/generic"
 )
 
 func init() {

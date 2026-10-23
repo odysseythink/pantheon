@@ -23,15 +23,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components/document"
-	"github.com/cloudwego/eino/components/embedding"
-	"github.com/cloudwego/eino/components/model"
-	"github.com/cloudwego/eino/components/retriever"
-	mockDocument "github.com/cloudwego/eino/internal/mock/components/document"
-	mockEmbedding "github.com/cloudwego/eino/internal/mock/components/embedding"
-	mockRetriever "github.com/cloudwego/eino/internal/mock/components/retriever"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/components/document"
+	"github.com/odysseythink/pantheon/harness/components/embedding"
+	"github.com/odysseythink/pantheon/harness/components/model"
+	"github.com/odysseythink/pantheon/harness/components/retriever"
+	mockDocument "github.com/odysseythink/pantheon/harness/internal/mock/components/document"
+	mockEmbedding "github.com/odysseythink/pantheon/harness/internal/mock/components/embedding"
+	mockRetriever "github.com/odysseythink/pantheon/harness/internal/mock/components/retriever"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 var optionSuccess = true

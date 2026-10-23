@@ -19,8 +19,8 @@ package callbacks
 import (
 	"context"
 
-	"github.com/cloudwego/eino/components"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/components"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 type RunInfo struct {

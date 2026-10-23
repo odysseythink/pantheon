@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cloudwego/eino/internal/core"
+	"github.com/odysseythink/pantheon/harness/internal/core"
 )
 
 func TestInterrupt(t *testing.T) {

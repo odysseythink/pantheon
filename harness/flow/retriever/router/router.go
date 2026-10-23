@@ -23,11 +23,11 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components/retriever"
-	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/flow/retriever/utils"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/callbacks"
+	"github.com/odysseythink/pantheon/harness/components/retriever"
+	"github.com/odysseythink/pantheon/harness/compose"
+	"github.com/odysseythink/pantheon/harness/flow/retriever/utils"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 var rrf = func(ctx context.Context, result map[string][]*schema.Document) ([]*schema.Document, error) {

@@ -20,8 +20,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/cloudwego/eino/internal"
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/internal"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // RegisterStreamChunkConcatFunc registers a function to concat stream chunks.

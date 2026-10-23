@@ -19,7 +19,7 @@ package compose
 import (
 	"context"
 
-	"github.com/cloudwego/eino/schema"
+	"github.com/odysseythink/pantheon/harness/schema"
 )
 
 // NewAgenticToolsNode creates a new AgenticToolsNode.

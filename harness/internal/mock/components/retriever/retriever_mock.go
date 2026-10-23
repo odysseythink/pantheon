@@ -29,8 +29,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	retriever "github.com/cloudwego/eino/components/retriever"
-	schema "github.com/cloudwego/eino/schema"
+	retriever "github.com/odysseythink/pantheon/harness/components/retriever"
+	schema "github.com/odysseythink/pantheon/harness/schema"
 	gomock "go.uber.org/mock/gomock"
 )
 
