@@ -223,13 +223,17 @@ func contentToKimi(parts []core.ContentParter) (any, error) {
 		case core.TextPart:
 			out = append(out, ContentParter{Type: "text", Text: p.Text})
 		case core.ImagePart:
+			url, ok := p.ResolveURL()
+			if !ok {
+				return nil, fmt.Errorf("kimi: image part has neither url nor data")
+			}
 			out = append(out, ContentParter{
 				Type: "image_url",
 				ImageURL: &struct {
 					URL    string `json:"url"`
 					Detail string `json:"detail,omitempty"`
 				}{
-					URL:    p.URL,
+					URL:    url,
 					Detail: p.Detail,
 				},
 			})

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -312,4 +313,45 @@ func TestMessageText_WithToolResultErrorPart(t *testing.T) {
 	if got := m.Text(); got != "something went wrong" {
 		t.Errorf("Text() = %q, want %q", got, "something went wrong")
 	}
+}
+
+func TestImagePartResolveURL(t *testing.T) {
+	pngBytes := []byte("\x89PNG\r\n\x1a\nfake-png-payload")
+
+	t.Run("explicit url wins over data", func(t *testing.T) {
+		p := ImagePart{URL: "https://example.com/a.png", Data: pngBytes, MIMEType: "image/png"}
+		got, ok := p.ResolveURL()
+		if !ok || got != "https://example.com/a.png" {
+			t.Fatalf("ResolveURL() = (%q, %v), want the explicit url", got, ok)
+		}
+	})
+
+	t.Run("data is inlined as data uri", func(t *testing.T) {
+		p := ImagePart{Data: pngBytes, MIMEType: "image/png"}
+		got, ok := p.ResolveURL()
+		if !ok {
+			t.Fatal("ResolveURL() ok = false, want true")
+		}
+		const prefix = "data:image/png;base64,"
+		if !strings.HasPrefix(got, prefix) {
+			t.Fatalf("ResolveURL() = %q, want prefix %q", got, prefix)
+		}
+		if decoded, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(got, prefix)); err != nil || string(decoded) != string(pngBytes) {
+			t.Fatalf("data uri does not round-trip: err=%v", err)
+		}
+	})
+
+	t.Run("mime type is sniffed when absent", func(t *testing.T) {
+		p := ImagePart{Data: pngBytes}
+		got, ok := p.ResolveURL()
+		if !ok || !strings.HasPrefix(got, "data:image/png;base64,") {
+			t.Fatalf("ResolveURL() = (%q, %v), want sniffed image/png data uri", got, ok)
+		}
+	})
+
+	t.Run("missing url and data is invalid", func(t *testing.T) {
+		if got, ok := (ImagePart{MIMEType: "image/png"}).ResolveURL(); ok {
+			t.Fatalf("ResolveURL() = (%q, true), want ok = false", got)
+		}
+	})
 }

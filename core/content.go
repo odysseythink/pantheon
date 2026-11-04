@@ -1,8 +1,10 @@
 package core
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 )
 
@@ -186,6 +188,28 @@ func (ImagePart) contentPart() {}
 // MarshalJSON serializes ImagePart to JSON.
 func (p ImagePart) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{"type": "image", "url": p.URL, "data": p.Data, "mime_type": p.MIMEType, "detail": p.Detail})
+}
+
+// ResolveURL returns an image reference usable in OpenAI-style `image_url.url`
+// fields. An explicit URL always wins; when only raw bytes are available they
+// are inlined as a `data:` URI (base64), which every OpenAI-compatible endpoint
+// accepts as an image source.
+//
+// ok is false when the part carries neither URL nor data: such a part is an
+// invalid image reference, and callers must report it instead of sending an
+// empty url upstream (which servers reject with "image url is empty").
+func (p ImagePart) ResolveURL() (url string, ok bool) {
+	if p.URL != "" {
+		return p.URL, true
+	}
+	if len(p.Data) == 0 {
+		return "", false
+	}
+	mime := p.MIMEType
+	if mime == "" {
+		mime = http.DetectContentType(p.Data)
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(p.Data), true
 }
 
 // AudioPart is audio provided to the model.

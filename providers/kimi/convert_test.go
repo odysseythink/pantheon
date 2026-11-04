@@ -2,6 +2,7 @@ package kimi
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/odysseythink/pantheon/core"
@@ -495,5 +496,33 @@ func TestEnsurePropertyTypes_FromSchema(t *testing.T) {
 	nameProp := props["name"].(map[string]any)
 	if nameProp["type"] != "string" {
 		t.Errorf("name.type = %v", nameProp["type"])
+	}
+}
+
+func TestContentToKimi_ImageInlineData(t *testing.T) {
+	pngBytes := []byte("\x89PNG\r\n\x1a\nfake-png-payload")
+	parts := []core.ContentParter{
+		core.TextPart{Text: "what is this?"},
+		core.ImagePart{Data: pngBytes, MIMEType: "image/png"},
+	}
+
+	out, err := contentToKimi(parts)
+	if err != nil {
+		t.Fatalf("contentToKimi() error = %v", err)
+	}
+	content, ok := out.([]ContentParter)
+	if !ok {
+		t.Fatalf("contentToKimi() = %T, want []ContentParter", out)
+	}
+	if len(content) != 2 {
+		t.Fatalf("got %d parts, want 2", len(content))
+	}
+	img := content[1]
+	if img.Type != "image_url" || img.ImageURL == nil {
+		t.Fatalf("part[1] = %+v, want image_url part", img)
+	}
+	const prefix = "data:image/png;base64,"
+	if !strings.HasPrefix(img.ImageURL.URL, prefix) {
+		t.Fatalf("image url = %q, want data uri prefix %q", img.ImageURL.URL, prefix)
 	}
 }
